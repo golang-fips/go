@@ -602,15 +602,16 @@ _goboringcrypto_EVP_PKEY_CTX_free(GO_EVP_PKEY_CTX* arg0)
 }
 
 static inline int
-_goboringcrypto_EVP_PKEY_CTX_set0_rsa_oaep_label(GO_EVP_PKEY_CTX* arg0, uint8_t* arg1, size_t arg2)
+_goboringcrypto_EVP_PKEY_CTX_set0_rsa_oaep_label(GO_EVP_PKEY_CTX* ctx, uint8_t* l, size_t llen)
 {
-	return EVP_PKEY_CTX_set0_rsa_oaep_label(arg0, arg1, arg2);
+
+        return EVP_PKEY_CTX_ctrl(ctx, EVP_PKEY_RSA, EVP_PKEY_OP_TYPE_CRYPT, EVP_PKEY_CTRL_RSA_OAEP_LABEL, llen, (void *)l);
 }
 
 static inline int
-_goboringcrypto_EVP_PKEY_CTX_set_rsa_oaep_md(GO_EVP_PKEY_CTX* arg0, const GO_EVP_MD* arg1)
+_goboringcrypto_EVP_PKEY_CTX_set_rsa_oaep_md(GO_EVP_PKEY_CTX* ctx, const GO_EVP_MD* md)
 {
-	return EVP_PKEY_CTX_set_rsa_oaep_md(arg0, arg1);
+        return EVP_PKEY_CTX_ctrl(ctx, EVP_PKEY_RSA, EVP_PKEY_OP_TYPE_CRYPT, EVP_PKEY_CTRL_RSA_OAEP_MD, 0, (void *)md);
 }
 
 static inline int
