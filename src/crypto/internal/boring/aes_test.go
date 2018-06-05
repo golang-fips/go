@@ -10,11 +10,15 @@ func TestNewGCMNonce(t *testing.T) {
 		t.Fatal(err)
 	}
 	c := ci.(*aesCipher)
-	_, err = c.NewGCM(gcmStandardNonceSize - 1)
+	_, err = c.NewGCM(gcmStandardNonceSize-1, gcmTagSize)
 	if err == nil {
 		t.Error("expected error for non-standard nonce size, got none")
 	}
-	_, err = c.NewGCM(gcmStandardNonceSize)
+	_, err = c.NewGCM(gcmStandardNonceSize, gcmTagSize-1)
+	if err == nil {
+		t.Error("expected error for non-standard nonce size, got none")
+	}
+	_, err = c.NewGCM(gcmStandardNonceSize, gcmTagSize)
 	if err != nil {
 		t.Errorf("expected no error for standard nonce size, got: %#v", err)
 	}

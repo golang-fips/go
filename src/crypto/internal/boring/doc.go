@@ -6,3 +6,9 @@
 // Check the constant Enabled to find out whether BoringCrypto is available.
 // If BoringCrypto is not available, the functions in this package all panic.
 package boring
+
+// Enabled returns whether or not the boring package is enabled. When
+// the boring package is enabled that means FIPS mode is enabled.
+func Enabled() bool {
+	return enabled
+}

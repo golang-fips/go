@@ -10,6 +10,7 @@
 
 package boring
 
+// #include "goboringcrypto.h"
 import "C"
 import (
 	"crypto/cipher"
