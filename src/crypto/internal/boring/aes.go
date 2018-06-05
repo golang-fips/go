@@ -10,42 +10,7 @@
 
 package boring
 
-/*
-
-#include "goboringcrypto.h"
-
-// These wrappers allocate out_len on the C stack, and check that it matches the expected
-// value, to avoid having to pass a pointer from Go, which would escape to the heap.
-
-int EVP_AEAD_CTX_seal_wrapper(const GO_EVP_AEAD_CTX *ctx, uint8_t *out,
-							  size_t exp_out_len,
-							  const uint8_t *nonce, size_t nonce_len,
-							  const uint8_t *in, size_t in_len,
-							  const uint8_t *ad, size_t ad_len) {
-	size_t out_len;
-	int ok = _goboringcrypto_EVP_AEAD_CTX_seal(ctx, out, &out_len, exp_out_len,
-		nonce, nonce_len, in, in_len, ad, ad_len);
-	if (out_len != exp_out_len) {
-		return 0;
-	}
-	return ok;
-};
-
-int EVP_AEAD_CTX_open_wrapper(const GO_EVP_AEAD_CTX *ctx, uint8_t *out,
-							  size_t exp_out_len,
-							  const uint8_t *nonce, size_t nonce_len,
-							  const uint8_t *in, size_t in_len,
-							  const uint8_t *ad, size_t ad_len) {
-	size_t out_len;
-	int ok = _goboringcrypto_EVP_AEAD_CTX_open(ctx, out, &out_len, exp_out_len,
-		nonce, nonce_len, in, in_len, ad, ad_len);
-	if (out_len != exp_out_len) {
-		return 0;
-	}
-	return ok;
-};
-
-*/
+// #include "goboringcrypto.h"
 import "C"
 import (
 	"crypto/cipher"
@@ -357,15 +322,11 @@ type noGCM struct {
 }
 
 func (c *aesCipher) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
-	if nonceSize != gcmStandardNonceSize && tagSize != gcmTagSize {
-		return nil, errors.New("crypto/aes: GCM tag and nonce sizes can't be non-standard at the same time")
-	}
-	// Fall back to standard library for GCM with non-standard nonce or tag size.
 	if nonceSize != gcmStandardNonceSize {
-		return cipher.NewGCMWithNonceSize(&noGCM{c}, nonceSize)
+		return nil, errors.New("crypto/aes: GCM nonce size can't be non-standard")
 	}
 	if tagSize != gcmTagSize {
-		return cipher.NewGCMWithTagSize(&noGCM{c}, tagSize)
+		return nil, errors.New("crypto/aes: GCM tag size can't be non-standard")
 	}
 	return c.newGCM(false)
 }

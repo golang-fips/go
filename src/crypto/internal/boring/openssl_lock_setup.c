@@ -10,6 +10,9 @@
 #include <openssl/err.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
+
+#define _GNU_SOURCE
+#include <unistd.h>
  
 #define MUTEX_TYPE       pthread_mutex_t
 #define MUTEX_SETUP(x)   pthread_mutex_init(&(x), NULL)
