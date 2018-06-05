@@ -40,11 +40,12 @@ func (k *PublicKeyECDSA) finalize() {
 }
 
 var errUnknownCurve = errors.New("boringcrypto: unknown elliptic curve")
+var errUnsupportedCurve = errors.New("boringcrypto: unsupported elliptic curve")
 
 func curveNID(curve string) (C.int, error) {
 	switch curve {
 	case "P-224":
-		return C.GO_NID_secp224r1, nil
+		return 0, errUnsupportedCurve
 	case "P-256":
 		return C.GO_NID_X9_62_prime256v1, nil
 	case "P-384":
@@ -160,7 +161,7 @@ func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, r, s *big.Int) bool {
 	if err != nil {
 		return false
 	}
-	ok := C._goboringcrypto_ECDSA_verify(0, base(hash), C.size_t(len(hash)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), C.size_t(len(sig)), pub.key) != 0
+	ok := C._goboringcrypto_ECDSA_verify(0, base(hash), C.size_t(len(hash)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), C.size_t(len(sig)), pub.key) > 0
 	runtime.KeepAlive(pub)
 	return ok
 }

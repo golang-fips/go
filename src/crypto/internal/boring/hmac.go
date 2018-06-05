@@ -69,9 +69,19 @@ func NewHMAC(h func() hash.Hash, key []byte) hash.Hash {
 		return nil
 	}
 
-	// Note: Could hash down long keys here using EVP_Digest.
-	hkey := make([]byte, len(key))
-	copy(hkey, key)
+	var hkey []byte
+	if key != nil && len(key) > 0 {
+		// Note: Could hash down long keys here using EVP_Digest.
+		hkey = make([]byte, len(key))
+		copy(hkey, key)
+	} else {
+		// This is supported in BoringSSL/Standard lib and as such
+		// we must support it here. When using HMAC with a null key
+		// HMAC_Init will try and reuse the key from the ctx. This is
+		// not the bahavior previously implemented, so as a workaround
+		// we pass an "empty" key.
+		hkey = make([]byte, C.EVP_MAX_MD_SIZE)
+	}
 	hmac := &boringHMAC{
 		md:        md,
 		size:      ch.Size(),

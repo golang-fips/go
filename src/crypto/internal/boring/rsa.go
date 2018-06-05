@@ -189,7 +189,7 @@ func cryptRSA(gokey interface{}, key *C.GO_RSA,
 		return nil, fail("EVP_PKEY_decrypt/encrypt")
 	}
 	out := make([]byte, outLen)
-	if crypt(ctx, base(out), &outLen, base(in), C.size_t(len(in))) == 0 {
+	if crypt(ctx, base(out), &outLen, base(in), C.size_t(len(in))) <= 0 {
 		return nil, fail("EVP_PKEY_decrypt/encrypt")
 	}
 	runtime.KeepAlive(gokey) // keep key from being freed before now
