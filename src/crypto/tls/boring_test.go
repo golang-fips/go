@@ -285,7 +285,7 @@ func TestBoringCertAlgs(t *testing.T) {
 	R2 := boringCert(t, "R2", boringRSAKey(t, 4096), nil, boringCertCA)
 
 	M1_R1 := boringCert(t, "M1_R1", boringECDSAKey(t, elliptic.P256()), R1, boringCertCA|boringCertFIPSOK)
-	M2_R1 := boringCert(t, "M2_R1", boringECDSAKey(t, elliptic.P224()), R1, boringCertCA)
+	var M2_R1 *boringCertificate
 
 	I_R1 := boringCert(t, "I_R1", boringRSAKey(t, 3072), R1, boringCertCA|boringCertFIPSOK)
 	I_R2 := boringCert(t, "I_R2", I_R1.key, R2, boringCertCA|boringCertFIPSOK)
@@ -403,7 +403,6 @@ func TestBoringCertAlgs(t *testing.T) {
 			addList(i&4, I_M1)
 			addList(i&8, I_M2)
 			addList(i&16, M1_R1)
-			addList(i&32, M2_R1)
 
 			for r := 1; r <= 3; r++ {
 				pool := x509.NewCertPool()
