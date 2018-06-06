@@ -369,6 +369,9 @@ func TestZeroHashSignature(t *testing.T) {
 	zeroHash := make([]byte, 64)
 
 	for _, curve := range []elliptic.Curve{elliptic.P224(), elliptic.P256(), elliptic.P384(), elliptic.P521()} {
+		if boring.Enabled && curve == elliptic.P224() {
+			continue
+		}
 		privKey, err := GenerateKey(curve, rand.Reader)
 		if err != nil {
 			panic(err)
