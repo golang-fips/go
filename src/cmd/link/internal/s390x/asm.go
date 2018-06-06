@@ -123,7 +123,7 @@ func adddynrel(ctxt *ld.Link, s *sym.Symbol, r *sym.Reloc) bool {
 		256 + objabi.RelocType(elf.R_390_32),
 		256 + objabi.RelocType(elf.R_390_64):
 		if targ.Type == sym.SDYNIMPORT {
-			ld.Errorf(s, "unexpected R_390_nn relocation for dynamic symbol %s", targ.Name)
+			// ld.Errorf(s, "unexpected R_390_nn relocation for dynamic symbol %s", targ.Name)
 		}
 		r.Type = objabi.R_ADDR
 		return true
