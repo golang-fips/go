@@ -21,6 +21,8 @@
 
 #include <openssl/crypto.h>
 
+int _goboringcrypto_OPENSSL_thread_setup(void);
+
 static inline int
 _goboringcrypto_FIPS_mode(void)
 {

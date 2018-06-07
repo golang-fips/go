@@ -15,6 +15,7 @@ import "C"
 import (
 	"crypto/internal/boring/sig"
 	"math/big"
+	"runtime"
 )
 
 const (
@@ -24,6 +25,11 @@ const (
 )
 
 func init() {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	if C._goboringcrypto_OPENSSL_thread_setup() != 1 {
+		panic("boringcrypto: OpenSSL thread setup failed")
+	}
 	// By setting FIPS mode on, the power on self test will run.
 	if C._goboringcrypto_FIPS_mode_set(fipsOn) != fipsOn {
 		panic("boringcrypto: not in FIPS mode")
