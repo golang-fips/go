@@ -53,10 +53,13 @@ func NewPublicKeyRSA(N, E *big.Int) (*PublicKeyRSA, error) {
 	if key == nil {
 		return nil, fail("RSA_new")
 	}
-	if !bigToBn(&key.n, N) ||
-		!bigToBn(&key.e, E) {
+	var n, e *C.GO_BIGNUM
+	C._goboringcrypto_RSA_get0_key(key, &n, &e, nil)
+	if !bigToBn(&n, N) ||
+		!bigToBn(&e, E) {
 		return nil, fail("BN_bin2bn")
 	}
+	C._goboringcrypto_RSA_set0_key(key, n, e, nil)
 	k := &PublicKeyRSA{key: key}
 	// Note: Because of the finalizer, any time k.key is passed to cgo,
 	// that call must be followed by a call to runtime.KeepAlive(k),
@@ -79,16 +82,23 @@ func NewPrivateKeyRSA(N, E, D, P, Q, Dp, Dq, Qinv *big.Int) (*PrivateKeyRSA, err
 	if key == nil {
 		return nil, fail("RSA_new")
 	}
-	if !bigToBn(&key.n, N) ||
-		!bigToBn(&key.e, E) ||
-		!bigToBn(&key.d, D) ||
-		!bigToBn(&key.p, P) ||
-		!bigToBn(&key.q, Q) ||
-		!bigToBn(&key.dmp1, Dp) ||
-		!bigToBn(&key.dmq1, Dq) ||
-		!bigToBn(&key.iqmp, Qinv) {
+	var n, e, d, p, q, dp, dq, qinv *C.GO_BIGNUM
+	C._goboringcrypto_RSA_get0_key(key, &n, &e, &d)
+	C._goboringcrypto_RSA_get0_factors(key, &p, &q)
+	C._goboringcrypto_RSA_get0_crt_params(key, &dp, &dq, &qinv)
+	if !bigToBn(&n, N) ||
+		!bigToBn(&e, E) ||
+		!bigToBn(&d, D) ||
+		!bigToBn(&p, P) ||
+		!bigToBn(&q, Q) ||
+		!bigToBn(&dp, Dp) ||
+		!bigToBn(&dq, Dq) ||
+		!bigToBn(&qinv, Qinv) {
 		return nil, fail("BN_bin2bn")
 	}
+	C._goboringcrypto_RSA_set0_key(key, n, e, d)
+	C._goboringcrypto_RSA_set0_factors(key, p, q)
+	C._goboringcrypto_RSA_set0_crt_params(key, dp, dq, qinv)
 	k := &PrivateKeyRSA{key: key}
 	// Note: Because of the finalizer, any time k.key is passed to cgo,
 	// that call must be followed by a call to runtime.KeepAlive(k),

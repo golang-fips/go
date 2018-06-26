@@ -174,7 +174,12 @@ _goboringcrypto_EVP_md5(void)
 	return EVP_md5();
 }
 
-const GO_EVP_MD* _goboringcrypto_EVP_md5_sha1(void);
+static inline const GO_EVP_MD*
+_goboringcrypto_EVP_md5_sha1(void)
+{
+	return EVP_md5_sha1();
+}
+
 static inline const GO_EVP_MD*
 _goboringcrypto_EVP_sha1(void)
 {
@@ -488,7 +493,6 @@ _goboringcrypto_ECDSA_verify(int arg0, const uint8_t* arg1, size_t arg2, const u
 	return ECDSA_verify(arg0, arg1, arg2, arg3, arg4, (GO_EC_KEY*) arg5);
 }
 
-
 #include <openssl/rsa.h>
 
 // Note: order of struct fields here is unchecked.
@@ -518,9 +522,36 @@ _goboringcrypto_RSA_verify(int arg0, const uint8_t *arg1, size_t arg2, const uin
 	return RSA_verify(arg0, arg1, arg2, arg3, arg4, arg5);
 }
 
-void _goboringcrypto_RSA_get0_key(const GO_RSA*, const GO_BIGNUM **n, const GO_BIGNUM **e, const GO_BIGNUM **d);
-void _goboringcrypto_RSA_get0_factors(const GO_RSA*, const GO_BIGNUM **p, const GO_BIGNUM **q);
-void _goboringcrypto_RSA_get0_crt_params(const GO_RSA*, const GO_BIGNUM **dmp1, const GO_BIGNUM **dmp2, const GO_BIGNUM **iqmp);
+static void _goboringcrypto_RSA_get0_key(const GO_RSA* rsa, const GO_BIGNUM **n, const GO_BIGNUM **e, const GO_BIGNUM **d)
+{
+	return RSA_get0_key(rsa, n, e, d);
+}
+
+static void _goboringcrypto_RSA_get0_factors(const GO_RSA* rsa, const GO_BIGNUM **p, const GO_BIGNUM **q)
+{
+	return RSA_get0_factors(rsa, p, q);
+}
+
+static void _goboringcrypto_RSA_get0_crt_params(const GO_RSA* rsa, const GO_BIGNUM **dmp1, const GO_BIGNUM **dmp2, const GO_BIGNUM **iqmp)
+{
+	return RSA_get0_crt_params(rsa, dmp1, dmp2, iqmp);
+}
+
+static int _goboringcrypto_RSA_set0_key(GO_RSA* rsa, GO_BIGNUM *n, GO_BIGNUM *e, GO_BIGNUM *d)
+{
+	return RSA_set0_key(rsa, n, e, d);
+}
+
+static int _goboringcrypto_RSA_set0_factors(GO_RSA* rsa, GO_BIGNUM *p, GO_BIGNUM *q)
+{
+	return RSA_set0_factors(rsa, p, q);
+}
+
+static int _goboringcrypto_RSA_set0_crt_params(GO_RSA* rsa, GO_BIGNUM *dmp1, GO_BIGNUM *dmp2, GO_BIGNUM *iqmp)
+{
+	return RSA_set0_crt_params(rsa, dmp1, dmp2, iqmp);
+}
+
 static inline int
 _goboringcrypto_RSA_generate_key_ex(GO_RSA* arg0, int arg1, GO_BIGNUM* arg2, GO_BN_GENCB* arg3)
 {
