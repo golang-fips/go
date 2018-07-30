@@ -1,4 +1,9 @@
 // This file contains a port of the BoringSSL AEAD interface.
+// +build linux
+// +build !android
+// +build !no_openssl
+// +build !cmd_go_bootstrap
+// +build !msan
 
 #include "goboringcrypto.h"
 #include <openssl/err.h>

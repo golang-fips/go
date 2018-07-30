@@ -1,4 +1,9 @@
 // This file contains a backport of the EVP_md5_sha1 method.
+// +build linux
+// +build !android
+// +build !no_openssl
+// +build !cmd_go_bootstrap
+// +build !msan
 
 // The following is a partial backport of crypto/evp/m_md5_sha1.c,
 // commit cbc8a839959418d8a2c2e3ec6bdf394852c9501e on the
