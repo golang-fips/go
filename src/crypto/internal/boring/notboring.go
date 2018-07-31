@@ -14,7 +14,7 @@ import (
 	"math/big"
 )
 
-const available = false
+var available = false
 
 // Unreachable marks code that should be unreachable
 // when BoringCrypto is in use. It is a no-op without BoringCrypto.
