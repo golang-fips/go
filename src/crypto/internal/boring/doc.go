@@ -11,4 +11,4 @@ package boring
 // When enabled is false, all functions in this package panic.
 //
 // BoringCrypto is only available on linux/amd64 systems.
-const Enabled = available
+var Enabled = available
