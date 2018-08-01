@@ -74,9 +74,12 @@ func systemFIPSEnabled() bool {
 }
 
 // Unreachable marks code that should be unreachable
-// when BoringCrypto is in use. It panics.
+// when BoringCrypto is in use. It panics only when
+// the system is in FIPS mode.
 func Unreachable() {
-	panic("boringcrypto: invalid code execution")
+	if available {
+		panic("boringcrypto: invalid code execution")
+	}
 }
 
 // provided by runtime to avoid os import
