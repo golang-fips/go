@@ -88,6 +88,7 @@ func NewHMAC(h func() hash.Hash, key []byte) hash.Hash {
 		size:      ch.Size(),
 		blockSize: ch.BlockSize(),
 		key:       hkey,
+		ctx:       C._goboringcrypto_HMAC_CTX_new(),
 	}
 	hmac.Reset()
 	return hmac
@@ -95,8 +96,8 @@ func NewHMAC(h func() hash.Hash, key []byte) hash.Hash {
 
 type boringHMAC struct {
 	md          *C.GO_EVP_MD
-	ctx         C.GO_HMAC_CTX
-	ctx2        C.GO_HMAC_CTX
+	ctx         *C.GO_HMAC_CTX
+	ctx2        *C.GO_HMAC_CTX
 	size        int
 	blockSize   int
 	key         []byte
@@ -113,13 +114,13 @@ func (h *boringHMAC) Reset() {
 		// call returns.
 		runtime.SetFinalizer(h, (*boringHMAC).finalize)
 	}
-	C._goboringcrypto_HMAC_CTX_reset(&h.ctx)
+	C._goboringcrypto_HMAC_CTX_reset(h.ctx)
 
-	if C._goboringcrypto_HMAC_Init(&h.ctx, unsafe.Pointer(base(h.key)), C.int(len(h.key)), h.md) == 0 {
+	if C._goboringcrypto_HMAC_Init(h.ctx, unsafe.Pointer(base(h.key)), C.int(len(h.key)), h.md) == 0 {
 		panic("boringcrypto: HMAC_Init failed")
 	}
-	if int(C._goboringcrypto_HMAC_size(&h.ctx)) != h.size {
-		println("boringcrypto: HMAC size:", C._goboringcrypto_HMAC_size(&h.ctx), "!=", h.size)
+	if int(C._goboringcrypto_HMAC_size(h.ctx)) != h.size {
+		println("boringcrypto: HMAC size:", C._goboringcrypto_HMAC_size(h.ctx), "!=", h.size)
 		panic("boringcrypto: HMAC size mismatch")
 	}
 	runtime.KeepAlive(h) // Next line will keep h alive too; just making doubly sure.
@@ -127,12 +128,12 @@ func (h *boringHMAC) Reset() {
 }
 
 func (h *boringHMAC) finalize() {
-	C._goboringcrypto_HMAC_CTX_free(&h.ctx)
+	C._goboringcrypto_HMAC_CTX_free(h.ctx)
 }
 
 func (h *boringHMAC) Write(p []byte) (int, error) {
 	if len(p) > 0 {
-		C._goboringcrypto_HMAC_Update(&h.ctx, (*C.uint8_t)(unsafe.Pointer(&p[0])), C.size_t(len(p)))
+		C._goboringcrypto_HMAC_Update(h.ctx, (*C.uint8_t)(unsafe.Pointer(&p[0])), C.size_t(len(p)))
 	}
 	runtime.KeepAlive(h)
 	return len(p), nil
@@ -155,11 +156,11 @@ func (h *boringHMAC) Sum(in []byte) []byte {
 	// that Sum has no effect on the underlying stream.
 	// In particular it is OK to Sum, then Write more, then Sum again,
 	// and the second Sum acts as if the first didn't happen.
-	C._goboringcrypto_HMAC_CTX_reset(&h.ctx2)
-	if C._goboringcrypto_HMAC_CTX_copy_ex(&h.ctx2, &h.ctx) == 0 {
+	h.ctx2 = C._goboringcrypto_HMAC_CTX_new()
+	if C._goboringcrypto_HMAC_CTX_copy_ex(h.ctx2, h.ctx) == 0 {
 		panic("boringcrypto: HMAC_CTX_copy_ex failed")
 	}
-	C._goboringcrypto_HMAC_Final(&h.ctx2, (*C.uint8_t)(unsafe.Pointer(&h.sum[0])), nil)
-	C._goboringcrypto_HMAC_CTX_free(&h.ctx2)
+	C._goboringcrypto_HMAC_Final(h.ctx2, (*C.uint8_t)(unsafe.Pointer(&h.sum[0])), nil)
+	C._goboringcrypto_HMAC_CTX_free(h.ctx2)
 	return append(in, h.sum...)
 }

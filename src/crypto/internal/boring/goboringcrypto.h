@@ -231,6 +231,13 @@ _goboringcrypto_EVP_MD_size(const GO_EVP_MD* arg0)
 #include <openssl/hmac.h>
 
 typedef HMAC_CTX GO_HMAC_CTX;
+
+static inline GO_HMAC_CTX*
+_goboringcrypto_HMAC_CTX_new()
+{
+	return HMAC_CTX_new();
+}
+
 static inline void
 _goboringcrypto_HMAC_CTX_free(GO_HMAC_CTX* arg0)
 {
