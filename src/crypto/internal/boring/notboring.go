@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build !linux !amd64 !cgo android cmd_go_bootstrap msan
+// +build !linux !cgo android cmd_go_bootstrap msan no_openssl
 
 package boring
 
@@ -14,7 +14,7 @@ import (
 	"math/big"
 )
 
-const available = false
+var enabled = false
 
 // Unreachable marks code that should be unreachable
 // when BoringCrypto is in use. It is a no-op without BoringCrypto.

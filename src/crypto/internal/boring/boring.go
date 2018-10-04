@@ -2,34 +2,69 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build linux,amd64
+// +build linux
 // +build !android
+// +build !no_openssl
 // +build !cmd_go_bootstrap
 // +build !msan
 
 package boring
 
 // #include "goboringcrypto.h"
+// #cgo LDFLAGS: -ldl
 import "C"
 import (
+	"crypto/internal/boring/fipstls"
 	"crypto/internal/boring/sig"
 	"math/big"
+	"os"
+	"runtime"
 )
 
-const available = true
+const (
+	fipsOn  = C.int(1)
+	fipsOff = C.int(0)
+)
+
+// Enabled controls whether FIPS crypto is enabled.
+var enabled = false
 
 func init() {
-	C._goboringcrypto_BORINGSSL_bcm_power_on_self_test()
-	if C._goboringcrypto_FIPS_mode() != 1 {
-		panic("boringcrypto: not in FIPS mode")
+	// Check if we can `dlopen` OpenSSL
+	if C._goboringcrypto_DLOPEN_OPENSSL() == C.NULL {
+		return
+	}
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+	// Check to see if the system is running in FIPS mode, if so
+	// enable "boring" mode to call into OpenSSL for FIPS compliance.
+	if fipsModeEnabled() {
+		enableBoringFIPSMode()
 	}
 	sig.BoringCrypto()
 }
 
+func enableBoringFIPSMode() {
+	enabled = true
+
+	if C._goboringcrypto_OPENSSL_thread_setup() != 1 {
+		panic("boringcrypto: OpenSSL thread setup failed")
+	}
+	fipstls.Force()
+}
+
+func fipsModeEnabled() bool {
+	return os.Getenv("GOLANG_FIPS") == "1" ||
+		C._goboringcrypto_FIPS_mode() == fipsOn
+}
+
 // Unreachable marks code that should be unreachable
-// when BoringCrypto is in use. It panics.
+// when BoringCrypto is in use. It panics only when
+// the system is in FIPS mode.
 func Unreachable() {
-	panic("boringcrypto: invalid code execution")
+	if Enabled() {
+		panic("boringcrypto: invalid code execution")
+	}
 }
 
 // provided by runtime to avoid os import
@@ -44,7 +79,7 @@ func hasSuffix(s, t string) bool {
 func UnreachableExceptTests() {
 	name := runtime_arg0()
 	// If BoringCrypto ran on Windows we'd need to allow _test.exe and .test.exe as well.
-	if !hasSuffix(name, "_test") && !hasSuffix(name, ".test") {
+	if Enabled() && !hasSuffix(name, "_test") && !hasSuffix(name, ".test") {
 		println("boringcrypto: unexpected code execution in", name)
 		panic("boringcrypto: invalid code execution")
 	}

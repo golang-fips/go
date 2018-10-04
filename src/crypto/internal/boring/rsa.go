@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build linux,amd64
+// +build linux
 // +build !android
+// +build !no_openssl
 // +build !cmd_go_bootstrap
 // +build !msan
 
@@ -53,10 +54,13 @@ func NewPublicKeyRSA(N, E *big.Int) (*PublicKeyRSA, error) {
 	if key == nil {
 		return nil, fail("RSA_new")
 	}
-	if !bigToBn(&key.n, N) ||
-		!bigToBn(&key.e, E) {
+	var n, e *C.GO_BIGNUM
+	C._goboringcrypto_RSA_get0_key(key, &n, &e, nil)
+	if !bigToBn(&n, N) ||
+		!bigToBn(&e, E) {
 		return nil, fail("BN_bin2bn")
 	}
+	C._goboringcrypto_RSA_set0_key(key, n, e, nil)
 	k := &PublicKeyRSA{key: key}
 	// Note: Because of the finalizer, any time k.key is passed to cgo,
 	// that call must be followed by a call to runtime.KeepAlive(k),
@@ -79,16 +83,23 @@ func NewPrivateKeyRSA(N, E, D, P, Q, Dp, Dq, Qinv *big.Int) (*PrivateKeyRSA, err
 	if key == nil {
 		return nil, fail("RSA_new")
 	}
-	if !bigToBn(&key.n, N) ||
-		!bigToBn(&key.e, E) ||
-		!bigToBn(&key.d, D) ||
-		!bigToBn(&key.p, P) ||
-		!bigToBn(&key.q, Q) ||
-		!bigToBn(&key.dmp1, Dp) ||
-		!bigToBn(&key.dmq1, Dq) ||
-		!bigToBn(&key.iqmp, Qinv) {
+	var n, e, d, p, q, dp, dq, qinv *C.GO_BIGNUM
+	C._goboringcrypto_RSA_get0_key(key, &n, &e, &d)
+	C._goboringcrypto_RSA_get0_factors(key, &p, &q)
+	C._goboringcrypto_RSA_get0_crt_params(key, &dp, &dq, &qinv)
+	if !bigToBn(&n, N) ||
+		!bigToBn(&e, E) ||
+		!bigToBn(&d, D) ||
+		!bigToBn(&p, P) ||
+		!bigToBn(&q, Q) ||
+		!bigToBn(&dp, Dp) ||
+		!bigToBn(&dq, Dq) ||
+		!bigToBn(&qinv, Qinv) {
 		return nil, fail("BN_bin2bn")
 	}
+	C._goboringcrypto_RSA_set0_key(key, n, e, d)
+	C._goboringcrypto_RSA_set0_factors(key, p, q)
+	C._goboringcrypto_RSA_set0_crt_params(key, dp, dq, qinv)
 	k := &PrivateKeyRSA{key: key}
 	// Note: Because of the finalizer, any time k.key is passed to cgo,
 	// that call must be followed by a call to runtime.KeepAlive(k),
@@ -189,7 +200,7 @@ func cryptRSA(gokey interface{}, key *C.GO_RSA,
 		return nil, fail("EVP_PKEY_decrypt/encrypt")
 	}
 	out := make([]byte, outLen)
-	if crypt(ctx, base(out), &outLen, base(in), C.size_t(len(in))) == 0 {
+	if crypt(ctx, base(out), &outLen, base(in), C.size_t(len(in))) <= 0 {
 		return nil, fail("EVP_PKEY_decrypt/encrypt")
 	}
 	runtime.KeepAlive(gokey) // keep key from being freed before now
@@ -248,7 +259,11 @@ func SignRSAPSS(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte, saltLen int) 
 	}
 	out := make([]byte, C._goboringcrypto_RSA_size(priv.key))
 	var outLen C.size_t
-	if C._goboringcrypto_RSA_sign_pss_mgf1(priv.key, &outLen, base(out), C.size_t(len(out)), base(hashed), C.size_t(len(hashed)), md, nil, C.int(saltLen)) == 0 {
+	if C._goboringcrypto_RSA_sign_pss_mgf1(
+		priv.key,
+		&outLen, base(out), C.size_t(len(out)),
+		base(hashed), C.size_t(len(hashed)),
+		md, nil, C.int(saltLen)) == 0 {
 		return nil, fail("RSA_sign_pss_mgf1")
 	}
 	runtime.KeepAlive(priv)
@@ -264,7 +279,10 @@ func VerifyRSAPSS(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte, saltLen 
 	if saltLen == 0 {
 		saltLen = -2 // auto-recover
 	}
-	if C._goboringcrypto_RSA_verify_pss_mgf1(pub.key, base(hashed), C.size_t(len(hashed)), md, nil, C.int(saltLen), base(sig), C.size_t(len(sig))) == 0 {
+	if C._goboringcrypto_RSA_verify_pss_mgf1(pub.key,
+		base(hashed),
+		C.size_t(len(hashed)),
+		md, nil, C.int(saltLen), base(sig), C.size_t(len(sig))) == 0 {
 		return fail("RSA_verify_pss_mgf1")
 	}
 	runtime.KeepAlive(pub)
