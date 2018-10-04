@@ -1151,7 +1151,7 @@ func initDefaultCipherSuites() {
 		hasGCMAsm = hasGCMAsmAMD64 || hasGCMAsmARM64 || hasGCMAsmS390X
 	)
 
-	if hasGCMAsm || boring.Enabled {
+	if hasGCMAsm || boring.Enabled() {
 		// If BoringCrypto is enabled, always prioritize AES-GCM.
 		// If AES-GCM hardware is provided then prioritise AES-GCM
 		// cipher suites.

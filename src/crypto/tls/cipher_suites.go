@@ -154,7 +154,7 @@ func macSHA1(version uint16, key []byte) macFunction {
 	h := sha1.New
 	// The BoringCrypto SHA1 does not have a constant-time
 	// checksum function, so don't try to use it.
-	if !boring.Enabled {
+	if !boring.Enabled() {
 		h = newConstantTimeHash(h)
 	}
 	return tls10MAC{h: hmac.New(h, key)}

@@ -7,6 +7,7 @@ package tls
 import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/internal/boring"
 	"crypto/internal/boring/fipstls"
 	"crypto/rand"
 	"crypto/rsa"
@@ -38,14 +39,16 @@ func TestBoringServerProtocolVersion(t *testing.T) {
 		})
 	}
 
-	test("VersionSSL30", VersionSSL30, "")
-	test("VersionTLS10", VersionTLS10, "")
-	test("VersionTLS11", VersionTLS11, "")
-	test("VersionTLS12", VersionTLS12, "")
-	test("VersionTLS13", VersionTLS13, "")
+	if !boring.Enabled() {
+		test("VersionSSL30", VersionSSL30, "")
+		test("VersionTLS10", VersionTLS10, "")
+		test("VersionTLS11", VersionTLS11, "")
+		test("VersionTLS12", VersionTLS12, "")
+		test("VersionTLS13", VersionTLS13, "")
 
-	fipstls.Force()
-	defer fipstls.Abandon()
+		fipstls.Force()
+		defer fipstls.Abandon()
+	}
 	test("VersionSSL30", VersionSSL30, "client offered only unsupported versions")
 	test("VersionTLS10", VersionTLS10, "client offered only unsupported versions")
 	test("VersionTLS11", VersionTLS11, "client offered only unsupported versions")
@@ -129,7 +132,9 @@ func TestBoringServerCipherSuites(t *testing.T) {
 				supportedPoints:    []uint8{pointFormatUncompressed},
 			}
 
-			testClientHello(t, serverConfig, clientHello)
+			if !boring.Enabled() {
+				testClientHello(t, serverConfig, clientHello)
+			}
 			t.Run("fipstls", func(t *testing.T) {
 				fipstls.Force()
 				defer fipstls.Abandon()
@@ -313,10 +318,10 @@ func TestBoringCertAlgs(t *testing.T) {
 	// Set up some roots, intermediate CAs, and leaf certs with various algorithms.
 	// X_Y is X signed by Y.
 	R1 := boringCert(t, "R1", boringRSAKey(t, 2048), nil, boringCertCA|boringCertFIPSOK)
-	R2 := boringCert(t, "R2", boringRSAKey(t, 4096), nil, boringCertCA)
+	R2 := boringCert(t, "R2", boringRSAKey(t, 4096), nil, boringCertCA|boringCertFIPSOK)
 
 	M1_R1 := boringCert(t, "M1_R1", boringECDSAKey(t, elliptic.P256()), R1, boringCertCA|boringCertFIPSOK)
-	M2_R1 := boringCert(t, "M2_R1", boringECDSAKey(t, elliptic.P224()), R1, boringCertCA)
+	var M2_R1 *boringCertificate
 
 	I_R1 := boringCert(t, "I_R1", boringRSAKey(t, 3072), R1, boringCertCA|boringCertFIPSOK)
 	I_R2 := boringCert(t, "I_R2", I_R1.key, R2, boringCertCA|boringCertFIPSOK)
@@ -325,6 +330,7 @@ func TestBoringCertAlgs(t *testing.T) {
 
 	L1_I := boringCert(t, "L1_I", boringECDSAKey(t, elliptic.P384()), I_R1, boringCertLeaf|boringCertFIPSOK)
 	L2_I := boringCert(t, "L2_I", boringRSAKey(t, 1024), I_R1, boringCertLeaf)
+	_ = boringCert(t, "L3_I", boringECDSAKey(t, elliptic.P521()), I_R1, boringCertLeaf|boringCertFIPSOK)
 
 	// boringCert checked that isBoringCertificate matches the caller's boringCertFIPSOK bit.
 	// If not, no point in building bigger end-to-end tests.
@@ -434,7 +440,6 @@ func TestBoringCertAlgs(t *testing.T) {
 			addList(i&4, I_M1)
 			addList(i&8, I_M2)
 			addList(i&16, M1_R1)
-			addList(i&32, M2_R1)
 
 			for r := 1; r <= 3; r++ {
 				pool := x509.NewCertPool()

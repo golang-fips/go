@@ -589,6 +589,8 @@ func TestExtraFilesFDShuffle(t *testing.T) {
 func TestExtraFiles(t *testing.T) {
 	testenv.MustHaveExec(t)
 
+	t.Skip("skip test in FIPS mode")
+
 	if runtime.GOOS == "windows" {
 		t.Skipf("skipping test on %q", runtime.GOOS)
 	}
