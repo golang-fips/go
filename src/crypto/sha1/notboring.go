@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-//go:build cmd_go_bootstrap
-// +build cmd_go_bootstrap
+//go:build cmd_go_bootstrap || no_openssl
+// +build cmd_go_bootstrap no_openssl
 
 package sha1
 
@@ -11,7 +11,9 @@ import (
 	"hash"
 )
 
-const boringEnabled = false
+func boringEnabled() bool {
+	return false
+}
 
 func boringNewSHA1() hash.Hash { panic("boringcrypto: not available") }
 
