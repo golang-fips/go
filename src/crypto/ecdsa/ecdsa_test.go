@@ -7,7 +7,9 @@ package ecdsa
 import (
 	"bufio"
 	"compress/bzip2"
+	"crypto"
 	"crypto/elliptic"
+	"crypto/internal/boring"
 	"crypto/rand"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -33,11 +35,14 @@ func testKeyGeneration(t *testing.T, c elliptic.Curve, tag string) {
 }
 
 func TestKeyGeneration(t *testing.T) {
-	testKeyGeneration(t, elliptic.P224(), "p224")
-	if testing.Short() {
-		return
+	if !boring.Enabled() { // P-224 not supported in RHEL OpenSSL.
+		testKeyGeneration(t, elliptic.P224(), "p224")
 	}
 	testKeyGeneration(t, elliptic.P256(), "p256")
+
+	if testing.Short() && !boring.Enabled() {
+		return
+	}
 	testKeyGeneration(t, elliptic.P384(), "p384")
 	testKeyGeneration(t, elliptic.P521(), "p521")
 }
@@ -102,7 +107,10 @@ func BenchmarkKeyGeneration(b *testing.B) {
 }
 
 func testSignAndVerify(t *testing.T, c elliptic.Curve, tag string) {
-	priv, _ := GenerateKey(c, rand.Reader)
+	priv, err := GenerateKey(c, rand.Reader)
+	if priv == nil {
+		t.Fatal(err)
+	}
 
 	hashed := []byte("testing")
 	r, s, err := Sign(rand.Reader, priv, hashed)
@@ -121,14 +129,52 @@ func testSignAndVerify(t *testing.T, c elliptic.Curve, tag string) {
 	}
 }
 
-func TestSignAndVerify(t *testing.T) {
-	testSignAndVerify(t, elliptic.P224(), "p224")
-	if testing.Short() {
+func testHashSignAndHashVerify(t *testing.T, c elliptic.Curve, tag string) {
+	priv, err := GenerateKey(c, rand.Reader)
+	if priv == nil {
+		t.Fatal(err)
+	}
+
+	msg := []byte("testing")
+	h := crypto.SHA256
+	r, s, err := HashSign(rand.Reader, priv, msg, h)
+	if err != nil {
+		t.Errorf("%s: error signing: %s", tag, err)
 		return
 	}
+
+	if !HashVerify(&priv.PublicKey, msg, r, s, h) {
+		t.Errorf("%s: Verify failed", tag)
+	}
+
+	msg[0] ^= 0xff
+	if HashVerify(&priv.PublicKey, msg, r, s, h) {
+		t.Errorf("%s: Verify always works!", tag)
+	}
+}
+
+func TestSignAndVerify(t *testing.T) {
+	if boring.Enabled() {
+		t.Skip("skipping test in boring mode")
+	}
+	testSignAndVerify(t, elliptic.P224(), "p224")
 	testSignAndVerify(t, elliptic.P256(), "p256")
+
+	if testing.Short() && !boring.Enabled() {
+		return
+	}
 	testSignAndVerify(t, elliptic.P384(), "p384")
 	testSignAndVerify(t, elliptic.P521(), "p521")
+}
+
+func TestHashSignAndHashVerify(t *testing.T) {
+	testHashSignAndHashVerify(t, elliptic.P256(), "p256")
+
+	if testing.Short() && !boring.Enabled() {
+		return
+	}
+	testHashSignAndHashVerify(t, elliptic.P384(), "p384")
+	testHashSignAndHashVerify(t, elliptic.P521(), "p521")
 }
 
 func testNonceSafety(t *testing.T, c elliptic.Curve, tag string) {
@@ -158,14 +204,53 @@ func testNonceSafety(t *testing.T, c elliptic.Curve, tag string) {
 	}
 }
 
-func TestNonceSafety(t *testing.T) {
-	testNonceSafety(t, elliptic.P224(), "p224")
-	if testing.Short() {
+func testNonceSafetyHash(t *testing.T, c elliptic.Curve, tag string) {
+	priv, _ := GenerateKey(c, rand.Reader)
+
+	hashed := []byte("testing")
+	r0, s0, err := HashSign(zeroReader, priv, hashed, crypto.SHA256)
+	if err != nil {
+		t.Errorf("%s: error signing: %s", tag, err)
 		return
 	}
-	testNonceSafety(t, elliptic.P256(), "p256")
-	testNonceSafety(t, elliptic.P384(), "p384")
-	testNonceSafety(t, elliptic.P521(), "p521")
+
+	hashed = []byte("testing...")
+	r1, s1, err := HashSign(zeroReader, priv, hashed, crypto.SHA256)
+	if err != nil {
+		t.Errorf("%s: error signing: %s", tag, err)
+		return
+	}
+
+	if s0.Cmp(s1) == 0 {
+		// This should never happen.
+		t.Errorf("%s: the signatures on two different messages were the same", tag)
+	}
+
+	if r0.Cmp(r1) == 0 {
+		t.Errorf("%s: the nonce used for two different messages was the same", tag)
+	}
+}
+
+func TestNonceSafety(t *testing.T) {
+	if !boring.Enabled() { // P-224 not supported in RHEL OpenSSL.
+		testNonceSafety(t, elliptic.P224(), "p224")
+	}
+	if boring.Enabled() {
+		testNonceSafetyHash(t, elliptic.P256(), "p256")
+	} else {
+		testNonceSafety(t, elliptic.P256(), "p256")
+	}
+
+	if testing.Short() && !boring.Enabled() {
+		return
+	}
+	if boring.Enabled() {
+		testNonceSafetyHash(t, elliptic.P384(), "p384")
+		testNonceSafetyHash(t, elliptic.P521(), "p521")
+	} else {
+		testNonceSafety(t, elliptic.P384(), "p384")
+		testNonceSafety(t, elliptic.P521(), "p521")
+	}
 }
 
 func testINDCCA(t *testing.T, c elliptic.Curve, tag string) {
@@ -193,14 +278,52 @@ func testINDCCA(t *testing.T, c elliptic.Curve, tag string) {
 	}
 }
 
+func testINDCCAHash(t *testing.T, c elliptic.Curve, tag string) {
+	priv, _ := GenerateKey(c, rand.Reader)
+
+	msg := []byte("testing")
+	h := crypto.SHA256
+	r0, s0, err := HashSign(rand.Reader, priv, msg, h)
+	if err != nil {
+		t.Errorf("%s: error signing: %s", tag, err)
+		return
+	}
+
+	r1, s1, err := HashSign(rand.Reader, priv, msg, h)
+	if err != nil {
+		t.Errorf("%s: error signing: %s", tag, err)
+		return
+	}
+
+	if s0.Cmp(s1) == 0 {
+		t.Errorf("%s: two signatures of the same message produced the same result", tag)
+	}
+
+	if r0.Cmp(r1) == 0 {
+		t.Errorf("%s: two signatures of the same message produced the same nonce", tag)
+	}
+}
+
 func TestINDCCA(t *testing.T) {
-	testINDCCA(t, elliptic.P224(), "p224")
+	if !boring.Enabled() { // P-224 not supported in RHEL OpenSSL.
+		testINDCCA(t, elliptic.P224(), "p224")
+	}
+	if boring.Enabled() {
+		testINDCCAHash(t, elliptic.P256(), "p256")
+	} else {
+		testINDCCA(t, elliptic.P256(), "p256")
+	}
+
 	if testing.Short() {
 		return
 	}
-	testINDCCA(t, elliptic.P256(), "p256")
-	testINDCCA(t, elliptic.P384(), "p384")
-	testINDCCA(t, elliptic.P521(), "p521")
+	if boring.Enabled() {
+		testINDCCAHash(t, elliptic.P384(), "p384")
+		testINDCCAHash(t, elliptic.P521(), "p521")
+	} else {
+		testINDCCA(t, elliptic.P384(), "p384")
+		testINDCCA(t, elliptic.P521(), "p521")
+	}
 }
 
 func fromHex(s string) *big.Int {
@@ -231,6 +354,7 @@ func TestVectors(t *testing.T) {
 
 	lineNo := 1
 	var h hash.Hash
+	var ch crypto.Hash
 	var msg []byte
 	var hashed []byte
 	var r, s *big.Int
@@ -261,6 +385,9 @@ func TestVectors(t *testing.T) {
 
 			switch parts[0] {
 			case "P-224":
+				if boring.Enabled() { // P-224 not supported in RHEL OpenSSL.
+					continue
+				}
 				pub.Curve = elliptic.P224()
 			case "P-256":
 				pub.Curve = elliptic.P256()
@@ -275,14 +402,19 @@ func TestVectors(t *testing.T) {
 			switch parts[1] {
 			case "SHA-1":
 				h = sha1.New()
+				ch = crypto.SHA1
 			case "SHA-224":
 				h = sha256.New224()
+				ch = crypto.SHA224
 			case "SHA-256":
 				h = sha256.New()
+				ch = crypto.SHA256
 			case "SHA-384":
 				h = sha512.New384()
+				ch = crypto.SHA384
 			case "SHA-512":
 				h = sha512.New()
+				ch = crypto.SHA512
 			default:
 				h = nil
 			}
@@ -312,8 +444,14 @@ func TestVectors(t *testing.T) {
 			h.Reset()
 			h.Write(msg)
 			hashed := h.Sum(hashed[:0])
-			if Verify(pub, hashed, r, s) != expected {
-				t.Fatalf("incorrect result on line %d", lineNo)
+			if boring.Enabled() {
+				if HashVerify(pub, msg, r, s, ch) != expected {
+					t.Fatalf("incorrect result on line %d", lineNo)
+				}
+			} else {
+				if Verify(pub, hashed, r, s) != expected {
+					t.Fatalf("incorrect result on line %d", lineNo)
+				}
 			}
 		default:
 			t.Fatalf("unknown variable on line %d: %s", lineNo, line)
@@ -332,13 +470,21 @@ func testNegativeInputs(t *testing.T, curve elliptic.Curve, tag string) {
 	r.Lsh(r, 550 /* larger than any supported curve */)
 	r.Neg(r)
 
-	if Verify(&key.PublicKey, hash[:], r, r) {
-		t.Errorf("bogus signature accepted for %q", tag)
+	if boring.Enabled() {
+		if HashVerify(&key.PublicKey, hash[:], r, r, crypto.SHA256) {
+			t.Errorf("bogus signature accepted for %q", tag)
+		}
+	} else {
+		if Verify(&key.PublicKey, hash[:], r, r) {
+			t.Errorf("bogus signature accepted for %q", tag)
+		}
 	}
 }
 
 func TestNegativeInputs(t *testing.T) {
-	testNegativeInputs(t, elliptic.P224(), "p224")
+	if !boring.Enabled() { // P-224 not supported in RHEL OpenSSL.
+		testNegativeInputs(t, elliptic.P224(), "p224")
+	}
 	testNegativeInputs(t, elliptic.P256(), "p256")
 	testNegativeInputs(t, elliptic.P384(), "p384")
 	testNegativeInputs(t, elliptic.P521(), "p521")
@@ -348,20 +494,37 @@ func TestZeroHashSignature(t *testing.T) {
 	zeroHash := make([]byte, 64)
 
 	for _, curve := range []elliptic.Curve{elliptic.P224(), elliptic.P256(), elliptic.P384(), elliptic.P521()} {
+		if boring.Enabled() && curve == elliptic.P224() {
+			continue
+		}
 		privKey, err := GenerateKey(curve, rand.Reader)
 		if err != nil {
 			panic(err)
 		}
 
+		var r, s *big.Int
 		// Sign a hash consisting of all zeros.
-		r, s, err := Sign(rand.Reader, privKey, zeroHash)
-		if err != nil {
-			panic(err)
+		if boring.Enabled() {
+			r, s, err = HashSign(rand.Reader, privKey, zeroHash, crypto.SHA256)
+			if err != nil {
+				panic(err)
+			}
+		} else {
+			r, s, err = Sign(rand.Reader, privKey, zeroHash)
+			if err != nil {
+				panic(err)
+			}
 		}
 
 		// Confirm that it can be verified.
-		if !Verify(&privKey.PublicKey, zeroHash, r, s) {
-			t.Errorf("zero hash signature verify failed for %T", curve)
+		if boring.Enabled() {
+			if !HashVerify(&privKey.PublicKey, zeroHash, r, s, crypto.SHA256) {
+				t.Errorf("zero hash signature verify failed for %T", curve)
+			}
+		} else {
+			if !Verify(&privKey.PublicKey, zeroHash, r, s) {
+				t.Errorf("zero hash signature verify failed for %T", curve)
+			}
 		}
 	}
 }
