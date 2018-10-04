@@ -2,8 +2,9 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-// +build linux,amd64
+// +build linux
 // +build !android
+// +build !no_openssl
 // +build !cmd_go_bootstrap
 // +build !msan
 
@@ -40,11 +41,12 @@ func (k *PublicKeyECDSA) finalize() {
 }
 
 var errUnknownCurve = errors.New("boringcrypto: unknown elliptic curve")
+var errUnsupportedCurve = errors.New("boringcrypto: unsupported elliptic curve")
 
 func curveNID(curve string) (C.int, error) {
 	switch curve {
 	case "P-224":
-		return C.GO_NID_secp224r1, nil
+		return 0, errUnsupportedCurve
 	case "P-256":
 		return C.GO_NID_X9_62_prime256v1, nil
 	case "P-384":
@@ -160,7 +162,7 @@ func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, r, s *big.Int) bool {
 	if err != nil {
 		return false
 	}
-	ok := C._goboringcrypto_ECDSA_verify(0, base(hash), C.size_t(len(hash)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), C.size_t(len(sig)), pub.key) != 0
+	ok := C._goboringcrypto_ECDSA_verify(0, base(hash), C.size_t(len(hash)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), C.size_t(len(sig)), pub.key) > 0
 	runtime.KeepAlive(pub)
 	return ok
 }
@@ -175,8 +177,8 @@ func GenerateKeyECDSA(curve string) (X, Y, D *big.Int, err error) {
 		return nil, nil, nil, fail("EC_KEY_new_by_curve_name")
 	}
 	defer C._goboringcrypto_EC_KEY_free(key)
-	if C._goboringcrypto_EC_KEY_generate_key_fips(key) == 0 {
-		return nil, nil, nil, fail("EC_KEY_generate_key_fips")
+	if C._goboringcrypto_EC_KEY_generate_key(key) == 0 {
+		return nil, nil, nil, fail("EC_KEY_generate_key")
 	}
 	group := C._goboringcrypto_EC_KEY_get0_group(key)
 	pt := C._goboringcrypto_EC_KEY_get0_public_key(key)

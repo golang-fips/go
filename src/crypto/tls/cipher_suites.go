@@ -137,7 +137,9 @@ func macSHA1(version uint16, key []byte) macFunction {
 		return mac
 	}
 	h := sha1.New
-	if !boring.Enabled {
+	// The BoringCrypto SHA1 does not have a constant-time
+	// checksum function, so don't try to use it.
+	if !boring.Enabled() {
 		h = newConstantTimeHash(h)
 	}
 	return tls10MAC{hmac.New(h, key)}
@@ -313,7 +315,7 @@ func (c *cthWrapper) Write(p []byte) (int, error) { return c.h.Write(p) }
 func (c *cthWrapper) Sum(b []byte) []byte         { return c.h.ConstantTimeSum(b) }
 
 func newConstantTimeHash(h func() hash.Hash) func() hash.Hash {
-	if boring.Enabled {
+	if boring.Enabled() {
 		// The BoringCrypto SHA1 does not have a constant-time
 		// checksum function, so don't try to use it.
 		return h

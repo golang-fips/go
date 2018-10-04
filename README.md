@@ -1,3 +1,19 @@
+# Go built with cryptography from OpenSSL
+
+This repository contains an ongoing effort to port the upstream
+`dev.boringcrypto` branch to OpenSSL 1.0.2.
+
+To build:
+
+1. `cd src`
+2. `go run boring2open.go`
+3. `bash all.bash`
+
+**Note** This is work-in-progress and merely a feasibility study at
+this point.
+
+**The original `README` file follows.**
+
 # The Go Programming Language
 
 Go is an open source programming language that makes it easy to build simple,
