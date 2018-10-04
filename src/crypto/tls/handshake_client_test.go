@@ -7,6 +7,7 @@ package tls
 import (
 	"bytes"
 	"crypto/ecdsa"
+	"crypto/internal/boring"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/base64"
@@ -452,10 +453,16 @@ func runClientTestForVersion(t *testing.T, template *clientTest, prefix, option 
 }
 
 func runClientTestTLS10(t *testing.T, template *clientTest) {
+	if boring.Enabled() {
+		t.Skip("boring enabled, TLS < 1.2 not supported")
+	}
 	runClientTestForVersion(t, template, "TLSv10-", "-tls1")
 }
 
 func runClientTestTLS11(t *testing.T, template *clientTest) {
+	if boring.Enabled() {
+		t.Skip("boring enabled, TLS < 1.2 not supported")
+	}
 	runClientTestForVersion(t, template, "TLSv11-", "-tls1_1")
 }
 
@@ -1553,6 +1560,9 @@ func TestGetClientCertificate(t *testing.T) {
 		clientConfig := testConfig.Clone()
 
 		test.setup(clientConfig, serverConfig)
+		if boring.Enabled() && clientConfig.MaxVersion == VersionTLS11 {
+			t.Skip("unsupported TLS version in FIPS mode")
+		}
 
 		type serverResult struct {
 			cs  ConnectionState

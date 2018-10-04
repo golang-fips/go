@@ -48,7 +48,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
 		return nil, ErrMessageTooLong
 	}
 
-	if boring.Enabled && random == boring.RandReader {
+	if boring.Enabled() && random == boring.RandReader {
 		bkey, err := boringPublicKey(pub)
 		if err != nil {
 			return nil, err
@@ -68,7 +68,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
 	em[len(em)-len(msg)-1] = 0
 	copy(mm, msg)
 
-	if boring.Enabled {
+	if boring.Enabled() {
 		var bkey *boring.PublicKeyRSA
 		bkey, err = boringPublicKey(pub)
 		if err != nil {
@@ -96,7 +96,7 @@ func DecryptPKCS1v15(rand io.Reader, priv *PrivateKey, ciphertext []byte) ([]byt
 		return nil, err
 	}
 
-	if boring.Enabled {
+	if boring.Enabled() {
 		bkey, err := boringPrivateKey(priv)
 		if err != nil {
 			return nil, err
@@ -175,7 +175,7 @@ func decryptPKCS1v15(rand io.Reader, priv *PrivateKey, ciphertext []byte) (valid
 		return
 	}
 
-	if boring.Enabled {
+	if boring.Enabled() {
 		var bkey *boring.PrivateKeyRSA
 		bkey, err = boringPrivateKey(priv)
 		if err != nil {
@@ -285,7 +285,7 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
 		return nil, ErrMessageTooLong
 	}
 
-	if boring.Enabled {
+	if boring.Enabled() {
 		bkey, err := boringPrivateKey(priv)
 		if err != nil {
 			return nil, err
@@ -318,7 +318,7 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
 // returning a nil error. If hash is zero then hashed is used directly. This
 // isn't advisable except for interoperability.
 func VerifyPKCS1v15(pub *PublicKey, hash crypto.Hash, hashed []byte, sig []byte) error {
-	if boring.Enabled {
+	if boring.Enabled() {
 		bkey, err := boringPublicKey(pub)
 		if err != nil {
 			return err

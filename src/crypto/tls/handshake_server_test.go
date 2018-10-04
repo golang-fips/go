@@ -9,6 +9,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/internal/boring"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/hex"
@@ -194,9 +195,9 @@ func TestDontSelectRSAWithECDSAKey(t *testing.T) {
 
 func TestRenegotiationExtension(t *testing.T) {
 	clientHello := &clientHelloMsg{
-		vers:                         VersionTLS12,
-		compressionMethods:           []uint8{compressionNone},
-		random:                       make([]byte, 32),
+		vers:               VersionTLS12,
+		compressionMethods: []uint8{compressionNone},
+		random:             make([]byte, 32),
 		secureRenegotiationSupported: true,
 		cipherSuites:                 []uint16{TLS_RSA_WITH_RC4_128_SHA},
 	}
@@ -336,7 +337,7 @@ func testHandshake(clientConfig, serverConfig *Config) (serverState, clientState
 func TestVersion(t *testing.T) {
 	serverConfig := &Config{
 		Certificates: testConfig.Certificates,
-		MaxVersion:   VersionTLS11,
+		MaxVersion:   VersionTLS12,
 	}
 	clientConfig := &Config{
 		InsecureSkipVerify: true,
@@ -345,8 +346,8 @@ func TestVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("handshake failed: %s", err)
 	}
-	if state.Version != VersionTLS11 {
-		t.Fatalf("Incorrect version %x, should be %x", state.Version, VersionTLS11)
+	if state.Version != VersionTLS12 {
+		t.Fatalf("Incorrect version %x, should be %x", state.Version, VersionTLS12)
 	}
 }
 
@@ -354,7 +355,7 @@ func TestCipherSuitePreference(t *testing.T) {
 	serverConfig := &Config{
 		CipherSuites: []uint16{TLS_RSA_WITH_RC4_128_SHA, TLS_RSA_WITH_AES_128_CBC_SHA, TLS_ECDHE_RSA_WITH_RC4_128_SHA},
 		Certificates: testConfig.Certificates,
-		MaxVersion:   VersionTLS11,
+		MaxVersion:   VersionTLS12,
 	}
 	clientConfig := &Config{
 		CipherSuites:       []uint16{TLS_RSA_WITH_AES_128_CBC_SHA, TLS_RSA_WITH_RC4_128_SHA},
@@ -407,6 +408,13 @@ func TestSCTHandshake(t *testing.T) {
 }
 
 func TestCrossVersionResume(t *testing.T) {
+	if boring.Enabled() {
+		t.Skip("skip cross version resume test in FIPS mode")
+	}
+	t.Run("TLSv12", func(t *testing.T) { testCrossVersionResume(t, VersionTLS12) })
+}
+
+func testCrossVersionResume(t *testing.T, version uint16) {
 	serverConfig := &Config{
 		CipherSuites: []uint16{TLS_RSA_WITH_AES_128_CBC_SHA},
 		Certificates: testConfig.Certificates,
@@ -992,7 +1000,7 @@ func TestFallbackSCSV(t *testing.T) {
 		name:   "FallbackSCSV",
 		config: &serverConfig,
 		// OpenSSL 1.0.1j is needed for the -fallback_scsv option.
-		command:                       []string{"openssl", "s_client", "-fallback_scsv"},
+		command: []string{"openssl", "s_client", "-fallback_scsv"},
 		expectHandshakeErrorIncluding: "inappropriate protocol fallback",
 	}
 	runServerTestTLS11(t, test)

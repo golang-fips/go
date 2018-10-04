@@ -36,6 +36,9 @@ var authTests = []authTest{
 func TestAuth(t *testing.T) {
 testLoop:
 	for i, test := range authTests {
+		if test.name == "CRAM-MD5" {
+			t.Skip("MD5 based auth not supported in FIPS mode")
+		}
 		name, resp, err := test.auth.Start(&ServerInfo{"testserver", true, nil})
 		if name != test.name {
 			t.Errorf("#%d got name %s, expected %s", i, name, test.name)
