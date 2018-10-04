@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/elliptic"
+	"crypto/internal/boring"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
@@ -84,7 +85,7 @@ func TestRejectBadProtocolVersion(t *testing.T) {
 
 func TestNoSuiteOverlap(t *testing.T) {
 	clientHello := &clientHelloMsg{
-		vers:               VersionTLS10,
+		vers:               VersionTLS12,
 		random:             make([]byte, 32),
 		cipherSuites:       []uint16{0xff00},
 		compressionMethods: []uint8{compressionNone},
@@ -94,7 +95,7 @@ func TestNoSuiteOverlap(t *testing.T) {
 
 func TestNoCompressionOverlap(t *testing.T) {
 	clientHello := &clientHelloMsg{
-		vers:               VersionTLS10,
+		vers:               VersionTLS12,
 		random:             make([]byte, 32),
 		cipherSuites:       []uint16{TLS_RSA_WITH_RC4_128_SHA},
 		compressionMethods: []uint8{0xff},
@@ -104,7 +105,7 @@ func TestNoCompressionOverlap(t *testing.T) {
 
 func TestNoRC4ByDefault(t *testing.T) {
 	clientHello := &clientHelloMsg{
-		vers:               VersionTLS10,
+		vers:               VersionTLS12,
 		random:             make([]byte, 32),
 		cipherSuites:       []uint16{TLS_RSA_WITH_RC4_128_SHA},
 		compressionMethods: []uint8{compressionNone},
@@ -128,7 +129,7 @@ func TestDontSelectECDSAWithRSAKey(t *testing.T) {
 	// Test that, even when both sides support an ECDSA cipher suite, it
 	// won't be selected if the server's private key doesn't support it.
 	clientHello := &clientHelloMsg{
-		vers:               VersionTLS10,
+		vers:               VersionTLS12,
 		random:             make([]byte, 32),
 		cipherSuites:       []uint16{TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA},
 		compressionMethods: []uint8{compressionNone},
@@ -154,7 +155,7 @@ func TestDontSelectRSAWithECDSAKey(t *testing.T) {
 	// Test that, even when both sides support an RSA cipher suite, it
 	// won't be selected if the server's private key doesn't support it.
 	clientHello := &clientHelloMsg{
-		vers:               VersionTLS10,
+		vers:               VersionTLS12,
 		random:             make([]byte, 32),
 		cipherSuites:       []uint16{TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA},
 		compressionMethods: []uint8{compressionNone},
@@ -377,7 +378,7 @@ func TestClose(t *testing.T) {
 func TestVersion(t *testing.T) {
 	serverConfig := &Config{
 		Certificates: testConfig.Certificates,
-		MaxVersion:   VersionTLS11,
+		MaxVersion:   VersionTLS12,
 	}
 	clientConfig := &Config{
 		InsecureSkipVerify: true,
@@ -386,8 +387,8 @@ func TestVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("handshake failed: %s", err)
 	}
-	if state.Version != VersionTLS11 {
-		t.Fatalf("Incorrect version %x, should be %x", state.Version, VersionTLS11)
+	if state.Version != VersionTLS12 {
+		t.Fatalf("Incorrect version %x, should be %x", state.Version, VersionTLS12)
 	}
 }
 
@@ -395,7 +396,7 @@ func TestCipherSuitePreference(t *testing.T) {
 	serverConfig := &Config{
 		CipherSuites: []uint16{TLS_RSA_WITH_RC4_128_SHA, TLS_RSA_WITH_AES_128_CBC_SHA, TLS_ECDHE_RSA_WITH_RC4_128_SHA},
 		Certificates: testConfig.Certificates,
-		MaxVersion:   VersionTLS11,
+		MaxVersion:   VersionTLS12,
 	}
 	clientConfig := &Config{
 		CipherSuites:       []uint16{TLS_RSA_WITH_AES_128_CBC_SHA, TLS_RSA_WITH_RC4_128_SHA},
@@ -454,6 +455,9 @@ func testSCTHandshake(t *testing.T, version uint16) {
 }
 
 func TestCrossVersionResume(t *testing.T) {
+	if boring.Enabled() {
+		t.Skip("skip cross version resume test in FIPS mode")
+	}
 	t.Run("TLSv12", func(t *testing.T) { testCrossVersionResume(t, VersionTLS12) })
 	t.Run("TLSv13", func(t *testing.T) { testCrossVersionResume(t, VersionTLS13) })
 }
@@ -750,10 +754,16 @@ func runServerTestForVersion(t *testing.T, template *serverTest, version, option
 }
 
 func runServerTestTLS10(t *testing.T, template *serverTest) {
+	if boring.Enabled() {
+		t.Skip("boring enabled, TLS < 1.2 not supported")
+	}
 	runServerTestForVersion(t, template, "TLSv10", "-tls1")
 }
 
 func runServerTestTLS11(t *testing.T, template *serverTest) {
+	if boring.Enabled() {
+		t.Skip("boring enabled, TLS < 1.2 not supported")
+	}
 	runServerTestForVersion(t, template, "TLSv11", "-tls1_1")
 }
 
@@ -991,7 +1001,7 @@ func TestHandshakeServerSNIGetCertificateError(t *testing.T) {
 	}
 
 	clientHello := &clientHelloMsg{
-		vers:               VersionTLS10,
+		vers:               VersionTLS12,
 		random:             make([]byte, 32),
 		cipherSuites:       []uint16{TLS_RSA_WITH_RC4_128_SHA},
 		compressionMethods: []uint8{compressionNone},
@@ -1012,7 +1022,7 @@ func TestHandshakeServerEmptyCertificates(t *testing.T) {
 	serverConfig.Certificates = nil
 
 	clientHello := &clientHelloMsg{
-		vers:               VersionTLS10,
+		vers:               VersionTLS12,
 		random:             make([]byte, 32),
 		cipherSuites:       []uint16{TLS_RSA_WITH_RC4_128_SHA},
 		compressionMethods: []uint8{compressionNone},
@@ -1024,7 +1034,7 @@ func TestHandshakeServerEmptyCertificates(t *testing.T) {
 	serverConfig.GetCertificate = nil
 
 	clientHello = &clientHelloMsg{
-		vers:               VersionTLS10,
+		vers:               VersionTLS12,
 		random:             make([]byte, 32),
 		cipherSuites:       []uint16{TLS_RSA_WITH_RC4_128_SHA},
 		compressionMethods: []uint8{compressionNone},
@@ -1402,7 +1412,7 @@ func TestSNIGivenOnFailure(t *testing.T) {
 	const expectedServerName = "test.testing"
 
 	clientHello := &clientHelloMsg{
-		vers:               VersionTLS10,
+		vers:               VersionTLS12,
 		random:             make([]byte, 32),
 		cipherSuites:       []uint16{TLS_RSA_WITH_RC4_128_SHA},
 		compressionMethods: []uint8{compressionNone},
@@ -1824,7 +1834,7 @@ func TestAESCipherReordering(t *testing.T) {
 			}
 
 			want := tc.expectedCipher
-			if boringEnabled && tc.boringExpectedCipher != 0 {
+			if needFIPS() && tc.boringExpectedCipher != 0 {
 				want = tc.boringExpectedCipher
 			}
 			if want != hs.suite.id {
@@ -1945,7 +1955,7 @@ func TestAESCipherReordering13(t *testing.T) {
 			}
 
 			want := tc.expectedCipher
-			if boringEnabled && tc.boringExpectedCipher != 0 {
+			if needFIPS() && tc.boringExpectedCipher != 0 {
 				want = tc.boringExpectedCipher
 			}
 			if want != hs.suite.id {

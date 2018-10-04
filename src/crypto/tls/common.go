@@ -1458,7 +1458,7 @@ var (
 func initDefaultCipherSuites() {
 	var topCipherSuites []uint16
 
-	if hasAESGCMHardwareSupport || boringEnabled {
+	if hasAESGCMHardwareSupport || needFIPS() {
 		// If BoringCrypto is enabled, always prioritize AES-GCM.
 		// If AES-GCM hardware is provided then prioritise AES-GCM
 		// cipher suites.

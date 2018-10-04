@@ -11,6 +11,7 @@ import (
 )
 
 func TestEnabled(t *testing.T) {
+	t.Skip("skipping this test in our FIPS code, we enable differently")
 	supportedPlatform := runtime.GOOS == "linux" && runtime.GOARCH == "amd64"
 	if supportedPlatform && !boring.Enabled() {
 		t.Error("Enabled returned false on a supported platform")

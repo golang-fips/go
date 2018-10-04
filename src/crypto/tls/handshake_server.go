@@ -314,7 +314,7 @@ func (hs *serverHandshakeState) pickCipherSuite() error {
 		// If we don't have hardware support for AES-GCM, prefer other AEAD
 		// ciphers even if the client prioritized AES-GCM.
 		// If BoringCrypto is enabled, always prioritize AES-GCM.
-		if !hasAESGCMHardwareSupport && !boringEnabled {
+		if !hasAESGCMHardwareSupport && !needFIPS() {
 			preferenceList = deprioritizeAES(preferenceList)
 		}
 	}
