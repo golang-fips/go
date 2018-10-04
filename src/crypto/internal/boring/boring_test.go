@@ -32,3 +32,15 @@ func TestUnreachable(t *testing.T) {
 func TestUnreachableExceptTests(t *testing.T) {
 	UnreachableExceptTests()
 }
+
+// Test that the library FIPS mode is enabled when the host system
+// is booted in FIPS mode.
+func TestBoringEnabledWhenSystemInFIPSMode(t *testing.T) {
+	systemFIPSOn := systemFIPSEnabled()
+	if available != systemFIPSOn {
+		t.Fatal("Boring mode should be enabled when system in FIPS mode")
+	}
+	if fipsModeEnabled() != systemFIPSOn {
+		t.Fatal("library FIPS mode should be enabled when system in FIPS mode")
+	}
+}

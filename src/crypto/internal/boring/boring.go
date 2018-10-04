@@ -34,20 +34,28 @@ func init() {
 	// Check to see if the system is running in FIPS mode, if so
 	// enable "boring" mode to call into OpenSSL for FIPS compliance.
 	if systemFIPSEnabled() {
-		available = true
-
-		if C._goboringcrypto_OPENSSL_thread_setup() != 1 {
-			panic("boringcrypto: OpenSSL thread setup failed")
-		}
-		// By setting FIPS mode on, the power on self test will run.
-		if C._goboringcrypto_FIPS_mode_set(fipsOn) != fipsOn {
-			panic("boringcrypto: not in FIPS mode")
-		}
-		if C._goboringcrypto_FIPS_mode() != fipsOn {
+		enableBoringFIPSMode()
+		if !fipsModeEnabled() {
 			panic("boringcrypto: not in FIPS mode")
 		}
 	}
 	sig.BoringCrypto()
+}
+
+func enableBoringFIPSMode() {
+	available = true
+
+	if C._goboringcrypto_OPENSSL_thread_setup() != 1 {
+		panic("boringcrypto: OpenSSL thread setup failed")
+	}
+	// By setting FIPS mode on, the power on self test will run.
+	if C._goboringcrypto_FIPS_mode_set(fipsOn) != fipsOn {
+		panic("boringcrypto: not in FIPS mode")
+	}
+}
+
+func fipsModeEnabled() bool {
+	return C._goboringcrypto_FIPS_mode() == fipsOn
 }
 
 func systemFIPSEnabled() bool {
