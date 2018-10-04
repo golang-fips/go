@@ -6,14 +6,10 @@ package tls
 
 import (
 	"crypto/ecdsa"
-	"crypto/internal/boring"
 	"crypto/internal/boring/fipstls"
 	"crypto/rsa"
 	"crypto/x509"
 )
-
-// boringEnabled is an alias of boring.Enabled to avoid a new import in common.go.
-const boringEnabled = boring.Enabled
 
 // needFIPS returns fipstls.Required(); it avoids a new import in common.go.
 func needFIPS() bool {
@@ -95,11 +91,11 @@ func isBoringCertificate(c *x509.Certificate) bool {
 	default:
 		return false
 	case *rsa.PublicKey:
-		if size := k.N.BitLen(); size != 2048 && size != 3072 {
+		if size := k.N.BitLen(); size < 2048 || (size%512) != 0 {
 			return false
 		}
 	case *ecdsa.PublicKey:
-		if name := k.Curve.Params().Name; name != "P-256" && name != "P-384" {
+		if name := k.Curve.Params().Name; name != "P-256" && name != "P-384" && name != "P-521" {
 			return false
 		}
 	}
