@@ -102,7 +102,7 @@ func hasSuffix(s, t string) bool {
 func UnreachableExceptTests() {
 	name := runtime_arg0()
 	// If BoringCrypto ran on Windows we'd need to allow _test.exe and .test.exe as well.
-	if !hasSuffix(name, "_test") && !hasSuffix(name, ".test") {
+	if available && !hasSuffix(name, "_test") && !hasSuffix(name, ".test") {
 		println("boringcrypto: unexpected code execution in", name)
 		panic("boringcrypto: invalid code execution")
 	}
