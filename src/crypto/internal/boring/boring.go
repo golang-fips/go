@@ -21,12 +21,13 @@ import (
 	"runtime"
 )
 
-var available = false
-
 const (
 	fipsOn  = C.int(1)
 	fipsOff = C.int(0)
 )
+
+// Enabled controls whether FIPS crypto is enabled.
+var Enabled = false
 
 func init() {
 	runtime.LockOSThread()
@@ -43,7 +44,7 @@ func init() {
 }
 
 func enableBoringFIPSMode() {
-	available = true
+	Enabled = true
 
 	if C._goboringcrypto_OPENSSL_thread_setup() != 1 {
 		panic("boringcrypto: OpenSSL thread setup failed")

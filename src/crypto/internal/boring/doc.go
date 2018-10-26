@@ -6,9 +6,3 @@
 // Check the constant Enabled to find out whether BoringCrypto is available.
 // If BoringCrypto is not available, the functions in this package all panic.
 package boring
-
-// Enabled reports whether BoringCrypto is available.
-// When enabled is false, all functions in this package panic.
-//
-// BoringCrypto is only available on linux/amd64 systems.
-var Enabled = available
