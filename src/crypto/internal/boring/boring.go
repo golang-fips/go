@@ -27,7 +27,7 @@ const (
 )
 
 // Enabled controls whether FIPS crypto is enabled.
-var Enabled = false
+var enabled = false
 
 func init() {
 	runtime.LockOSThread()
@@ -44,7 +44,7 @@ func init() {
 }
 
 func enableBoringFIPSMode() {
-	Enabled = true
+	enabled = true
 
 	if C._goboringcrypto_OPENSSL_thread_setup() != 1 {
 		panic("boringcrypto: OpenSSL thread setup failed")
@@ -86,7 +86,7 @@ func systemFIPSEnabled() bool {
 // when BoringCrypto is in use. It panics only when
 // the system is in FIPS mode.
 func Unreachable() {
-	if Enabled {
+	if Enabled() {
 		panic("boringcrypto: invalid code execution")
 	}
 }
@@ -103,7 +103,7 @@ func hasSuffix(s, t string) bool {
 func UnreachableExceptTests() {
 	name := runtime_arg0()
 	// If BoringCrypto ran on Windows we'd need to allow _test.exe and .test.exe as well.
-	if Enabled && !hasSuffix(name, "_test") && !hasSuffix(name, ".test") {
+	if Enabled() && !hasSuffix(name, "_test") && !hasSuffix(name, ".test") {
 		println("boringcrypto: unexpected code execution in", name)
 		panic("boringcrypto: invalid code execution")
 	}

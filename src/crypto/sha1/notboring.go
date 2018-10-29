@@ -10,7 +10,9 @@ import (
 	"hash"
 )
 
-const boringEnabled = false
+func boringEnabled() bool {
+	return false
+}
 
 func boringNewSHA1() hash.Hash { panic("boringcrypto: not available") }
 

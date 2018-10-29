@@ -15,7 +15,7 @@ func TestInit(t *testing.T) {}
 // Test that Unreachable panics.
 func TestUnreachable(t *testing.T) {
 	defer func() {
-		if Enabled {
+		if Enabled() {
 			if err := recover(); err == nil {
 				t.Fatal("expected Unreachable to panic")
 			}
@@ -37,7 +37,7 @@ func TestUnreachableExceptTests(t *testing.T) {
 // is booted in FIPS mode.
 func TestBoringEnabledWhenSystemInFIPSMode(t *testing.T) {
 	systemFIPSOn := systemFIPSEnabled()
-	if Enabled != systemFIPSOn {
+	if Enabled() != systemFIPSOn {
 		t.Fatal("Boring mode should be enabled when system in FIPS mode")
 	}
 	if fipsModeEnabled() != systemFIPSOn {

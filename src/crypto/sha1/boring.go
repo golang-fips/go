@@ -16,7 +16,9 @@ import (
 	"hash"
 )
 
-var boringEnabled = boring.Enabled
+func boringEnabled() bool {
+	return boring.Enabled()
+}
 
 func boringNewSHA1() hash.Hash { return boring.NewSHA1() }
 

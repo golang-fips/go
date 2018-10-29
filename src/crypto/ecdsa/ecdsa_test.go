@@ -34,12 +34,12 @@ func testKeyGeneration(t *testing.T, c elliptic.Curve, tag string) {
 }
 
 func TestKeyGeneration(t *testing.T) {
-	if !boring.Enabled { // P-224 not supported in RHEL OpenSSL.
+	if !boring.Enabled() { // P-224 not supported in RHEL OpenSSL.
 		testKeyGeneration(t, elliptic.P224(), "p224")
 	}
 	testKeyGeneration(t, elliptic.P256(), "p256")
 
-	if testing.Short() && !boring.Enabled {
+	if testing.Short() && !boring.Enabled() {
 		return
 	}
 	testKeyGeneration(t, elliptic.P384(), "p384")
@@ -129,12 +129,12 @@ func testSignAndVerify(t *testing.T, c elliptic.Curve, tag string) {
 }
 
 func TestSignAndVerify(t *testing.T) {
-	if !boring.Enabled { // P-224 not supported in RHEL OpenSSL.
+	if !boring.Enabled() { // P-224 not supported in RHEL OpenSSL.
 		testSignAndVerify(t, elliptic.P224(), "p224")
 	}
 	testSignAndVerify(t, elliptic.P256(), "p256")
 
-	if testing.Short() && !boring.Enabled {
+	if testing.Short() && !boring.Enabled() {
 		return
 	}
 	testSignAndVerify(t, elliptic.P384(), "p384")
@@ -169,12 +169,12 @@ func testNonceSafety(t *testing.T, c elliptic.Curve, tag string) {
 }
 
 func TestNonceSafety(t *testing.T) {
-	if !boring.Enabled { // P-224 not supported in RHEL OpenSSL.
+	if !boring.Enabled() { // P-224 not supported in RHEL OpenSSL.
 		testNonceSafety(t, elliptic.P224(), "p224")
 	}
 	testNonceSafety(t, elliptic.P256(), "p256")
 
-	if testing.Short() && !boring.Enabled {
+	if testing.Short() && !boring.Enabled() {
 		return
 	}
 	testNonceSafety(t, elliptic.P384(), "p384")
@@ -207,7 +207,7 @@ func testINDCCA(t *testing.T, c elliptic.Curve, tag string) {
 }
 
 func TestINDCCA(t *testing.T) {
-	if !boring.Enabled { // P-224 not supported in RHEL OpenSSL.
+	if !boring.Enabled() { // P-224 not supported in RHEL OpenSSL.
 		testINDCCA(t, elliptic.P224(), "p224")
 	}
 	testINDCCA(t, elliptic.P256(), "p256")
@@ -277,7 +277,7 @@ func TestVectors(t *testing.T) {
 
 			switch parts[0] {
 			case "P-224":
-				if boring.Enabled { // P-224 not supported in RHEL OpenSSL.
+				if boring.Enabled() { // P-224 not supported in RHEL OpenSSL.
 					continue
 				}
 				pub.Curve = elliptic.P224()
@@ -357,7 +357,7 @@ func testNegativeInputs(t *testing.T, curve elliptic.Curve, tag string) {
 }
 
 func TestNegativeInputs(t *testing.T) {
-	if !boring.Enabled { // P-224 not supported in RHEL OpenSSL.
+	if !boring.Enabled() { // P-224 not supported in RHEL OpenSSL.
 		testNegativeInputs(t, elliptic.P224(), "p224")
 	}
 	testNegativeInputs(t, elliptic.P256(), "p256")
@@ -369,7 +369,7 @@ func TestZeroHashSignature(t *testing.T) {
 	zeroHash := make([]byte, 64)
 
 	for _, curve := range []elliptic.Curve{elliptic.P224(), elliptic.P256(), elliptic.P384(), elliptic.P521()} {
-		if boring.Enabled && curve == elliptic.P224() {
+		if boring.Enabled() && curve == elliptic.P224() {
 			continue
 		}
 		privKey, err := GenerateKey(curve, rand.Reader)
