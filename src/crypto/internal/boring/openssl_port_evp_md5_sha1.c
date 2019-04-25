@@ -30,12 +30,12 @@ _goboringcrypto_internal_EVP_MD_CTX_md_data(EVP_MD_CTX *ctx)
 
 #if !defined(OPENSSL_NO_MD5)
 
-# include <openssl/evp.h>
-# include <openssl/objects.h>
-# include <openssl/x509.h>
-# include <openssl/md5.h>
-# include <openssl/sha.h>
-# include <openssl/rsa.h>
+#include <openssl/evp.h>
+#include <openssl/objects.h>
+#include <openssl/x509.h>
+#include <openssl/md5.h>
+#include <openssl/sha.h>
+#include <openssl/rsa.h>
 
 struct md5_sha1_ctx {
   MD5_CTX md5;
@@ -79,7 +79,7 @@ static const EVP_MD md5_sha1_md = {
   _goboringcrypto_internal_final,
   NULL,
   NULL,
-  EVP_PKEY_RSA_method, // Change: inserted
+  EVP_PKEY_NULL_method, // Change: inserted
   MD5_CBLOCK,
   sizeof(EVP_MD *) + sizeof(struct md5_sha1_ctx),
   NULL, // Change: was ctrl
