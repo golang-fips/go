@@ -9,7 +9,7 @@
 #include <openssl/err.h>
 
 int _goboringcrypto_EVP_CIPHER_CTX_seal(
-		uint8_t *out, uint8_t *nonce,
+		uint8_t *out, uint8_t *iv,
 		uint8_t *aad, size_t aad_len,
 		uint8_t *plaintext, size_t plaintext_len,
 		size_t *ciphertext_len, uint8_t *key, int key_size) {
@@ -46,10 +46,19 @@ int _goboringcrypto_EVP_CIPHER_CTX_seal(
 			goto err;
 	}
 
-	// Initialize nonce.
-	if (!_goboringcrypto_EVP_EncryptInit_ex(ctx, NULL, NULL, key, nonce)) {
+	// Initialize IV.
+	if (!_goboringcrypto_EVP_EncryptInit_ex(ctx, NULL, NULL, key, NULL)) {
 		goto err;
 	}
+	if (!_goboringcrypto_EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 12, 0)) {
+		goto err;
+    }
+    if (!_goboringcrypto_EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IV_FIXED, -1, iv)) {
+		goto err;
+    }
+    if (!_goboringcrypto_EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_IV_GEN, 0, iv)) {
+		goto err;
+    }	
 
 	// Provide AAD data.
 	if (!_goboringcrypto_EVP_EncryptUpdate(ctx, NULL, &len, aad, aad_len)) {
@@ -86,7 +95,7 @@ int _goboringcrypto_EVP_CIPHER_CTX_open(
 		uint8_t *ciphertext, int ciphertext_len,
 		uint8_t *aad, int aad_len,
 		uint8_t *tag, uint8_t *key, int key_size,
-		uint8_t *nonce, int nonce_len,
+		uint8_t *iv, int iv_len,
 		uint8_t *plaintext, size_t *plaintext_len) {
 
 	EVP_CIPHER_CTX *ctx;
@@ -114,7 +123,7 @@ int _goboringcrypto_EVP_CIPHER_CTX_open(
 	}
 
 	// Initialize key and nonce.
-	if(!_goboringcrypto_EVP_DecryptInit_ex(ctx, NULL, NULL, key, nonce)) {
+	if(!_goboringcrypto_EVP_DecryptInit_ex(ctx, NULL, NULL, key, iv)) {
 		goto err;
 	}
 
