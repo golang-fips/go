@@ -14,7 +14,6 @@ package boring
 import "C"
 import (
 	"crypto"
-	"crypto/subtle"
 	"errors"
 	"hash"
 	"math/big"
@@ -289,32 +288,22 @@ func VerifyRSAPSS(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte, saltLen 
 	return nil
 }
 
-func SignRSAPKCS1v15(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte) ([]byte, error) {
+func SignRSAPKCS1v15(priv *PrivateKeyRSA, h crypto.Hash, msg []byte) ([]byte, error) {
 	out := make([]byte, C._goboringcrypto_RSA_size(priv.key))
-	if h == 0 {
-		// No hashing.
-		var outLen C.size_t
-		if C._goboringcrypto_RSA_sign_raw(priv.key, &outLen, base(out), C.size_t(len(out)), base(hashed), C.size_t(len(hashed)), C.GO_RSA_PKCS1_PADDING) == 0 {
-			return nil, fail("RSA_sign_raw")
-		}
-		runtime.KeepAlive(priv)
-		return out[:outLen], nil
-	}
 
 	md := cryptoHashToMD(h)
 	if md == nil {
 		return nil, errors.New("crypto/rsa: unsupported hash function: " + strconv.Itoa(int(h)))
 	}
-	nid := C._goboringcrypto_EVP_MD_type(md)
-	var outLen C.uint
-	if C._goboringcrypto_RSA_sign(nid, base(hashed), C.uint(len(hashed)), base(out), &outLen, priv.key) == 0 {
+	var outLen C.size_t
+	if C._goboringcrypto_EVP_RSA_sign(md, base(msg), C.size_t(len(msg)), base(out), &outLen, priv.key) == 0 {
 		return nil, fail("RSA_sign")
 	}
 	runtime.KeepAlive(priv)
 	return out[:outLen], nil
 }
 
-func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte) error {
+func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, msg, sig []byte) error {
 	size := int(C._goboringcrypto_RSA_size(pub.key))
 	if len(sig) < size {
 		// BoringCrypto requires sig to be same size as RSA key, so pad with leading zeros.
@@ -322,24 +311,12 @@ func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte) err
 		copy(zsig[len(zsig)-len(sig):], sig)
 		sig = zsig
 	}
-	if h == 0 {
-		var outLen C.size_t
-		out := make([]byte, size)
-		if C._goboringcrypto_RSA_verify_raw(pub.key, &outLen, base(out), C.size_t(len(out)), base(sig), C.size_t(len(sig)), C.GO_RSA_PKCS1_PADDING) == 0 {
-			return fail("RSA_verify")
-		}
-		if subtle.ConstantTimeCompare(hashed, out[:outLen]) != 1 {
-			return fail("RSA_verify")
-		}
-		runtime.KeepAlive(pub)
-		return nil
-	}
+
 	md := cryptoHashToMD(h)
 	if md == nil {
 		return errors.New("crypto/rsa: unsupported hash function")
 	}
-	nid := C._goboringcrypto_EVP_MD_type(md)
-	if C._goboringcrypto_RSA_verify(nid, base(hashed), C.size_t(len(hashed)), base(sig), C.size_t(len(sig)), pub.key) == 0 {
+	if C._goboringcrypto_EVP_RSA_verify(md, base(msg), C.size_t(len(msg)), base(sig), C.size_t(len(sig)), pub.key) == 0 {
 		return fail("RSA_verify")
 	}
 	runtime.KeepAlive(pub)

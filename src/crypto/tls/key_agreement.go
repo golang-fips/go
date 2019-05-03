@@ -7,6 +7,7 @@ package tls
 import (
 	"crypto"
 	"crypto/elliptic"
+	"crypto/internal/boring"
 	"crypto/md5"
 	"crypto/rsa"
 	"crypto/sha1"
@@ -111,6 +112,13 @@ func md5SHA1Hash(slices [][]byte) []byte {
 // using the given hash function (for >= TLS 1.2) or using a default based on
 // the sigType (for earlier TLS versions).
 func hashForServerKeyExchange(sigType uint8, hashFunc crypto.Hash, version uint16, slices ...[]byte) ([]byte, error) {
+	if boring.Enabled() {
+		var msg []byte
+		for _, slice := range slices {
+			msg = append(msg, slice...)
+		}
+		return msg, nil
+	}
 	if version >= VersionTLS12 {
 		h := hashFunc.New()
 		for _, slice := range slices {
