@@ -9,6 +9,7 @@ import (
 	"bytes"
 	"compress/bzip2"
 	"crypto"
+	"crypto/internal/boring"
 	"crypto/rand"
 	"crypto/sha1"
 	_ "crypto/sha256"
@@ -154,6 +155,9 @@ func TestPSSGolden(t *testing.T) {
 			h.Reset()
 			h.Write(msg)
 			hashed = h.Sum(hashed[:0])
+			if boring.Enabled() {
+				hashed = msg
+			}
 
 			if err := VerifyPSS(key, hash, hashed, sig, opts); err != nil {
 				t.Error(err)
@@ -168,9 +172,12 @@ func TestPSSGolden(t *testing.T) {
 // the default options. OpenSSL sets the salt length to be maximal.
 func TestPSSOpenSSL(t *testing.T) {
 	hash := crypto.SHA256
-	h := hash.New()
-	h.Write([]byte("testing"))
-	hashed := h.Sum(nil)
+	hashed := []byte("testing")
+	if !boring.Enabled() {
+		h := hash.New()
+		h.Write(hashed)
+		hashed = h.Sum(nil)
+	}
 
 	// Generated with `echo -n testing | openssl dgst -sign key.pem -sigopt rsa_padding_mode:pss -sha256 > sig`
 	sig := []byte{
