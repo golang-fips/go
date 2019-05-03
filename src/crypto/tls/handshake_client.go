@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"crypto"
 	"crypto/ecdsa"
+	"crypto/internal/boring"
 	"crypto/rsa"
 	"crypto/subtle"
 	"crypto/x509"
@@ -598,6 +599,9 @@ func (hs *clientHandshakeState) doFullHandshake() error {
 		signOpts := crypto.SignerOpts(hashFunc)
 		if sigType == signatureRSAPSS {
 			signOpts = &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash, Hash: hashFunc}
+		}
+		if boring.Enabled() {
+			digest = hs.finishedHash.buffer
 		}
 		certVerify.signature, err = key.Sign(c.config.rand(), digest, signOpts)
 		if err != nil {

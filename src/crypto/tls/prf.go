@@ -7,6 +7,7 @@ package tls
 import (
 	"crypto"
 	"crypto/hmac"
+	"crypto/internal/boring"
 	"crypto/md5"
 	"crypto/sha1"
 	"crypto/sha256"
@@ -326,6 +327,11 @@ func (h finishedHash) hashForClientCertificate(sigType uint8, hashAlg crypto.Has
 		sha1Hash.Write(h.buffer)
 		return finishedSum30(md5Hash, sha1Hash, masterSecret, nil), nil
 	}
+
+	if boring.Enabled() {
+		return h.buffer, nil
+	}
+
 	if h.version >= VersionTLS12 {
 		hash := hashAlg.New()
 		hash.Write(h.buffer)

@@ -8,6 +8,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
+	"crypto/internal/boring"
 	"crypto/rsa"
 	"encoding/asn1"
 	"errors"
@@ -83,8 +84,14 @@ func verifyHandshakeSignature(sigType uint8, pubkey crypto.PublicKey, hashFunc c
 		if ecdsaSig.R.Sign() <= 0 || ecdsaSig.S.Sign() <= 0 {
 			return errors.New("tls: ECDSA signature contained zero or negative values")
 		}
-		if !ecdsa.Verify(pubKey, digest, ecdsaSig.R, ecdsaSig.S) {
-			return errors.New("tls: ECDSA verification failure")
+		if boring.Enabled() {
+			if !ecdsa.HashVerify(pubKey, digest, ecdsaSig.R, ecdsaSig.S, hashFunc) {
+				return errors.New("tls: ECDSA verification failure")
+			}
+		} else {
+			if !ecdsa.Verify(pubKey, digest, ecdsaSig.R, ecdsaSig.S) {
+				return errors.New("tls: ECDSA verification failure")
+			}
 		}
 	case signaturePKCS1v15:
 		pubKey, ok := pubkey.(*rsa.PublicKey)
