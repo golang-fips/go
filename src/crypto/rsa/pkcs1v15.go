@@ -48,7 +48,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
 		return nil, ErrMessageTooLong
 	}
 
-	if boring.Enabled() && random == boring.RandReader {
+	if boring.Enabled() {
 		bkey, err := boringPublicKey(pub)
 		if err != nil {
 			return nil, err
@@ -274,6 +274,14 @@ var hashPrefixes = map[crypto.Hash][]byte{
 // messages to signatures and identify the signed messages. As ever,
 // signatures provide authenticity, not confidentiality.
 func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed []byte) ([]byte, error) {
+	if boring.Enabled() {
+		bkey, err := boringPrivateKey(priv)
+		if err != nil {
+			return nil, err
+		}
+		return boring.SignRSAPKCS1v15(bkey, hash, hashed)
+	}
+
 	hashLen, prefix, err := pkcs1v15HashInfo(hash, len(hashed))
 	if err != nil {
 		return nil, err
@@ -283,14 +291,6 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
 	k := priv.Size()
 	if k < tLen+11 {
 		return nil, ErrMessageTooLong
-	}
-
-	if boring.Enabled() {
-		bkey, err := boringPrivateKey(priv)
-		if err != nil {
-			return nil, err
-		}
-		return boring.SignRSAPKCS1v15(bkey, hash, hashed)
 	}
 
 	// EM = 0x00 || 0x01 || PS || 0x00 || T

@@ -7,6 +7,7 @@ package rsa
 import (
 	"bytes"
 	"crypto"
+	"crypto/internal/boring"
 	"crypto/rand"
 	"crypto/sha1"
 	"encoding/base64"
@@ -196,6 +197,9 @@ func TestSignPKCS1v15(t *testing.T) {
 		h := sha1.New()
 		h.Write([]byte(test.in))
 		digest := h.Sum(nil)
+		if boring.Enabled() {
+			digest = []byte(test.in)
+		}
 
 		s, err := SignPKCS1v15(nil, rsaPrivateKey, crypto.SHA1, digest)
 		if err != nil {
@@ -214,6 +218,9 @@ func TestVerifyPKCS1v15(t *testing.T) {
 		h := sha1.New()
 		h.Write([]byte(test.in))
 		digest := h.Sum(nil)
+		if boring.Enabled() {
+			digest = []byte(test.in)
+		}
 
 		sig, _ := hex.DecodeString(test.out)
 
@@ -233,6 +240,9 @@ func TestOverlongMessagePKCS1v15(t *testing.T) {
 }
 
 func TestUnpaddedSignature(t *testing.T) {
+	if boring.Enabled() {
+		t.Skip("skipping in boring mode")
+	}
 	msg := []byte("Thu Dec 19 18:06:16 EST 2013\n")
 	// This base64 value was generated with:
 	// % echo Thu Dec 19 18:06:16 EST 2013 > /tmp/msg
