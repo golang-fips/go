@@ -248,6 +248,9 @@ type testEncryptOAEPStruct struct {
 }
 
 func TestEncryptOAEP(t *testing.T) {
+	if boring.Enabled() {
+		t.Skip("skip test, it's using internal seeded random")
+	}
 	sha1 := sha1.New()
 	n := new(big.Int)
 	for i, test := range testEncryptOAEPData {
