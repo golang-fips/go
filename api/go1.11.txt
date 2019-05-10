@@ -1,4 +1,6 @@
 pkg crypto/cipher, func NewGCMWithTagSize(Block, int) (AEAD, error)
+pkg crypto/ecdsa, func HashSign(io.Reader, *PrivateKey, []uint8, crypto.Hash) (*big.Int, *big.Int, error)
+pkg crypto/ecdsa, func HashVerify(*PublicKey, []uint8, *big.Int, *big.Int, crypto.Hash) bool
 pkg crypto/rsa, method (*PrivateKey) Size() int
 pkg crypto/rsa, method (*PublicKey) Size() int
 pkg crypto/tls, method (*ConnectionState) ExportKeyingMaterial(string, []uint8, int) ([]uint8, error)
