@@ -36,10 +36,12 @@ func TestBoringServerProtocolVersion(t *testing.T) {
 		})
 	}
 
-	test("VersionSSL30", VersionSSL30, "")
-	test("VersionTLS10", VersionTLS10, "")
-	test("VersionTLS11", VersionTLS11, "")
-	test("VersionTLS12", VersionTLS12, "")
+	if !boring.Enabled() {
+		test("VersionSSL30", VersionSSL30, "")
+		test("VersionTLS10", VersionTLS10, "")
+		test("VersionTLS11", VersionTLS11, "")
+		test("VersionTLS12", VersionTLS12, "")
+	}
 
 	fipstls.Force()
 	defer fipstls.Abandon()
