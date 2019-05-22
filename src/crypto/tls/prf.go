@@ -17,6 +17,11 @@ import (
 	"hash"
 )
 
+const (
+	TLS_MD_MASTER_SECRET_CONST = "master secret"
+	TLS_MD_KEY_EXPANSION_CONST = "key expansion"
+)
+
 // Split a premaster secret in two as specified in RFC 4346, Section 5.
 func splitPreMasterSecret(secret []byte) (s1, s2 []byte) {
 	s1 = secret[0 : (len(secret)+1)/2]
@@ -142,11 +147,18 @@ func prfForVersion(version uint16, suite *cipherSuite) func(result, secret, labe
 // masterFromPreMasterSecret generates the master secret from the pre-master
 // secret. See RFC 5246, Section 8.1.
 func masterFromPreMasterSecret(version uint16, suite *cipherSuite, preMasterSecret, clientRandom, serverRandom []byte) []byte {
+	masterSecret := make([]byte, masterSecretLength)
 	seed := make([]byte, 0, len(clientRandom)+len(serverRandom))
 	seed = append(seed, clientRandom...)
 	seed = append(seed, serverRandom...)
 
-	masterSecret := make([]byte, masterSecretLength)
+	if boring.Enabled() && version == VersionTLS12 {
+		needsSHA384 := (suite.flags&suiteSHA384 != 0)
+		boring.TLSPRF(masterSecretLabel, needsSHA384, masterSecret, preMasterSecret, clientRandom, serverRandom, seed)
+		return masterSecret
+	}
+	boring.Unreachable()
+
 	prfForVersion(version, suite)(masterSecret, preMasterSecret, masterSecretLabel, seed)
 	return masterSecret
 }
@@ -161,7 +173,15 @@ func keysFromMasterSecret(version uint16, suite *cipherSuite, masterSecret, clie
 
 	n := 2*macLen + 2*keyLen + 2*ivLen
 	keyMaterial := make([]byte, n)
-	prfForVersion(version, suite)(keyMaterial, masterSecret, keyExpansionLabel, seed)
+
+	if boring.Enabled() && version == VersionTLS12 {
+		needsSHA384 := (suite.flags&suiteSHA384 != 0)
+		boring.TLSPRF(keyExpansionLabel, needsSHA384, keyMaterial, masterSecret, clientRandom, serverRandom, seed)
+	} else {
+		boring.Unreachable()
+		prfForVersion(version, suite)(keyMaterial, masterSecret, keyExpansionLabel, seed)
+	}
+
 	clientMAC = keyMaterial[:macLen]
 	keyMaterial = keyMaterial[macLen:]
 	serverMAC = keyMaterial[:macLen]
