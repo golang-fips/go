@@ -67,13 +67,26 @@ _goboringcrypto_DLOPEN_OPENSSL(void)
 	{
 		return handle;
 	}
-	handle = dlopen("libcrypto.so", RTLD_NOW | RTLD_GLOBAL);
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+	handle = dlopen("libcrypto.so.10", RTLD_NOW | RTLD_GLOBAL);
+#else
+	handle = dlopen("libcrypto.so.1.1", RTLD_NOW | RTLD_GLOBAL);
+#endif
 	return handle;
+}
+
+#include <openssl/opensslv.h>
+#include <openssl/ssl.h>
+
+DEFINEFUNCINTERNAL(int, OPENSSL_init, (void), ())
+
+static void
+_goboringcrypto_OPENSSL_setup(void) {
+	_goboringcrypto_internal_OPENSSL_init();
 }
 
 #include <openssl/err.h>
 DEFINEFUNCINTERNAL(void, ERR_print_errors_fp, (FILE* fp), (fp))
-
 
 #include <openssl/crypto.h>
 

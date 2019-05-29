@@ -30,12 +30,17 @@ const (
 var enabled = false
 
 func init() {
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	// Check if we can `dlopen` OpenSSL
 	if C._goboringcrypto_DLOPEN_OPENSSL() == C.NULL {
 		return
 	}
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
+
+	// Initialize the OpenSSL library.
+	C._goboringcrypto_OPENSSL_setup()
+
 	// Check to see if the system is running in FIPS mode, if so
 	// enable "boring" mode to call into OpenSSL for FIPS compliance.
 	if fipsModeEnabled() {
