@@ -287,7 +287,7 @@ func TestBoringCertAlgs(t *testing.T) {
 	// Set up some roots, intermediate CAs, and leaf certs with various algorithms.
 	// X_Y is X signed by Y.
 	R1 := boringCert(t, "R1", boringRSAKey(t, 2048), nil, boringCertCA|boringCertFIPSOK)
-	R2 := boringCert(t, "R2", boringRSAKey(t, 4096), nil, boringCertCA)
+	R2 := boringCert(t, "R2", boringRSAKey(t, 4096), nil, boringCertCA|boringCertFIPSOK)
 
 	M1_R1 := boringCert(t, "M1_R1", boringECDSAKey(t, elliptic.P256()), R1, boringCertCA|boringCertFIPSOK)
 	var M2_R1 *boringCertificate
@@ -299,6 +299,7 @@ func TestBoringCertAlgs(t *testing.T) {
 
 	L1_I := boringCert(t, "L1_I", boringECDSAKey(t, elliptic.P384()), I_R1, boringCertLeaf|boringCertFIPSOK)
 	L2_I := boringCert(t, "L2_I", boringRSAKey(t, 1024), I_R1, boringCertLeaf)
+	_ = boringCert(t, "L3_I", boringECDSAKey(t, elliptic.P521()), I_R1, boringCertLeaf|boringCertFIPSOK)
 
 	// boringCert checked that isBoringCertificate matches the caller's boringCertFIPSOK bit.
 	// If not, no point in building bigger end-to-end tests.
