@@ -31,48 +31,35 @@
 	typedef ret(*_goboringcrypto_PTR_##func) args;   \
 	static _goboringcrypto_PTR_##func _g_##func = 0; \
 	static inline ret _goboringcrypto_##func args    \
-{                                                \
-	if (unlikely(!_g_##func))                    \
-	{                                            \
-		_g_##func = dlsym(handle, #func);        \
-	}                                            \
-	return _g_##func argscall;                   \
-}
-
-#define DEFINEFUNCLIBSSL(ret, func, args, argscall)        \
-	typedef ret(*_goboringcrypto_PTR_##func) args;   \
-	static _goboringcrypto_PTR_##func _g_##func = 0; \
-	static inline ret _goboringcrypto_##func args    \
-{                                                \
-	if (unlikely(!_g_##func))                    \
-	{                                            \
-		_g_##func = dlsym(libssl_handle, #func);        \
-	}                                            \
-	return _g_##func argscall;                   \
-}
+	{                                                \
+		if (unlikely(!_g_##func))                    \
+		{                                            \
+			_g_##func = dlsym(handle, #func);        \
+		}                                            \
+		return _g_##func argscall;                   \
+	}
 
 #define DEFINEFUNCINTERNAL(ret, func, args, argscall)        \
 	typedef ret(*_goboringcrypto_internal_PTR_##func) args;   \
 	static _goboringcrypto_internal_PTR_##func _g_internal_##func = 0; \
 	static inline ret _goboringcrypto_internal_##func args    \
-{                                                \
-	if (unlikely(!_g_internal_##func))                    \
-	{                                            \
-		_g_internal_##func = dlsym(handle, #func);        \
-	}                                            \
-	return _g_internal_##func argscall;                   \
-}
+	{                                                \
+		if (unlikely(!_g_internal_##func))                    \
+		{                                            \
+			_g_internal_##func = dlsym(handle, #func);        \
+		}                                            \
+		return _g_internal_##func argscall;                   \
+	}
 
 #define DEFINEMACRO(ret, func, args, argscall)    \
 	static inline ret _goboringcrypto_##func args \
-{                                             \
-	return func argscall;                     \
-}
+	{                                             \
+		return func argscall;                     \
+	}
 
 #include <dlfcn.h>
 
 static void* handle;
-static void* libssl_handle;
 static void*
 _goboringcrypto_DLOPEN_OPENSSL(void)
 {
@@ -86,21 +73,6 @@ _goboringcrypto_DLOPEN_OPENSSL(void)
 	handle = dlopen("libcrypto.so.1.1", RTLD_NOW | RTLD_GLOBAL);
 #endif
 	return handle;
-}
-
-static void*
-_goboringcrypto_DLOPEN_LIBSSL(void)
-{
-	if (libssl_handle)
-	{
-		return libssl_handle;
-	}
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-	libssl_handle = dlopen("libssl.so.10", RTLD_NOW | RTLD_GLOBAL);
-#else
-	libssl_handle = dlopen("libssl.so.1.1", RTLD_NOW | RTLD_GLOBAL);
-#endif
-	return libssl_handle;
 }
 
 #include <openssl/opensslv.h>
@@ -244,8 +216,8 @@ typedef HMAC_CTX GO_HMAC_CTX;
 DEFINEFUNC(void, HMAC_CTX_init, (GO_HMAC_CTX * arg0), (arg0))
 DEFINEFUNC(void, HMAC_CTX_cleanup, (GO_HMAC_CTX * arg0), (arg0))
 DEFINEFUNC(int, HMAC_Init_ex,
-	(GO_HMAC_CTX * arg0, const void *arg1, int arg2, const GO_EVP_MD *arg3, ENGINE *arg4),
-	(arg0, arg1, arg2, arg3, arg4))
+		   (GO_HMAC_CTX * arg0, const void *arg1, int arg2, const GO_EVP_MD *arg3, ENGINE *arg4),
+		   (arg0, arg1, arg2, arg3, arg4))
 DEFINEFUNC(int, HMAC_Update, (GO_HMAC_CTX * arg0, const uint8_t *arg1, size_t arg2), (arg0, arg1, arg2))
 DEFINEFUNC(int, HMAC_Final, (GO_HMAC_CTX * arg0, uint8_t *arg1, unsigned int *arg2), (arg0, arg1, arg2))
 DEFINEFUNC(size_t, HMAC_CTX_copy, (GO_HMAC_CTX *dest, GO_HMAC_CTX *src), (dest, src))
@@ -255,10 +227,10 @@ DEFINEFUNCINTERNAL(void, HMAC_CTX_free, (GO_HMAC_CTX * arg0), (arg0))
 static inline void
 _goboringcrypto_HMAC_CTX_free(HMAC_CTX *ctx) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-	if (ctx != NULL) {
-		_goboringcrypto_HMAC_CTX_cleanup(ctx);
-		free(ctx);
-	}
+   if (ctx != NULL) {
+       _goboringcrypto_HMAC_CTX_cleanup(ctx);
+       free(ctx);
+   }
 #else
 	_goboringcrypto_internal_HMAC_CTX_free(ctx);
 #endif
@@ -307,11 +279,11 @@ int _goboringcrypto_HMAC_CTX_copy_ex(GO_HMAC_CTX *dest, const GO_HMAC_CTX *src);
 
 DEFINEFUNC(EVP_CIPHER_CTX *, EVP_CIPHER_CTX_new, (void), ())
 DEFINEFUNC(int, EVP_CipherInit_ex,
-		(EVP_CIPHER_CTX * ctx, const EVP_CIPHER *type, ENGINE *impl, const unsigned char *key, const unsigned char *iv, int enc),
-		(ctx, type, impl, key, iv, enc))
+		   (EVP_CIPHER_CTX * ctx, const EVP_CIPHER *type, ENGINE *impl, const unsigned char *key, const unsigned char *iv, int enc),
+		   (ctx, type, impl, key, iv, enc))
 DEFINEFUNC(int, EVP_CipherUpdate,
-		(EVP_CIPHER_CTX * ctx, unsigned char *out, int *outl, const unsigned char *in, int inl),
-		(ctx, out, outl, in, inl))
+		   (EVP_CIPHER_CTX * ctx, unsigned char *out, int *outl, const unsigned char *in, int inl),
+		   (ctx, out, outl, in, inl))
 
 void _goboringcrypto_EVP_AES_ctr128_enc(EVP_CIPHER_CTX *ctx, const uint8_t *in, uint8_t *out, size_t len);
 
@@ -324,10 +296,10 @@ enum
 };
 void _goboringcrypto_EVP_AES_cbc_encrypt(EVP_CIPHER_CTX *ctx, const uint8_t *arg0, uint8_t *arg1, size_t arg2, const uint8_t *a, const int arg5);
 DEFINEFUNC(void, AES_cbc_encrypt,
-		(const unsigned char *in, unsigned char *out,
-		 size_t length, const AES_KEY *key,
-		 unsigned char *ivec, const int enc),
-		(in, out, length, key, ivec, enc))
+		   (const unsigned char *in, unsigned char *out,
+                     size_t length, const AES_KEY *key,
+                     unsigned char *ivec, const int enc),
+		   (in, out, length, key, ivec, enc))
 
 void EVP_AES_cbc_enc(EVP_CIPHER_CTX *ctx, const uint8_t *in, uint8_t *out, size_t len);
 
@@ -366,11 +338,11 @@ typedef EC_POINT GO_EC_POINT;
 DEFINEFUNC(GO_EC_POINT *, EC_POINT_new, (const GO_EC_GROUP *arg0), (arg0))
 DEFINEFUNC(void, EC_POINT_free, (GO_EC_POINT * arg0), (arg0))
 DEFINEFUNC(int, EC_POINT_get_affine_coordinates_GFp,
-		(const GO_EC_GROUP *arg0, const GO_EC_POINT *arg1, GO_BIGNUM *arg2, GO_BIGNUM *arg3, GO_BN_CTX *arg4),
-		(arg0, arg1, arg2, arg3, arg4))
+		   (const GO_EC_GROUP *arg0, const GO_EC_POINT *arg1, GO_BIGNUM *arg2, GO_BIGNUM *arg3, GO_BN_CTX *arg4),
+		   (arg0, arg1, arg2, arg3, arg4))
 DEFINEFUNC(int, EC_POINT_set_affine_coordinates_GFp,
-		(const GO_EC_GROUP *arg0, GO_EC_POINT *arg1, const GO_BIGNUM *arg2, const GO_BIGNUM *arg3, GO_BN_CTX *arg4),
-		(arg0, arg1, arg2, arg3, arg4))
+		   (const GO_EC_GROUP *arg0, GO_EC_POINT *arg1, const GO_BIGNUM *arg2, const GO_BIGNUM *arg3, GO_BN_CTX *arg4),
+		   (arg0, arg1, arg2, arg3, arg4))
 
 typedef EC_KEY GO_EC_KEY;
 
@@ -408,8 +380,8 @@ static inline EVP_MD_CTX* _goboringcrypto_EVP_MD_CTX_create(void) {
 }
 
 DEFINEFUNCINTERNAL(int, EVP_PKEY_assign,
-		(EVP_PKEY *pkey, int type, void *eckey),
-		(pkey, type, eckey))
+	(EVP_PKEY *pkey, int type, void *eckey),
+	(pkey, type, eckey))
 
 static inline int
 _goboringcrypto_EVP_PKEY_assign_EC_KEY(EVP_PKEY *pkey, GO_EC_KEY *eckey) {
@@ -422,22 +394,22 @@ _goboringcrypto_EVP_PKEY_assign_RSA(EVP_PKEY *pkey, RSA *rsa) {
 }
 
 DEFINEFUNC(int, EVP_DigestSignInit,
-		(EVP_MD_CTX* ctx, EVP_PKEY_CTX **pctx, const EVP_MD *type, ENGINE *e, const EVP_PKEY *pkey),
-		(ctx, pctx, type, e, pkey))
+	(EVP_MD_CTX* ctx, EVP_PKEY_CTX **pctx, const EVP_MD *type, ENGINE *e, const EVP_PKEY *pkey),
+	(ctx, pctx, type, e, pkey))
 
 DEFINEFUNC(int, EVP_DigestUpdate,
-		(EVP_MD_CTX* ctx, const void *d, size_t cnt),
-		(ctx, d, cnt))
+	(EVP_MD_CTX* ctx, const void *d, size_t cnt),
+	(ctx, d, cnt))
 DEFINEFUNC(int, EVP_DigestSignFinal,
-		(EVP_MD_CTX* ctx, unsigned char *sig, size_t *siglen),
-		(ctx, sig, siglen))
+	(EVP_MD_CTX* ctx, unsigned char *sig, size_t *siglen),
+	(ctx, sig, siglen))
 
 DEFINEFUNC(int, EVP_DigestVerifyInit,
-		(EVP_MD_CTX* ctx, EVP_PKEY_CTX **pctx, const EVP_MD *type, ENGINE *e, const EVP_PKEY *pkey),
-		(ctx, pctx, type, e, pkey))
+	(EVP_MD_CTX* ctx, EVP_PKEY_CTX **pctx, const EVP_MD *type, ENGINE *e, const EVP_PKEY *pkey),
+	(ctx, pctx, type, e, pkey))
 DEFINEFUNC(int, EVP_DigestVerifyFinal,
-		(EVP_MD_CTX* ctx, const uint8_t *sig, size_t siglen),
-		(ctx, sig, siglen))
+	(EVP_MD_CTX* ctx, const uint8_t *sig, size_t siglen),
+	(ctx, sig, siglen))
 
 int _goboringcrypto_EVP_sign(EVP_MD* md, EVP_PKEY_CTX *ctx, const uint8_t *msg, size_t msgLen, uint8_t *sig, size_t *slen, EVP_PKEY *eckey);
 int _goboringcrypto_EVP_verify(EVP_MD* md, EVP_PKEY_CTX *ctx, const uint8_t *msg, size_t msgLen, const uint8_t *sig, size_t slen, EVP_PKEY *key);
@@ -467,96 +439,96 @@ int _goboringcrypto_EVP_RSA_verify(EVP_MD* md, const uint8_t *msg, size_t msgLen
 DEFINEFUNC(GO_RSA *, RSA_new, (void), ())
 DEFINEFUNC(void, RSA_free, (GO_RSA * arg0), (arg0))
 DEFINEFUNC(int, RSA_private_encrypt,
-		(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding),
-		(flen, from, to, rsa, padding))
+	(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding),
+	(flen, from, to, rsa, padding))
 DEFINEFUNC(int, RSA_public_decrypt,
-		(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding),
-		(flen, from, to, rsa, padding))
+	(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding),
+	(flen, from, to, rsa, padding))
 DEFINEFUNC(int, RSA_sign,
-		(int arg0, const uint8_t *arg1, unsigned int arg2, uint8_t *arg3, unsigned int *arg4, GO_RSA *arg5),
-		(arg0, arg1, arg2, arg3, arg4, arg5))
+	(int arg0, const uint8_t *arg1, unsigned int arg2, uint8_t *arg3, unsigned int *arg4, GO_RSA *arg5),
+	(arg0, arg1, arg2, arg3, arg4, arg5))
 DEFINEFUNC(int, RSA_verify,
-		(int arg0, const uint8_t *arg1, size_t arg2, const uint8_t *arg3, size_t arg4, GO_RSA *arg5),
-		(arg0, arg1, arg2, arg3, arg4, arg5))
+	(int arg0, const uint8_t *arg1, size_t arg2, const uint8_t *arg3, size_t arg4, GO_RSA *arg5),
+	(arg0, arg1, arg2, arg3, arg4, arg5))
 DEFINEFUNC(int, RSA_generate_key_ex,
-		(GO_RSA * arg0, int arg1, GO_BIGNUM *arg2, GO_BN_GENCB *arg3),
-		(arg0, arg1, arg2, arg3))
+	(GO_RSA * arg0, int arg1, GO_BIGNUM *arg2, GO_BN_GENCB *arg3),
+	(arg0, arg1, arg2, arg3))
 
 DEFINEFUNCINTERNAL(int, RSA_set0_factors,
-		(GO_RSA * rsa, GO_BIGNUM *p, GO_BIGNUM *q),
-		(rsa, p, q))
+	(GO_RSA * rsa, GO_BIGNUM *p, GO_BIGNUM *q),
+	(rsa, p, q))
 
 static inline int
 _goboringcrypto_RSA_set0_factors(GO_RSA * r, GO_BIGNUM *p, GO_BIGNUM *q) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-	/* If the fields p and q in r are NULL, the corresponding input
-	 * parameters MUST be non-NULL.
-	 */
-	if ((r->p == NULL && p == NULL)
-			|| (r->q == NULL && q == NULL))
-		return 0;
+    /* If the fields p and q in r are NULL, the corresponding input
+     * parameters MUST be non-NULL.
+     */
+    if ((r->p == NULL && p == NULL)
+        || (r->q == NULL && q == NULL))
+        return 0;
 
-	if (p != NULL) {
-		_goboringcrypto_BN_clear_free(r->p);
-		r->p = p;
-	}
-	if (q != NULL) {
-		_goboringcrypto_BN_clear_free(r->q);
-		r->q = q;
-	}
+    if (p != NULL) {
+        _goboringcrypto_BN_clear_free(r->p);
+        r->p = p;
+    }
+    if (q != NULL) {
+        _goboringcrypto_BN_clear_free(r->q);
+        r->q = q;
+    }
 
-	return 1;
+    return 1;
 #else
 	return _goboringcrypto_internal_RSA_set0_factors(r, p, q);
 #endif
 }
 
 DEFINEFUNCINTERNAL(int, RSA_set0_crt_params,
-		(GO_RSA * rsa, GO_BIGNUM *dmp1, GO_BIGNUM *dmp2, GO_BIGNUM *iqmp),
-		(rsa, dmp1, dmp2, iqmp))
+		   (GO_RSA * rsa, GO_BIGNUM *dmp1, GO_BIGNUM *dmp2, GO_BIGNUM *iqmp),
+		   (rsa, dmp1, dmp2, iqmp))
 
 static inline int
 _goboringcrypto_RSA_set0_crt_params(GO_RSA * r, GO_BIGNUM *dmp1, GO_BIGNUM *dmq1, GO_BIGNUM *iqmp) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-	/* If the fields dmp1, dmq1 and iqmp in r are NULL, the corresponding input
-	 * parameters MUST be non-NULL.
-	 */
-	if ((r->dmp1 == NULL && dmp1 == NULL)
-			|| (r->dmq1 == NULL && dmq1 == NULL)
-			|| (r->iqmp == NULL && iqmp == NULL))
-		return 0;
+    /* If the fields dmp1, dmq1 and iqmp in r are NULL, the corresponding input
+     * parameters MUST be non-NULL.
+     */
+    if ((r->dmp1 == NULL && dmp1 == NULL)
+        || (r->dmq1 == NULL && dmq1 == NULL)
+        || (r->iqmp == NULL && iqmp == NULL))
+        return 0;
 
-	if (dmp1 != NULL) {
-		_goboringcrypto_BN_clear_free(r->dmp1);
-		r->dmp1 = dmp1;
-	}
-	if (dmq1 != NULL) {
-		_goboringcrypto_BN_clear_free(r->dmq1);
-		r->dmq1 = dmq1;
-	}
-	if (iqmp != NULL) {
-		_goboringcrypto_BN_clear_free(r->iqmp);
-		r->iqmp = iqmp;
-	}
+    if (dmp1 != NULL) {
+        _goboringcrypto_BN_clear_free(r->dmp1);
+        r->dmp1 = dmp1;
+    }
+    if (dmq1 != NULL) {
+        _goboringcrypto_BN_clear_free(r->dmq1);
+        r->dmq1 = dmq1;
+    }
+    if (iqmp != NULL) {
+        _goboringcrypto_BN_clear_free(r->iqmp);
+        r->iqmp = iqmp;
+    }
 
-	return 1;
+    return 1;
 #else
 	return _goboringcrypto_internal_RSA_set0_crt_params(r, dmp1, dmq1, iqmp);
 #endif
 }
 
 DEFINEFUNCINTERNAL(void, RSA_get0_crt_params,
-		(const GO_RSA *r, const GO_BIGNUM **dmp1, const GO_BIGNUM **dmq1, const GO_BIGNUM **iqmp),
-		(r, dmp1, dmq1, iqmp))
+		   (const GO_RSA *r, const GO_BIGNUM **dmp1, const GO_BIGNUM **dmq1, const GO_BIGNUM **iqmp),
+		   (r, dmp1, dmq1, iqmp))
 static inline void
 _goboringcrypto_RSA_get0_crt_params(const GO_RSA *r, const GO_BIGNUM **dmp1, const GO_BIGNUM **dmq1, const GO_BIGNUM **iqmp) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-	if (dmp1 != NULL)
-		*dmp1 = r->dmp1;
-	if (dmq1 != NULL)
-		*dmq1 = r->dmq1;
-	if (iqmp != NULL)
-		*iqmp = r->iqmp;
+    if (dmp1 != NULL)
+        *dmp1 = r->dmp1;
+    if (dmq1 != NULL)
+        *dmq1 = r->dmq1;
+    if (iqmp != NULL)
+        *iqmp = r->iqmp;
 #else
 	_goboringcrypto_internal_RSA_get0_crt_params(r, dmp1, dmq1, iqmp);
 #endif
@@ -564,43 +536,42 @@ _goboringcrypto_RSA_get0_crt_params(const GO_RSA *r, const GO_BIGNUM **dmp1, con
 
 
 DEFINEFUNCINTERNAL(int, RSA_set0_key,
-		(GO_RSA * r, GO_BIGNUM *n, GO_BIGNUM *e, GO_BIGNUM *d),
-		(r, n, e, d))
+		   (GO_RSA * r, GO_BIGNUM *n, GO_BIGNUM *e, GO_BIGNUM *d),
+		   (r, n, e, d))
 static inline int
 _goboringcrypto_RSA_set0_key(GO_RSA * r, GO_BIGNUM *n, GO_BIGNUM *e, GO_BIGNUM *d) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
-	/* If the fields n and e in r are NULL, the corresponding input
-	 * parameters MUST be non-NULL for n and e.  d may be
-	 * left NULL (in case only the public key is used).
-	 */
-	if ((r->n == NULL && n == NULL)
-			|| (r->e == NULL && e == NULL))
-		return 0;
+    /* If the fields n and e in r are NULL, the corresponding input
+     * parameters MUST be non-NULL for n and e.  d may be
+     * left NULL (in case only the public key is used).
+     */
+    if ((r->n == NULL && n == NULL)
+        || (r->e == NULL && e == NULL))
+        return 0;
 
-	if (n != NULL) {
-		_goboringcrypto_BN_free(r->n);
-		r->n = n;
-	}
-	if (e != NULL) {
-		_goboringcrypto_BN_free(r->e);
-		r->e = e;
-	}
-	if (d != NULL) {
-		_goboringcrypto_BN_clear_free(r->d);
-		r->d = d;
-	}
+    if (n != NULL) {
+        _goboringcrypto_BN_free(r->n);
+        r->n = n;
+    }
+    if (e != NULL) {
+        _goboringcrypto_BN_free(r->e);
+        r->e = e;
+    }
+    if (d != NULL) {
+        _goboringcrypto_BN_clear_free(r->d);
+        r->d = d;
+    }
 
-	return 1;
+    return 1;
 #else
 	return _goboringcrypto_internal_RSA_set0_key(r, n, e, d);
 #endif
 }
 
 DEFINEFUNCINTERNAL(void, RSA_get0_factors,
-		(const GO_RSA *rsa, const GO_BIGNUM **p, const GO_BIGNUM **q),
-		(rsa, p, q))
-
-static inline void
+		   (const GO_RSA *rsa, const GO_BIGNUM **p, const GO_BIGNUM **q),
+		   (rsa, p, q))
+static inline void 
 _goboringcrypto_RSA_get0_factors(const GO_RSA *rsa, const GO_BIGNUM **p, const GO_BIGNUM **q) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 	if (p)
@@ -613,10 +584,9 @@ _goboringcrypto_RSA_get0_factors(const GO_RSA *rsa, const GO_BIGNUM **p, const G
 }
 
 DEFINEFUNCINTERNAL(void, RSA_get0_key,
-		(const GO_RSA *rsa, const GO_BIGNUM **n, const GO_BIGNUM **e, const GO_BIGNUM **d),
-		(rsa, n, e, d))
-
-static inline void
+		   (const GO_RSA *rsa, const GO_BIGNUM **n, const GO_BIGNUM **e, const GO_BIGNUM **d),
+		   (rsa, n, e, d))
+static inline void 
 _goboringcrypto_RSA_get0_key(const GO_RSA *rsa, const GO_BIGNUM **n, const GO_BIGNUM **e, const GO_BIGNUM **d) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 	if (n)
@@ -647,24 +617,24 @@ DEFINEFUNC(unsigned int, RSA_size, (const GO_RSA *arg0), (arg0))
 DEFINEFUNC(int, RSA_check_key, (const GO_RSA *arg0), (arg0))
 
 DEFINEFUNC(int, EVP_EncryptInit_ex,
-		(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *type, ENGINE *impl, const unsigned char *key, const unsigned char *iv),
-		(ctx, type, impl, key, iv))
+	(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *type, ENGINE *impl, const unsigned char *key, const unsigned char *iv),
+	(ctx, type, impl, key, iv))
 DEFINEFUNC(int, EVP_EncryptUpdate,
-		(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl, const unsigned char *in, int inl),
-		(ctx, out, outl, in, inl))
+	(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl, const unsigned char *in, int inl),
+	(ctx, out, outl, in, inl))
 DEFINEFUNC(int, EVP_EncryptFinal_ex,
-		(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl),
-		(ctx, out, outl))
+	(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl),
+	(ctx, out, outl))
 
 DEFINEFUNC(int, EVP_DecryptInit_ex,
-		(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *type, ENGINE *impl, const unsigned char *key, const unsigned char *iv),
-		(ctx, type, impl, key, iv))
+	(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *type, ENGINE *impl, const unsigned char *key, const unsigned char *iv),
+	(ctx, type, impl, key, iv))
 DEFINEFUNC(int, EVP_DecryptUpdate,
-		(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl, const unsigned char *in, int inl),
-		(ctx, out, outl, in, inl))
+	(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl, const unsigned char *in, int inl),
+	(ctx, out, outl, in, inl))
 DEFINEFUNC(int, EVP_DecryptFinal_ex,
-		(EVP_CIPHER_CTX *ctx, unsigned char *outm, int *outl),
-		(ctx, outm, outl))
+	(EVP_CIPHER_CTX *ctx, unsigned char *outm, int *outl),
+	(ctx, outm, outl))
 
 DEFINEFUNC(const EVP_CIPHER*, EVP_aes_128_gcm, (void), ())
 DEFINEFUNC(const EVP_CIPHER*, EVP_aes_128_cbc, (void), ())
@@ -683,17 +653,17 @@ DEFINEFUNC(void, EVP_CIPHER_CTX_free, (EVP_CIPHER_CTX* arg0), (arg0))
 DEFINEFUNC(int, EVP_CIPHER_CTX_ctrl, (EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr), (ctx, type, arg, ptr))
 
 int _goboringcrypto_EVP_CIPHER_CTX_seal(
-		uint8_t *out, uint8_t *nonce,
-		uint8_t *aad, size_t aad_len,
-		uint8_t *plaintext, size_t plaintext_len,
-		size_t *ciphertext_len, uint8_t *key, int key_size);
+	uint8_t *out, uint8_t *nonce,
+	uint8_t *aad, size_t aad_len,
+	uint8_t *plaintext, size_t plaintext_len,
+	size_t *ciphertext_len, uint8_t *key, int key_size);
 
 int _goboringcrypto_EVP_CIPHER_CTX_open(
-		uint8_t *ciphertext, int ciphertext_len,
-		uint8_t *aad, int aad_len,
-		uint8_t *tag, uint8_t *key, int key_size,
-		uint8_t *nonce, int nonce_len,
-		uint8_t *plaintext, size_t *plaintext_len);
+	uint8_t *ciphertext, int ciphertext_len,
+	uint8_t *aad, int aad_len,
+	uint8_t *tag, uint8_t *key, int key_size,
+	uint8_t *nonce, int nonce_len,
+	uint8_t *plaintext, size_t *plaintext_len);
 
 typedef EVP_PKEY GO_EVP_PKEY;
 
@@ -701,32 +671,33 @@ DEFINEFUNC(GO_EVP_PKEY *, EVP_PKEY_new, (void), ())
 DEFINEFUNC(void, EVP_PKEY_free, (GO_EVP_PKEY * arg0), (arg0))
 DEFINEFUNC(int, EVP_PKEY_set1_RSA, (GO_EVP_PKEY * arg0, GO_RSA *arg1), (arg0, arg1))
 DEFINEFUNC(int, EVP_PKEY_verify,
-		(EVP_PKEY_CTX *ctx, const unsigned char *sig, size_t siglen, const unsigned char *tbs, size_t tbslen),
-		(ctx, sig, siglen, tbs, tbslen))
+	(EVP_PKEY_CTX *ctx, const unsigned char *sig, size_t siglen, const unsigned char *tbs, size_t tbslen),
+	(ctx, sig, siglen, tbs, tbslen))
 
 typedef EVP_PKEY_CTX GO_EVP_PKEY_CTX;
 
 DEFINEFUNC(GO_EVP_PKEY_CTX *, EVP_PKEY_CTX_new, (GO_EVP_PKEY * arg0, ENGINE *arg1), (arg0, arg1))
 DEFINEFUNC(void, EVP_PKEY_CTX_free, (GO_EVP_PKEY_CTX * arg0), (arg0))
 DEFINEFUNC(int, EVP_PKEY_CTX_ctrl,
-		(EVP_PKEY_CTX * ctx, int keytype, int optype, int cmd, int p1, void *p2),
-		(ctx, keytype, optype, cmd, p1, p2))
+		   (EVP_PKEY_CTX * ctx, int keytype, int optype, int cmd, int p1, void *p2),
+		   (ctx, keytype, optype, cmd, p1, p2))
 DEFINEFUNCINTERNAL(int, RSA_pkey_ctx_ctrl,
-		(EVP_PKEY_CTX *ctx, int optype, int cmd, int p1, void *p2),
-		(ctx, optype, cmd, p1, p2))
+		   (EVP_PKEY_CTX *ctx, int optype, int cmd, int p1, void *p2),
+		   (ctx, optype, cmd, p1, p2))
 
 static inline int
 _goboringcrypto_EVP_PKEY_CTX_set_rsa_padding(GO_EVP_PKEY_CTX* ctx, int pad) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 	return _goboringcrypto_EVP_PKEY_CTX_ctrl(ctx, EVP_PKEY_RSA, -1, EVP_PKEY_CTRL_RSA_PADDING, pad, NULL);
 #else
-	return _goboringcrypto_internal_RSA_pkey_ctx_ctrl(ctx, -1, EVP_PKEY_CTRL_RSA_PADDING, pad, NULL);
+    return _goboringcrypto_internal_RSA_pkey_ctx_ctrl(ctx, -1, EVP_PKEY_CTRL_RSA_PADDING, pad, NULL);
 #endif
 }
 
 static inline int
 _goboringcrypto_EVP_PKEY_CTX_set0_rsa_oaep_label(GO_EVP_PKEY_CTX *ctx, uint8_t *l, size_t llen)
 {
+
 	return _goboringcrypto_EVP_PKEY_CTX_ctrl(ctx, EVP_PKEY_RSA, EVP_PKEY_OP_TYPE_CRYPT, EVP_PKEY_CTRL_RSA_OAEP_LABEL, llen, (void *)l);
 }
 
@@ -739,9 +710,9 @@ _goboringcrypto_EVP_PKEY_CTX_set_rsa_oaep_md(GO_EVP_PKEY_CTX *ctx, const GO_EVP_
 static inline int
 _goboringcrypto_EVP_PKEY_CTX_set_rsa_pss_saltlen(GO_EVP_PKEY_CTX * arg0, int arg1) {
 	return _goboringcrypto_EVP_PKEY_CTX_ctrl(arg0, EVP_PKEY_RSA, 
-			(EVP_PKEY_OP_SIGN|EVP_PKEY_OP_VERIFY), 
-			EVP_PKEY_CTRL_RSA_PSS_SALTLEN, 
-			arg1, NULL);
+		(EVP_PKEY_OP_SIGN|EVP_PKEY_OP_VERIFY), 
+		EVP_PKEY_CTRL_RSA_PSS_SALTLEN, 
+		arg1, NULL);
 }
 
 static inline int
@@ -751,141 +722,20 @@ _goboringcrypto_EVP_PKEY_CTX_set_signature_md(EVP_PKEY_CTX *ctx, const EVP_MD *m
 static inline int
 _goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(GO_EVP_PKEY_CTX * ctx, const GO_EVP_MD *md) {
 	return _goboringcrypto_EVP_PKEY_CTX_ctrl(ctx, EVP_PKEY_RSA,
-			EVP_PKEY_OP_TYPE_SIG | EVP_PKEY_OP_TYPE_CRYPT,
-			EVP_PKEY_CTRL_RSA_MGF1_MD, 0, (void *)md);
+                        EVP_PKEY_OP_TYPE_SIG | EVP_PKEY_OP_TYPE_CRYPT,
+                                EVP_PKEY_CTRL_RSA_MGF1_MD, 0, (void *)md);
 }
 
 DEFINEFUNC(int, EVP_PKEY_decrypt,
-		(GO_EVP_PKEY_CTX * arg0, uint8_t *arg1, size_t *arg2, const uint8_t *arg3, size_t arg4),
-		(arg0, arg1, arg2, arg3, arg4))
+		   (GO_EVP_PKEY_CTX * arg0, uint8_t *arg1, size_t *arg2, const uint8_t *arg3, size_t arg4),
+		   (arg0, arg1, arg2, arg3, arg4))
 DEFINEFUNC(int, EVP_PKEY_encrypt,
-		(GO_EVP_PKEY_CTX * arg0, uint8_t *arg1, size_t *arg2, const uint8_t *arg3, size_t arg4),
-		(arg0, arg1, arg2, arg3, arg4))
+		   (GO_EVP_PKEY_CTX * arg0, uint8_t *arg1, size_t *arg2, const uint8_t *arg3, size_t arg4),
+		   (arg0, arg1, arg2, arg3, arg4))
 DEFINEFUNC(int, EVP_PKEY_decrypt_init, (GO_EVP_PKEY_CTX * arg0), (arg0))
 DEFINEFUNC(int, EVP_PKEY_encrypt_init, (GO_EVP_PKEY_CTX * arg0), (arg0))
 DEFINEFUNC(int, EVP_PKEY_sign_init, (GO_EVP_PKEY_CTX * arg0), (arg0))
 DEFINEFUNC(int, EVP_PKEY_verify_init, (GO_EVP_PKEY_CTX * arg0), (arg0))
-DEFINEFUNC(int, EVP_PKEY_derive_init, (GO_EVP_PKEY_CTX * arg0), (arg0))
-DEFINEFUNC(int, EVP_PKEY_derive, (EVP_PKEY_CTX *ctx, unsigned char *key, size_t *keylen), (ctx, key, keylen))
-DEFINEFUNC(EVP_PKEY_CTX*, EVP_PKEY_CTX_new_id, (int id, ENGINE *e), (id, e))
 DEFINEFUNC(int, EVP_PKEY_sign,
-		(GO_EVP_PKEY_CTX * arg0, uint8_t *arg1, size_t *arg2, const uint8_t *arg3, size_t arg4),
-		(arg0, arg1, arg2, arg3, arg4))
-
-// TLS
-#include <openssl/objects.h>
-#include <openssl/fips.h>
-#include <openssl/err.h>
-#include <openssl/evp.h>
-#include <openssl/ssl.h>
-#include <openssl/kdf.h>
-#include <string.h>
-#include <ctype.h>
-
-#define TLS_MASTER_SECRET_LEN 384/8
-#define SSL_HANDSHAKE_MAC_SHA256 0x80
-#define SSL_HANDSHAKE_MAC_SHA384 0x100
-#define TLS1_PRF_DGST_SHIFT 10
-#define TLS1_PRF_SHA256 (SSL_HANDSHAKE_MAC_SHA256 << TLS1_PRF_DGST_SHIFT)
-#define TLS1_PRF_SHA384 (SSL_HANDSHAKE_MAC_SHA384 << TLS1_PRF_DGST_SHIFT)
-#define TLS_MD_MASTER_SECRET_CONST              "master secret"
-#define TLS_MD_MASTER_SECRET_CONST_SIZE         13
-#define TLS_MD_KEY_EXPANSION_CONST              "key expansion"
-#define TLS_MD_KEY_EXPANSION_CONST_SIZE         13
-
-
-#define _goboringcrypto_EVP_PKEY_CTX_set_tls1_prf_md(pctx, md) \
-            _goboringcrypto_EVP_PKEY_CTX_ctrl(pctx, -1, EVP_PKEY_OP_DERIVE, \
-                              EVP_PKEY_CTRL_TLS_MD, 0, (void *)(md))
-
-#define _goboringcrypto_EVP_PKEY_CTX_set1_tls1_prf_secret(pctx, sec, seclen) \
-            _goboringcrypto_EVP_PKEY_CTX_ctrl(pctx, -1, EVP_PKEY_OP_DERIVE, \
-                              EVP_PKEY_CTRL_TLS_SECRET, seclen, (void *)(sec))
-
-#define _goboringcrypto_EVP_PKEY_CTX_add1_tls1_prf_seed(pctx, seed, seedlen) \
-            _goboringcrypto_EVP_PKEY_CTX_ctrl(pctx, -1, EVP_PKEY_OP_DERIVE, \
-                              EVP_PKEY_CTRL_TLS_SEED, seedlen, (void *)(seed))
-
-DEFINEFUNCLIBSSL(int, private_tls1_PRF, (long digest_mask,
-			const void *seed1, int seed1_len,
-			const void *seed2, int seed2_len,
-			const void *seed3, int seed3_len,
-			const void *seed4, int seed4_len,
-			const void *seed5, int seed5_len,
-			const unsigned char *sec, int slen,
-			unsigned char *out1,
-			unsigned char *out2, int olen),
-		(digest_mask,
-		 seed1, seed1_len,
-		 seed2, seed2_len,
-		 seed3, seed3_len,
-		 seed4, seed4_len,
-		 seed5, seed5_len,
-		 sec,   slen,
-		 out1,
-		 out2, olen))
-
-static int
-_goboringcrypto_tls1_PRF(const unsigned char *ctrl, int needsSHA384, unsigned char *result,
-		const unsigned char *secret, size_t secretlen,
-		const unsigned char *crandom, size_t crandomlen,
-		const unsigned char *srandom, size_t srandomlen,
-		const unsigned char *seed, size_t seedlen
-		)
-{
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-	unsigned char *tmpbuf = calloc(1, TLS_MASTER_SECRET_LEN);
-	int algmask = needsSHA384 ? TLS1_PRF_SHA384 : TLS1_PRF_SHA256;
-	if (strcmp(ctrl, TLS_MD_MASTER_SECRET_CONST)) {
-		_goboringcrypto_private_tls1_PRF(algmask,
-				TLS_MD_MASTER_SECRET_CONST, TLS_MD_MASTER_SECRET_CONST_SIZE,
-				crandom, crandomlen,
-				NULL, 0,
-				srandom, srandomlen,
-				NULL, 0,
-				secret, secretlen,
-				result, tmpbuf, TLS_MASTER_SECRET_LEN);
-	}
-	else if (strcmp(ctrl, TLS_MD_KEY_EXPANSION_CONST)) {
-		_goboringcrypto_private_tls1_PRF(algmask,
-				TLS_MD_KEY_EXPANSION_CONST,TLS_MD_KEY_EXPANSION_CONST_SIZE,
-				srandom, srandomlen,
-				crandom, crandomlen,
-				NULL, 0, NULL, 0,
-				secret, TLS_MASTER_SECRET_LEN,
-				result, tmpbuf, TLS_MASTER_SECRET_LEN);
-	}
-
-	free(tmpbuf);
-	return 1;
-#else
-	EVP_PKEY_CTX *pctx;
-	int ret = 1;
-	size_t resultlen = TLS_MASTER_SECRET_LEN;
-	const GO_EVP_MD *md = needsSHA384 ? _goboringcrypto_EVP_sha384() : _goboringcrypto_EVP_sha256();
-	pctx = _goboringcrypto_EVP_PKEY_CTX_new_id(EVP_PKEY_TLS1_PRF, NULL);
-	if (_goboringcrypto_EVP_PKEY_derive_init(pctx) <= 0) {
-		ret = 0;
-		goto end;
-	}
-	if (_goboringcrypto_EVP_PKEY_CTX_set_tls1_prf_md(pctx, md) <= 0) {
-		ret = 0;
-		goto end;
-	}
-	if (_goboringcrypto_EVP_PKEY_CTX_set1_tls1_prf_secret(pctx, secret, secretlen) <= 0) {
-		ret = 0;
-		goto end;
-	}
-	if (_goboringcrypto_EVP_PKEY_CTX_add1_tls1_prf_seed(pctx, seed, seedlen) <= 0) {
-		ret = 0;
-		goto end;
-	}
-	if (_goboringcrypto_EVP_PKEY_derive(pctx, result, &resultlen) <= 0) {
-		ret = 0;
-		goto end;
-	}
-end:
-	_goboringcrypto_EVP_PKEY_CTX_free(pctx);
-	return 1;
-#endif
-}
+		   (GO_EVP_PKEY_CTX * arg0, uint8_t *arg1, size_t *arg2, const uint8_t *arg3, size_t arg4),
+		   (arg0, arg1, arg2, arg3, arg4))
