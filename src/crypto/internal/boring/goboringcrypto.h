@@ -778,9 +778,7 @@ DEFINEFUNC(int, EVP_PKEY_sign,
 #include <openssl/err.h>
 #include <openssl/evp.h>
 #include <openssl/ssl.h>
-#if OPENSSL_VERSION_NUMBER >= 0x10100000L
 #include <openssl/kdf.h>
-#endif
 #include <string.h>
 #include <ctype.h>
 
