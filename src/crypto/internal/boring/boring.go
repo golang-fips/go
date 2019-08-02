@@ -38,10 +38,6 @@ func init() {
 		return
 	}
 
-	if C._goboringcrypto_DLOPEN_LIBSSL() == C.NULL {
-		return
-	}
-
 	// Initialize the OpenSSL library.
 	C._goboringcrypto_OPENSSL_setup()
 
