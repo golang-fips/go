@@ -7,10 +7,6 @@ pkg crypto/tls, const TLS_AES_256_GCM_SHA384 = 4866
 pkg crypto/tls, const TLS_AES_256_GCM_SHA384 uint16
 pkg crypto/tls, const TLS_CHACHA20_POLY1305_SHA256 = 4867
 pkg crypto/tls, const TLS_CHACHA20_POLY1305_SHA256 uint16
-pkg crypto/tls, const TLS_MD_KEY_EXPANSION_CONST = "key expansion"
-pkg crypto/tls, const TLS_MD_KEY_EXPANSION_CONST ideal-string
-pkg crypto/tls, const TLS_MD_MASTER_SECRET_CONST = "master secret"
-pkg crypto/tls, const TLS_MD_MASTER_SECRET_CONST ideal-string
 pkg crypto/tls, const VersionTLS13 = 772
 pkg crypto/tls, const VersionTLS13 ideal-int
 pkg crypto/tls, type RecordHeaderError struct, Conn net.Conn
