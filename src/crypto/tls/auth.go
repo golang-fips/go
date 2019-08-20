@@ -98,8 +98,14 @@ func verifyHandshakeSignature(sigType uint8, pubkey crypto.PublicKey, hashFunc c
 		if !ok {
 			return errors.New("tls: RSA signing requires a RSA public key")
 		}
-		if err := rsa.VerifyPKCS1v15(pubKey, hashFunc, digest, sig); err != nil {
-			return err
+		if boring.Enabled() {
+			if err := rsa.HashVerifyPKCS1v15(pubKey, hashFunc, digest, sig); err != nil {
+				return err
+			}
+		} else {
+			if err := rsa.VerifyPKCS1v15(pubKey, hashFunc, digest, sig); err != nil {
+				return err
+			}
 		}
 	case signatureRSAPSS:
 		pubKey, ok := pubkey.(*rsa.PublicKey)

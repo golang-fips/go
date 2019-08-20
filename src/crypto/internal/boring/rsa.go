@@ -303,7 +303,7 @@ func SignRSAPKCS1v15(priv *PrivateKeyRSA, h crypto.Hash, msg []byte) ([]byte, er
 	return out[:outLen], nil
 }
 
-func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, msg, sig []byte) error {
+func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, msg, sig []byte, msgIsHashed bool) error {
 	size := int(C._goboringcrypto_RSA_size(pub.key))
 	if len(sig) < size {
 		// BoringCrypto requires sig to be same size as RSA key, so pad with leading zeros.
@@ -316,6 +316,17 @@ func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, msg, sig []byte) error 
 	if md == nil {
 		return errors.New("crypto/rsa: unsupported hash function")
 	}
+
+	if msgIsHashed {
+		PanicIfStrictFIPS("You must provide a raw unhashed message for PKCS1v15 verification and use HashVerifyPKCS1v15 instead of VerifyPKCS1v15")
+		nid := C._goboringcrypto_EVP_MD_type(md)
+		if C._goboringcrypto_RSA_verify(nid, base(msg), C.size_t(len(msg)), base(sig), C.size_t(len(sig)), pub.key) == 0 {
+			return fail("RSA_verify")
+		}
+		runtime.KeepAlive(pub)
+		return nil
+	}
+
 	if C._goboringcrypto_EVP_RSA_verify(md, base(msg), C.size_t(len(msg)), base(sig), C.size_t(len(sig)), pub.key) == 0 {
 		return fail("RSA_verify")
 	}

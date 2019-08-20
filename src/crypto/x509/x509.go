@@ -898,7 +898,7 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 			}
 		} else {
 			if boring.Enabled() {
-				return rsa.VerifyPKCS1v15(pub, hashType, signed, signature)
+				return rsa.HashVerifyPKCS1v15(pub, hashType, signed, signature)
 			} else {
 				return rsa.VerifyPKCS1v15(pub, hashType, digest, signature)
 			}

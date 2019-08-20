@@ -323,7 +323,7 @@ func VerifyPKCS1v15(pub *PublicKey, hash crypto.Hash, hashed []byte, sig []byte)
 		if err != nil {
 			return err
 		}
-		if err := boring.VerifyRSAPKCS1v15(bkey, hash, hashed, sig); err != nil {
+		if err := boring.VerifyRSAPKCS1v15(bkey, hash, hashed, sig, true); err != nil {
 			return ErrVerification
 		}
 		return nil
@@ -360,6 +360,25 @@ func VerifyPKCS1v15(pub *PublicKey, hash crypto.Hash, hashed []byte, sig []byte)
 	}
 
 	return nil
+}
+
+func HashVerifyPKCS1v15(pub *PublicKey, hash crypto.Hash, msg []byte, sig []byte) error {
+	if boring.Enabled() {
+		bkey, err := boringPublicKey(pub)
+		if err != nil {
+			return err
+		}
+		if err := boring.VerifyRSAPKCS1v15(bkey, hash, msg, sig, false); err != nil {
+			return ErrVerification
+		}
+		return nil
+	}
+
+	boring.UnreachableExceptTests()
+	h := hash.New()
+	h.Write(msg)
+	d := h.Sum(nil)
+	return VerifyPKCS1v15(pub, hash, d, sig)
 }
 
 func pkcs1v15HashInfo(hash crypto.Hash, inLen int) (hashLen int, prefix []byte, err error) {
