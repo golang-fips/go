@@ -181,7 +181,7 @@ func Sign(rand io.Reader, priv *PrivateKey, hash []byte) (r, s *big.Int, err err
 	randutil.MaybeReadByte(rand)
 
 	if boring.Enabled() {
-		boring.Unreachable()
+		panic("ecdsa.Sign disabled in FIPS mode, use HashSign with raw message instead")
 	}
 	boring.UnreachableExceptTests()
 
@@ -281,7 +281,7 @@ func HashSign(rand io.Reader, priv *PrivateKey, msg []byte, h crypto.Hash) (r, s
 // return value records whether the signature is valid.
 func Verify(pub *PublicKey, hash []byte, r, s *big.Int) bool {
 	if boring.Enabled() {
-		boring.Unreachable()
+		panic("ecdsa.Verify disabled in FIPS mode, use HashVerify with raw message instead")
 	}
 	boring.UnreachableExceptTests()
 
