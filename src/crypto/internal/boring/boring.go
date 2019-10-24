@@ -121,8 +121,6 @@ func PanicIfStrictFIPS(msg string) {
 	if os.Getenv("GOLANG_STRICT_FIPS") == "1" || strictFIPS {
 		panic(msg)
 	}
-	print("Warning: Operation not allowed in FIPS mode: ")
-	println(msg)
 }
 
 type fail string
