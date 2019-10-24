@@ -181,9 +181,8 @@ func Sign(rand io.Reader, priv *PrivateKey, hash []byte) (r, s *big.Int, err err
 	randutil.MaybeReadByte(rand)
 
 	if boring.Enabled() {
-		panic("ecdsa.Sign disabled in FIPS mode, use HashSign with raw message instead")
+		boring.PanicIfStrictFIPS("ecdsa.Sign disabled in FIPS mode, use HashSign with raw message instead")
 	}
-	boring.UnreachableExceptTests()
 
 	// Get min(log2(q) / 2, 256) bits of entropy from rand.
 	entropylen := (priv.Curve.Params().BitSize + 7) / 16
@@ -281,9 +280,8 @@ func HashSign(rand io.Reader, priv *PrivateKey, msg []byte, h crypto.Hash) (r, s
 // return value records whether the signature is valid.
 func Verify(pub *PublicKey, hash []byte, r, s *big.Int) bool {
 	if boring.Enabled() {
-		panic("ecdsa.Verify disabled in FIPS mode, use HashVerify with raw message instead")
+		boring.PanicIfStrictFIPS("ecdsa.Verify disabled in FIPS mode, use HashVerify with raw message instead")
 	}
-	boring.UnreachableExceptTests()
 
 	// See [NSA] 3.4.2
 	c := pub.Curve
