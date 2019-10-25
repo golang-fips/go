@@ -147,13 +147,20 @@ func SignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) (r, s *big.Int
 func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) ([]byte, error) {
 	size := C._goboringcrypto_ECDSA_size(priv.key)
 	sig := make([]byte, size)
-	md := cryptoHashToMD(h)
-	if md == nil {
-		panic("boring: invalid hash")
-	}
 	var sigLen C.size_t
-	if C._goboringcrypto_ECDSA_sign(md, base(hash), C.size_t(len(hash)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), &sigLen, priv.key) == 0 {
-		return nil, fail("ECDSA_sign")
+	if h == crypto.Hash(0) {
+		ok := C._goboringcrypto_internal_ECDSA_sign(0, base(hash), C.size_t(len(hash)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), &sigLen, priv.key) > 0
+		if !ok {
+			return nil, NewOpenSSLError(("ECDSA_sign failed"))
+		}
+	} else {
+		md := cryptoHashToMD(h)
+		if md == nil {
+			panic("boring: invalid hash")
+		}
+		if C._goboringcrypto_ECDSA_sign(md, base(hash), C.size_t(len(hash)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), &sigLen, priv.key) == 0 {
+			return nil, NewOpenSSLError("ECDSA_sign failed")
+		}
 	}
 	runtime.KeepAlive(priv)
 	return sig[:sigLen], nil
@@ -166,6 +173,10 @@ func VerifyECDSA(pub *PublicKeyECDSA, msg []byte, r, s *big.Int, h crypto.Hash) 
 	sig, err := asn1.Marshal(ecdsaSignature{r, s})
 	if err != nil {
 		return false
+	}
+	if h == crypto.Hash(0) {
+		ok := C._goboringcrypto_internal_ECDSA_verify(0, base(msg), C.size_t(len(msg)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), C.size_t(len(sig)), pub.key) > 0
+		return ok
 	}
 	md := cryptoHashToMD(h)
 	if md == nil {
@@ -187,7 +198,7 @@ func GenerateKeyECDSA(curve string) (X, Y, D *big.Int, err error) {
 	}
 	defer C._goboringcrypto_EC_KEY_free(key)
 	if C._goboringcrypto_EC_KEY_generate_key(key) == 0 {
-		return nil, nil, nil, fail("EC_KEY_generate_key")
+		return nil, nil, nil, NewOpenSSLError("EC_KEY_generate_key")
 	}
 	group := C._goboringcrypto_EC_KEY_get0_group(key)
 	pt := C._goboringcrypto_EC_KEY_get0_public_key(key)

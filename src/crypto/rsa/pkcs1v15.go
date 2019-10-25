@@ -279,7 +279,7 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
 		if err != nil {
 			return nil, err
 		}
-		return boring.SignRSAPKCS1v15(bkey, hash, hashed)
+		return boring.SignRSAPKCS1v15(bkey, hash, hashed, true)
 	}
 
 	hashLen, prefix, err := pkcs1v15HashInfo(hash, len(hashed))
@@ -312,6 +312,9 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
 	return em, nil
 }
 
+// func HashSignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed []byte) ([]byte, error) {
+// }
+
 // VerifyPKCS1v15 verifies an RSA PKCS#1 v1.5 signature.
 // hashed is the result of hashing the input message using the given hash
 // function and sig is the signature. A valid signature is indicated by
@@ -324,7 +327,7 @@ func VerifyPKCS1v15(pub *PublicKey, hash crypto.Hash, hashed []byte, sig []byte)
 			return err
 		}
 		if err := boring.VerifyRSAPKCS1v15(bkey, hash, hashed, sig, true); err != nil {
-			return ErrVerification
+			return err
 		}
 		return nil
 	}

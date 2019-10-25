@@ -370,6 +370,14 @@ DEFINEFUNC(GO_ECDSA_SIG *, ECDSA_do_sign, (const uint8_t *arg0, size_t arg1, con
 DEFINEFUNC(int, ECDSA_do_verify, (const uint8_t *arg0, size_t arg1, const GO_ECDSA_SIG *arg2, const GO_EC_KEY *arg3), (arg0, arg1, arg2, arg3))
 DEFINEFUNC(size_t, ECDSA_size, (const GO_EC_KEY *arg0), (arg0))
 
+DEFINEFUNCINTERNAL(int, ECDSA_sign, 
+	(int type, const unsigned char *dgst, size_t dgstlen, unsigned char *sig, size_t *siglen, EC_KEY *eckey), 
+	(type, dgst, dgstlen, sig, siglen, eckey))
+
+DEFINEFUNCINTERNAL(int, ECDSA_verify, 
+	(int type, const unsigned char *dgst, size_t dgstlen, const unsigned char *sig, size_t siglen, EC_KEY *eckey), 
+	(type, dgst, dgstlen, sig, siglen, eckey))
+
 DEFINEFUNCINTERNAL(EVP_MD_CTX*, EVP_MD_CTX_new, (void), ())
 DEFINEFUNCINTERNAL(EVP_MD_CTX*, EVP_MD_CTX_create, (void), ())
 
@@ -447,7 +455,7 @@ DEFINEFUNC(int, RSA_public_decrypt,
 	(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding),
 	(flen, from, to, rsa, padding))
 DEFINEFUNC(int, RSA_sign,
-	(int arg0, const uint8_t *arg1, unsigned int arg2, uint8_t *arg3, unsigned int *arg4, GO_RSA *arg5),
+	(int arg0, const uint8_t *arg1, size_t arg2, uint8_t *arg3, size_t *arg4, GO_RSA *arg5),
 	(arg0, arg1, arg2, arg3, arg4, arg5))
 DEFINEFUNC(int, RSA_verify,
 	(int arg0, const uint8_t *arg1, size_t arg2, const uint8_t *arg3, size_t arg4, GO_RSA *arg5),

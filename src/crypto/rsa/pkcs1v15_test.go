@@ -197,9 +197,6 @@ func TestSignPKCS1v15(t *testing.T) {
 		h := sha1.New()
 		h.Write([]byte(test.in))
 		digest := h.Sum(nil)
-		if boring.Enabled() {
-			digest = []byte(test.in)
-		}
 
 		s, err := SignPKCS1v15(nil, rsaPrivateKey, crypto.SHA1, digest)
 		if err != nil {
@@ -218,9 +215,6 @@ func TestVerifyPKCS1v15(t *testing.T) {
 		h := sha1.New()
 		h.Write([]byte(test.in))
 		digest := h.Sum(nil)
-		if boring.Enabled() {
-			digest = []byte(test.in)
-		}
 
 		sig, _ := hex.DecodeString(test.out)
 

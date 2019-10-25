@@ -80,15 +80,6 @@ func (priv *PrivateKey) Public() crypto.PublicKey {
 // where the private part is kept in, for example, a hardware module. Common
 // uses should use the Sign function in this package directly.
 func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
-	if boring.Enabled() {
-		b, err := boringPrivateKey(priv)
-		if err != nil {
-			return nil, err
-		}
-		return boring.SignMarshalECDSA(b, digest, opts.HashFunc())
-	}
-	boring.UnreachableExceptTests()
-
 	r, s, err := Sign(rand, priv, digest)
 	if err != nil {
 		return nil, err
@@ -182,7 +173,13 @@ func Sign(rand io.Reader, priv *PrivateKey, hash []byte) (r, s *big.Int, err err
 
 	if boring.Enabled() {
 		boring.PanicIfStrictFIPS("ecdsa.Sign disabled in FIPS mode, use HashSign with raw message instead")
+		b, err := boringPrivateKey(priv)
+		if err != nil {
+			return nil, nil, err
+		}
+		return boring.SignECDSA(b, hash, crypto.Hash(0))
 	}
+	boring.UnreachableExceptTests()
 
 	// Get min(log2(q) / 2, 256) bits of entropy from rand.
 	entropylen := (priv.Curve.Params().BitSize + 7) / 16
@@ -281,6 +278,11 @@ func HashSign(rand io.Reader, priv *PrivateKey, msg []byte, h crypto.Hash) (r, s
 func Verify(pub *PublicKey, hash []byte, r, s *big.Int) bool {
 	if boring.Enabled() {
 		boring.PanicIfStrictFIPS("ecdsa.Verify disabled in FIPS mode, use HashVerify with raw message instead")
+		b, err := boringPublicKey(pub)
+		if err != nil {
+			return false
+		}
+		return boring.VerifyECDSA(b, hash, r, s, crypto.Hash(0))
 	}
 
 	// See [NSA] 3.4.2

@@ -15,7 +15,6 @@ import (
 	"crypto/dsa"
 	"crypto/ecdsa"
 	"crypto/elliptic"
-	"crypto/internal/boring"
 	"crypto/rsa"
 	_ "crypto/sha1"
 	_ "crypto/sha256"
@@ -891,17 +890,9 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 			return signaturePublicKeyAlgoMismatchError(pubKeyAlgo, pub)
 		}
 		if algo.isRSAPSS() {
-			if boring.Enabled() {
-				return rsa.VerifyPSS(pub, hashType, signed, signature, &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash})
-			} else {
-				return rsa.VerifyPSS(pub, hashType, digest, signature, &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash})
-			}
+			return rsa.VerifyPSS(pub, hashType, digest, signature, &rsa.PSSOptions{SaltLength: rsa.PSSSaltLengthEqualsHash})
 		} else {
-			if boring.Enabled() {
-				return rsa.HashVerifyPKCS1v15(pub, hashType, signed, signature)
-			} else {
-				return rsa.VerifyPKCS1v15(pub, hashType, digest, signature)
-			}
+			return rsa.VerifyPKCS1v15(pub, hashType, digest, signature)
 		}
 	case *dsa.PublicKey:
 		if pubKeyAlgo != DSA {
@@ -933,14 +924,8 @@ func checkSignature(algo SignatureAlgorithm, signed, signature []byte, publicKey
 		if ecdsaSig.R.Sign() <= 0 || ecdsaSig.S.Sign() <= 0 {
 			return errors.New("x509: ECDSA signature contained zero or negative values")
 		}
-		if boring.Enabled() {
-			if !ecdsa.HashVerify(pub, signed, ecdsaSig.R, ecdsaSig.S, hashType) {
-				return errors.New("x509: ECDSA verification failure")
-			}
-		} else {
-			if !ecdsa.Verify(pub, digest, ecdsaSig.R, ecdsaSig.S) {
-				return errors.New("x509: ECDSA verification failure")
-			}
+		if !ecdsa.Verify(pub, digest, ecdsaSig.R, ecdsaSig.S) {
+			return errors.New("x509: ECDSA verification failure")
 		}
 		return
 	}
@@ -2150,12 +2135,9 @@ func CreateCertificate(rand io.Reader, template, parent *Certificate, pub, priv 
 
 	c.Raw = tbsCertContents
 
-	digest := tbsCertContents
-	if !boring.Enabled() { // Do not hash first in FIPS mode, let OpenSSL handle it.
-		h := hashFunc.New()
-		h.Write(tbsCertContents)
-		digest = h.Sum(nil)
-	}
+	h := hashFunc.New()
+	h.Write(tbsCertContents)
+	digest := h.Sum(nil)
 
 	var signerOpts crypto.SignerOpts
 	signerOpts = hashFunc
@@ -2568,12 +2550,9 @@ func CreateCertificateRequest(rand io.Reader, template *CertificateRequest, priv
 	}
 	tbsCSR.Raw = tbsCSRContents
 
-	digest := tbsCSRContents
-	if !boring.Enabled() {
-		h := hashFunc.New()
-		h.Write(tbsCSRContents)
-		digest = h.Sum(nil)
-	}
+	h := hashFunc.New()
+	h.Write(tbsCSRContents)
+	digest := h.Sum(nil)
 
 	var signature []byte
 	signature, err = key.Sign(rand, digest, hashFunc)

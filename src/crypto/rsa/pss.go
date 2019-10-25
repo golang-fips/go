@@ -311,6 +311,8 @@ func verifyPSS(pub *PublicKey, hash crypto.Hash, hashed []byte, sig []byte, salt
 		}
 		return nil
 	}
+	boring.UnreachableExceptTests()
+
 	nBits := pub.N.BitLen()
 	if len(sig) != (nBits+7)/8 {
 		return ErrVerification
