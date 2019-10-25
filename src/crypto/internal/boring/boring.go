@@ -16,9 +16,11 @@ import "C"
 import (
 	"crypto/internal/boring/fipstls"
 	"crypto/internal/boring/sig"
+	"errors"
 	"math/big"
 	"os"
 	"runtime"
+	"strings"
 )
 
 const (
@@ -121,6 +123,26 @@ func PanicIfStrictFIPS(msg string) {
 	if os.Getenv("GOLANG_STRICT_FIPS") == "1" || strictFIPS {
 		panic(msg)
 	}
+}
+
+func NewOpenSSLError(msg string) error {
+	var b strings.Builder
+	var e C.ulong
+
+	b.WriteString(msg)
+	b.WriteString("\nopenssl error(s):\n")
+
+	for {
+		e = C._goboringcrypto_internal_ERR_get_error()
+		if e == 0 {
+			break
+		}
+		var buf [256]byte
+		C._goboringcrypto_internal_ERR_error_string_n(e, base(buf[:]), 256)
+		b.Write(buf[:])
+		b.WriteByte('\n')
+	}
+	return errors.New(b.String())
 }
 
 type fail string

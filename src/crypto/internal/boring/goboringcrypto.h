@@ -87,6 +87,8 @@ _goboringcrypto_OPENSSL_setup(void) {
 
 #include <openssl/err.h>
 DEFINEFUNCINTERNAL(void, ERR_print_errors_fp, (FILE* fp), (fp))
+DEFINEFUNCINTERNAL(unsigned long, ERR_get_error, (void), ())
+DEFINEFUNCINTERNAL(void, ERR_error_string_n, (unsigned long e, unsigned char *buf, size_t len), (e, buf, len))
 
 #include <openssl/crypto.h>
 
