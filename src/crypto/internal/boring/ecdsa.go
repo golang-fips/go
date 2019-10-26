@@ -79,13 +79,13 @@ func newECKey(curve string, X, Y *big.Int) (*C.GO_EC_KEY, error) {
 	}
 	key := C._goboringcrypto_EC_KEY_new_by_curve_name(nid)
 	if key == nil {
-		return nil, fail("EC_KEY_new_by_curve_name")
+		return nil, NewOpenSSLError("EC_KEY_new_by_curve_name failed")
 	}
 	group := C._goboringcrypto_EC_KEY_get0_group(key)
 	pt := C._goboringcrypto_EC_POINT_new(group)
 	if pt == nil {
 		C._goboringcrypto_EC_KEY_free(key)
-		return nil, fail("EC_POINT_new")
+		return nil, NewOpenSSLError("EC_POINT_new failed")
 	}
 	bx := bigToBN(X)
 	by := bigToBN(Y)
@@ -100,7 +100,7 @@ func newECKey(curve string, X, Y *big.Int) (*C.GO_EC_KEY, error) {
 	C._goboringcrypto_EC_POINT_free(pt)
 	if !ok {
 		C._goboringcrypto_EC_KEY_free(key)
-		return nil, fail("EC_POINT_set_affine_coordinates_GFp")
+		return nil, NewOpenSSLError("EC_POINT_free failed")
 	}
 	return key, nil
 }
@@ -117,7 +117,7 @@ func NewPrivateKeyECDSA(curve string, X, Y *big.Int, D *big.Int) (*PrivateKeyECD
 	}
 	if !ok {
 		C._goboringcrypto_EC_KEY_free(key)
-		return nil, fail("EC_KEY_set_private_key")
+		return nil, NewOpenSSLError("EC_KEY_set_private_key failed")
 	}
 	k := &PrivateKeyECDSA{key}
 	// Note: Because of the finalizer, any time k.key is passed to cgo,
@@ -194,30 +194,30 @@ func GenerateKeyECDSA(curve string) (X, Y, D *big.Int, err error) {
 	}
 	key := C._goboringcrypto_EC_KEY_new_by_curve_name(nid)
 	if key == nil {
-		return nil, nil, nil, fail("EC_KEY_new_by_curve_name")
+		return nil, nil, nil, NewOpenSSLError("EC_KEY_new_by_curve_name failed")
 	}
 	defer C._goboringcrypto_EC_KEY_free(key)
 	if C._goboringcrypto_EC_KEY_generate_key(key) == 0 {
-		return nil, nil, nil, NewOpenSSLError("EC_KEY_generate_key")
+		return nil, nil, nil, NewOpenSSLError("EC_KEY_generate_key failed")
 	}
 	group := C._goboringcrypto_EC_KEY_get0_group(key)
 	pt := C._goboringcrypto_EC_KEY_get0_public_key(key)
 	bd := C._goboringcrypto_EC_KEY_get0_private_key(key)
 	if pt == nil || bd == nil {
-		return nil, nil, nil, fail("EC_KEY_get0_private_key")
+		return nil, nil, nil, NewOpenSSLError("EC_KEY_get0_private_key failed")
 	}
 	bx := C._goboringcrypto_BN_new()
 	if bx == nil {
-		return nil, nil, nil, fail("BN_new")
+		return nil, nil, nil, NewOpenSSLError("BN_new failed")
 	}
 	defer C._goboringcrypto_BN_free(bx)
 	by := C._goboringcrypto_BN_new()
 	if by == nil {
-		return nil, nil, nil, fail("BN_new")
+		return nil, nil, nil, NewOpenSSLError("BN_new failed")
 	}
 	defer C._goboringcrypto_BN_free(by)
 	if C._goboringcrypto_EC_POINT_get_affine_coordinates_GFp(group, pt, bx, by, nil) == 0 {
-		return nil, nil, nil, fail("EC_POINT_get_affine_coordinates_GFp")
+		return nil, nil, nil, NewOpenSSLError("EC_POINT_get_affine_coordinates_GFp failed")
 	}
 	return bnToBig(bx), bnToBig(by), bnToBig(bd), nil
 }
