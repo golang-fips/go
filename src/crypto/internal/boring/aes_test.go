@@ -3,6 +3,7 @@
 // +build !no_openssl
 // +build !cmd_go_bootstrap
 // +build !msan
+// +build cgo
 
 package boring
 
