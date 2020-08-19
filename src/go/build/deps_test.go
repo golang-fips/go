@@ -360,6 +360,7 @@ var depsRules = `
 
 
 	sync/atomic < crypto/internal/boring/fipstls;
+	crypto/internal/boring/fipstls < crypto/internal/boring/sig;
 
 	encoding/binary, golang.org/x/sys/cpu, hash,
 	FMT, math/big,
