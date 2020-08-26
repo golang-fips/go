@@ -188,7 +188,9 @@ func testSignAndVerifyASN1(t *testing.T, c elliptic.Curve, tag string) {
 }
 
 func TestSignAndVerifyASN1(t *testing.T) {
-	testSignAndVerifyASN1(t, elliptic.P224(), "p224")
+	if !boring.Enabled() {
+		testSignAndVerifyASN1(t, elliptic.P224(), "p224")
+	}
 	if testing.Short() {
 		return
 	}
