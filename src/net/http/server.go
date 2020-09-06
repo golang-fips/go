@@ -324,7 +324,7 @@ func (c *conn) hijackLocked() (rwc net.Conn, buf *bufio.ReadWriter, err error) {
 			return nil, nil, fmt.Errorf("unexpected Peek failure reading buffered byte: %v", err)
 		}
 	}
-	c.setState(rwc, StateHijacked)
+	c.setState(rwc, StateHijacked, runHooks)
 	return
 }
 
@@ -1737,7 +1737,12 @@ func validNextProto(proto string) bool {
 	return true
 }
 
-func (c *conn) setState(nc net.Conn, state ConnState) {
+const (
+	runHooks  = true
+	skipHooks = false
+)
+
+func (c *conn) setState(nc net.Conn, state ConnState, runHook bool) {
 	srv := c.server
 	switch state {
 	case StateNew:
@@ -1750,6 +1755,9 @@ func (c *conn) setState(nc net.Conn, state ConnState) {
 	}
 	packedState := uint64(time.Now().Unix()<<8) | uint64(state)
 	atomic.StoreUint64(&c.curState.atomic, packedState)
+	if !runHook {
+		return
+	}
 	if hook := srv.ConnState; hook != nil {
 		hook(nc, state)
 	}
@@ -1803,7 +1811,7 @@ func (c *conn) serve(ctx context.Context) {
 		}
 		if !c.hijacked() {
 			c.close()
-			c.setState(c.rwc, StateClosed)
+			c.setState(c.rwc, StateClosed, runHooks)
 		}
 	}()
 
@@ -1831,6 +1839,10 @@ func (c *conn) serve(ctx context.Context) {
 		if proto := c.tlsState.NegotiatedProtocol; validNextProto(proto) {
 			if fn := c.server.TLSNextProto[proto]; fn != nil {
 				h := initALPNRequest{ctx, tlsConn, serverHandler{c.server}}
+				// Mark freshly created HTTP/2 as active and prevent any server state hooks
+				// from being run on these connections. This prevents closeIdleConns from
+				// closing such connections. See issue https://golang.org/issue/39776.
+				c.setState(c.rwc, StateActive, skipHooks)
 				fn(c.server, tlsConn, h)
 			}
 			return
@@ -1851,7 +1863,7 @@ func (c *conn) serve(ctx context.Context) {
 		w, err := c.readRequest(ctx)
 		if c.r.remain != c.server.initialReadLimitSize() {
 			// If we read any bytes off the wire, we're active.
-			c.setState(c.rwc, StateActive)
+			c.setState(c.rwc, StateActive, runHooks)
 		}
 		if err != nil {
 			const errorHeaders = "\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\n"
@@ -1934,7 +1946,7 @@ func (c *conn) serve(ctx context.Context) {
 			}
 			return
 		}
-		c.setState(c.rwc, StateIdle)
+		c.setState(c.rwc, StateIdle, runHooks)
 		c.curReq.Store((*response)(nil))
 
 		if !w.conn.server.doKeepAlives() {
@@ -2965,7 +2977,7 @@ func (srv *Server) Serve(l net.Listener) error {
 		}
 		tempDelay = 0
 		c := srv.newConn(rw)
-		c.setState(c.rwc, StateNew) // before Serve can return
+		c.setState(c.rwc, StateNew, runHooks) // before Serve can return
 		go c.serve(connCtx)
 	}
 }
