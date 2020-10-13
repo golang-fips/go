@@ -184,7 +184,7 @@ func setupRSA(key *C.GO_RSA,
 func cryptRSA(gokey interface{}, key *C.GO_RSA,
 	padding C.int, h hash.Hash, label []byte, saltLen int, ch crypto.Hash,
 	init func(*C.GO_EVP_PKEY_CTX) C.int,
-	crypt func(*C.GO_EVP_PKEY_CTX, *C.uint8_t, *C.size_t, *C.uint8_t, C.size_t) C.int,
+	crypt func(*C.GO_EVP_PKEY_CTX, *C.uint8_t, *C.uint, *C.uint8_t, C.uint) C.int,
 	in []byte) ([]byte, error) {
 
 	pkey, ctx, err := setupRSA(key, padding, h, label, saltLen, ch, init)
@@ -194,12 +194,12 @@ func cryptRSA(gokey interface{}, key *C.GO_RSA,
 	defer C._goboringcrypto_EVP_PKEY_free(pkey)
 	defer C._goboringcrypto_EVP_PKEY_CTX_free(ctx)
 
-	var outLen C.size_t
-	if crypt(ctx, nil, &outLen, base(in), C.size_t(len(in))) == 0 {
+	var outLen C.uint
+	if crypt(ctx, nil, &outLen, base(in), C.uint(len(in))) == 0 {
 		return nil, NewOpenSSLError("EVP_PKEY_decrypt/encrypt failed")
 	}
 	out := make([]byte, outLen)
-	if crypt(ctx, base(out), &outLen, base(in), C.size_t(len(in))) <= 0 {
+	if crypt(ctx, base(out), &outLen, base(in), C.uint(len(in))) <= 0 {
 		return nil, NewOpenSSLError("EVP_PKEY_decrypt/encrypt failed")
 	}
 	runtime.KeepAlive(gokey) // keep key from being freed before now
@@ -236,7 +236,7 @@ func decryptInit(ctx *C.GO_EVP_PKEY_CTX) C.int {
 	return C._goboringcrypto_EVP_PKEY_decrypt_init(ctx)
 }
 
-func decrypt(ctx *C.GO_EVP_PKEY_CTX, out *C.uint8_t, outLen *C.size_t, in *C.uint8_t, inLen C.size_t) C.int {
+func decrypt(ctx *C.GO_EVP_PKEY_CTX, out *C.uint8_t, outLen *C.uint, in *C.uint8_t, inLen C.uint) C.int {
 	return C._goboringcrypto_EVP_PKEY_decrypt(ctx, out, outLen, in, inLen)
 }
 
@@ -244,7 +244,7 @@ func encryptInit(ctx *C.GO_EVP_PKEY_CTX) C.int {
 	return C._goboringcrypto_EVP_PKEY_encrypt_init(ctx)
 }
 
-func encrypt(ctx *C.GO_EVP_PKEY_CTX, out *C.uint8_t, outLen *C.size_t, in *C.uint8_t, inLen C.size_t) C.int {
+func encrypt(ctx *C.GO_EVP_PKEY_CTX, out *C.uint8_t, outLen *C.uint, in *C.uint8_t, inLen C.uint) C.int {
 	return C._goboringcrypto_EVP_PKEY_encrypt(ctx, out, outLen, in, inLen)
 }
 
@@ -257,11 +257,11 @@ func SignRSAPSS(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte, saltLen int) 
 		saltLen = -1
 	}
 	out := make([]byte, C._goboringcrypto_RSA_size(priv.key))
-	var outLen C.size_t
+	var outLen C.uint
 	if C._goboringcrypto_RSA_sign_pss_mgf1(
 		priv.key,
-		&outLen, base(out), C.size_t(len(out)),
-		base(hashed), C.size_t(len(hashed)),
+		&outLen, base(out), C.uint(len(out)),
+		base(hashed), C.uint(len(hashed)),
 		md, nil, C.int(saltLen)) == 0 {
 		return nil, NewOpenSSLError("RSA_sign_pss_mgf1 failed")
 	}
@@ -280,8 +280,8 @@ func VerifyRSAPSS(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte, saltLen 
 	}
 	if C._goboringcrypto_RSA_verify_pss_mgf1(pub.key,
 		base(hashed),
-		C.size_t(len(hashed)),
-		md, nil, C.int(saltLen), base(sig), C.size_t(len(sig))) == 0 {
+		C.uint(len(hashed)),
+		md, nil, C.int(saltLen), base(sig), C.uint(len(sig))) == 0 {
 		return NewOpenSSLError("RSA_verify_pss_mgf1 failed")
 	}
 	runtime.KeepAlive(pub)
@@ -296,19 +296,19 @@ func SignRSAPKCS1v15(priv *PrivateKeyRSA, h crypto.Hash, msg []byte, msgIsHashed
 		return nil, errors.New("crypto/rsa: unsupported hash function: " + strconv.Itoa(int(h)))
 	}
 
-	var outLen C.size_t
+	var outLen C.uint
 
 	if msgIsHashed {
 		PanicIfStrictFIPS("You must provide a raw unhashed message for PKCS1v15 signing and use HashSignPKCS1v15 instead of SignPKCS1v15")
 		nid := C._goboringcrypto_EVP_MD_type(md)
-		if C._goboringcrypto_RSA_sign(nid, base(msg), C.size_t(len(msg)), base(out), &outLen, priv.key) == 0 {
+		if C._goboringcrypto_RSA_sign(nid, base(msg), C.uint(len(msg)), base(out), &outLen, priv.key) == 0 {
 			return nil, NewOpenSSLError("RSA_sign failed")
 		}
 		runtime.KeepAlive(priv)
 		return out[:outLen], nil
 	}
 
-	if C._goboringcrypto_EVP_RSA_sign(md, base(msg), C.size_t(len(msg)), base(out), &outLen, priv.key) == 0 {
+	if C._goboringcrypto_EVP_RSA_sign(md, base(msg), C.uint(len(msg)), base(out), &outLen, priv.key) == 0 {
 		return nil, NewOpenSSLError("RSA_sign failed")
 	}
 	runtime.KeepAlive(priv)
@@ -332,14 +332,14 @@ func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, msg, sig []byte, msgIsH
 	if msgIsHashed {
 		PanicIfStrictFIPS("You must provide a raw unhashed message for PKCS1v15 verification and use HashVerifyPKCS1v15 instead of VerifyPKCS1v15")
 		nid := C._goboringcrypto_EVP_MD_type(md)
-		if C._goboringcrypto_RSA_verify(nid, base(msg), C.size_t(len(msg)), base(sig), C.size_t(len(sig)), pub.key) == 0 {
+		if C._goboringcrypto_RSA_verify(nid, base(msg), C.uint(len(msg)), base(sig), C.uint(len(sig)), pub.key) == 0 {
 			return NewOpenSSLError("RSA_verify failed")
 		}
 		runtime.KeepAlive(pub)
 		return nil
 	}
 
-	if C._goboringcrypto_EVP_RSA_verify(md, base(msg), C.size_t(len(msg)), base(sig), C.size_t(len(sig)), pub.key) == 0 {
+	if C._goboringcrypto_EVP_RSA_verify(md, base(msg), C.uint(len(msg)), base(sig), C.uint(len(sig)), pub.key) == 0 {
 		return NewOpenSSLError("RSA_verify failed")
 	}
 	runtime.KeepAlive(pub)
