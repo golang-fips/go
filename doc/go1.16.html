@@ -891,6 +891,14 @@ func TestFoo(t *testing.T) {
       is missing; this is common on musl-based systems and makes
       Go programs match the behavior of C programs on those systems.
     </p>
+    <p><!-- CL325829 -->
+      The <a href="/pkg/net/#ParseIP"><code>ParseIP</code></a> and <a href="/pkg/net/#ParseCIDR"><code>ParseCIDR</code></a>
+      functions now reject IPv4 addresses which contain decimal components with leading zeros.
+      These components were always interpreted as decimal, but some operating systems treat them as octal.
+      This mismatch could hypothetically lead to security issues if a Go application was used to validate IP addresses
+      which were then used in their original form with non-Go applications which interpreted components as octal. Generally,
+      it is advisable to always re-encoded values after validation, which avoids this class of parser misalignment issues.
+    </p>
   </dd>
 </dl><!-- net -->
 
