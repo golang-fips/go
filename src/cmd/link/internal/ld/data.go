@@ -2330,6 +2330,12 @@ func assignAddress(ctxt *Link, sect *sym.Section, n int, s loader.Sym, va uint64
 	return sect, n, va
 }
 
+// On Wasm, we reserve 4096 bytes for zero page, then 8192 bytes for wasm_exec.js
+// to store command line args and environment variables.
+// Data sections starts from at least address 12288.
+// Keep in sync with wasm_exec.js.
+const wasmMinDataAddr = 4096 + 8192
+
 // address assigns virtual addresses to all segments and sections and
 // returns all segments in file order.
 func (ctxt *Link) address() []*sym.Segment {
@@ -2339,10 +2345,14 @@ func (ctxt *Link) address() []*sym.Segment {
 	order = append(order, &Segtext)
 	Segtext.Rwx = 05
 	Segtext.Vaddr = va
-	for _, s := range Segtext.Sections {
+	for i, s := range Segtext.Sections {
 		va = uint64(Rnd(int64(va), int64(s.Align)))
 		s.Vaddr = va
 		va += s.Length
+
+		if ctxt.IsWasm() && i == 0 && va < wasmMinDataAddr {
+			va = wasmMinDataAddr
+		}
 	}
 
 	Segtext.Length = va - uint64(*FlagTextAddr)
