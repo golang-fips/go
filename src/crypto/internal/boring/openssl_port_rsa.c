@@ -25,14 +25,16 @@ int _goboringcrypto_RSA_digest_and_sign_pss_mgf1(GO_RSA *rsa, unsigned int *out_
 	EVP_PKEY_CTX *ctx;
 	unsigned int siglen;
 
+	int ret = 0;
 	EVP_PKEY *key = _goboringcrypto_EVP_PKEY_new();
-	if (!_goboringcrypto_EVP_PKEY_assign_RSA(key, rsa))
-		return 0;
+	if (!key) {
+		goto err;
+	}
+	if (!_goboringcrypto_EVP_PKEY_set1_RSA(key, rsa))
+		goto err;
 	ctx = _goboringcrypto_EVP_PKEY_CTX_new(key, NULL /* no engine */);
 	if (!ctx)
-		return 0;
-
-	int ret = 0;
+		goto err;
 
 	EVP_MD_CTX *mdctx = NULL;
 	if (!(mdctx = _goboringcrypto_EVP_MD_CTX_create()))
@@ -67,6 +69,10 @@ int _goboringcrypto_RSA_digest_and_sign_pss_mgf1(GO_RSA *rsa, unsigned int *out_
 err:
 	if (mdctx)
 		_goboringcrypto_EVP_MD_CTX_free(mdctx);
+	if (ctx)
+		_goboringcrypto_EVP_PKEY_CTX_free(ctx);
+	if (key)
+		_goboringcrypto_EVP_PKEY_free(key);
 
 	return ret;
 }
@@ -78,18 +84,17 @@ int _goboringcrypto_RSA_sign_pss_mgf1(GO_RSA *rsa, unsigned int *out_len, uint8_
 	EVP_PKEY *pkey;
 	size_t siglen;
 
+	int ret = 0;
 	pkey = _goboringcrypto_EVP_PKEY_new();
 	if (!pkey)
-		return 0;
+		goto err;
 
 	if (_goboringcrypto_EVP_PKEY_set1_RSA(pkey, rsa) <= 0)
-		return 0;
-	
+		goto err;
+
 	ctx = _goboringcrypto_EVP_PKEY_CTX_new(pkey, NULL /* no engine */);
 	if (!ctx)
-		return 0;
-
-	int ret = 0;
+		goto err;
 
 	if (_goboringcrypto_EVP_PKEY_sign_init(ctx) <= 0)
 		goto err;
@@ -101,7 +106,7 @@ int _goboringcrypto_RSA_sign_pss_mgf1(GO_RSA *rsa, unsigned int *out_len, uint8_
 		goto err;
 	if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, mgf1_md) <= 0)
 		goto err;
-	
+
 	/* Determine buffer length */
 	if (_goboringcrypto_EVP_PKEY_sign(ctx, NULL, &siglen, in, in_len) <= 0)
 		goto err;
@@ -116,7 +121,10 @@ int _goboringcrypto_RSA_sign_pss_mgf1(GO_RSA *rsa, unsigned int *out_len, uint8_
 	ret = 1;
 
 err:
-	_goboringcrypto_EVP_PKEY_CTX_free(ctx);
+	if (ctx)
+		_goboringcrypto_EVP_PKEY_CTX_free(ctx);
+	if (pkey)
+		_goboringcrypto_EVP_PKEY_free(pkey);
 
 	return ret;
 }
@@ -130,14 +138,14 @@ int _goboringcrypto_RSA_verify_pss_mgf1(RSA *rsa, const uint8_t *msg, unsigned i
 
 	pkey = _goboringcrypto_EVP_PKEY_new();
 	if (!pkey)
-		return 0;
+		goto err;
 
 	if (_goboringcrypto_EVP_PKEY_set1_RSA(pkey, rsa) <= 0)
-		return 0;
-	
+		goto err;
+
 	ctx = _goboringcrypto_EVP_PKEY_CTX_new(pkey, NULL /* no engine */);
 	if (!ctx)
-		return 0;
+		goto err;
 
 	if (_goboringcrypto_EVP_PKEY_verify_init(ctx) <= 0)
 		goto err;
@@ -155,25 +163,46 @@ int _goboringcrypto_RSA_verify_pss_mgf1(RSA *rsa, const uint8_t *msg, unsigned i
 	ret = 1;
 
 err:
-	_goboringcrypto_EVP_PKEY_CTX_free(ctx);
+	if (ctx)
+		_goboringcrypto_EVP_PKEY_CTX_free(ctx);
+	if (pkey)
+		_goboringcrypto_EVP_PKEY_free(pkey);
+
 
 	return ret;
 }
 
 int _goboringcrypto_EVP_RSA_sign(EVP_MD *md, const uint8_t *msg, unsigned int msgLen, uint8_t *sig, unsigned int *slen, RSA *rsa)
 {
+	int result;
 	EVP_PKEY *key = _goboringcrypto_EVP_PKEY_new();
-	if (!_goboringcrypto_EVP_PKEY_assign_RSA(key, rsa))
+	if (!key) {
 		return 0;
-	return _goboringcrypto_EVP_sign(md, NULL, msg, msgLen, sig, slen, key);
+	}
+	if (!_goboringcrypto_EVP_PKEY_set1_RSA(key, rsa)) {
+		result = 0;
+		goto err;
+	}
+	result = _goboringcrypto_EVP_sign(md, NULL, msg, msgLen, sig, slen, key);
+err:
+	_goboringcrypto_EVP_PKEY_free(key);
+	return result;
 }
 
 int _goboringcrypto_EVP_RSA_verify(EVP_MD *md, const uint8_t *msg, unsigned int msgLen, const uint8_t *sig, unsigned int slen, GO_RSA *rsa)
 {
+	int result;
 	EVP_PKEY *key = _goboringcrypto_EVP_PKEY_new();
-	if (!_goboringcrypto_EVP_PKEY_assign_RSA(key, rsa))
-	{
+	if (!key) {
 		return 0;
 	}
-	 return _goboringcrypto_EVP_verify(md, NULL, msg, msgLen, sig, slen, key);
+	if (!_goboringcrypto_EVP_PKEY_set1_RSA(key, rsa)) {
+		result = 0;
+		goto err;
+	}
+	result =  _goboringcrypto_EVP_verify(md, NULL, msg, msgLen, sig, slen, key);
+err:
+	_goboringcrypto_EVP_PKEY_free(key);
+	return result;
+
 }
