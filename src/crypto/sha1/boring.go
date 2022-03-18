@@ -6,9 +6,8 @@
 // cmd/internal/boring is not even imported, so that we don't
 // have to maintain changes to cmd/dist's deps graph.
 
-//go:build !cmd_go_bootstrap
-// +build !cmd_go_bootstrap
-// +build !no_openssl
+//go:build !cmd_go_bootstrap && !no_openssl
+// +build !cmd_go_bootstrap,!no_openssl
 
 package sha1
 
