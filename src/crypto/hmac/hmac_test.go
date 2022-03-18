@@ -565,7 +565,7 @@ func TestHMAC(t *testing.T) {
 
 			// Third and fourth iteration: make sure hmac works on
 			// hashes without MarshalBinary/UnmarshalBinary
-			if j == 1 {
+			if j == 1 && !boring.Enabled() {
 				h = New(func() hash.Hash { return justHash{tt.hash()} }, tt.key)
 			}
 		}
