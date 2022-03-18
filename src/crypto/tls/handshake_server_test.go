@@ -382,7 +382,7 @@ func TestClose(t *testing.T) {
 func TestVersion(t *testing.T) {
 	serverConfig := &Config{
 		Certificates: testConfig.Certificates,
-		MaxVersion:   VersionTLS12,
+		MaxVersion:   VersionTLS11,
 	}
 	clientConfig := &Config{
 		InsecureSkipVerify: true,
