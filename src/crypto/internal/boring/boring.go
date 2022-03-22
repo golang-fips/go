@@ -20,12 +20,18 @@ import (
 	"math/big"
 	"os"
 	"runtime"
-	"strings"
+	"unsafe"
+	"fmt"
 )
 
 const (
 	fipsOn  = C.int(1)
 	fipsOff = C.int(0)
+)
+
+const (
+	OPENSSL_VERSION_1_1_0 = uint64(C.ulong(0x10100000))
+	OPENSSL_VERSION_3_0_0 = uint64(C.ulong(0x30000000))
 )
 
 // Enabled controls whether FIPS crypto is enabled.
@@ -58,6 +64,10 @@ func init() {
 	sig.BoringCrypto()
 }
 
+func openSSLVersion() uint64 {
+	return uint64(C._goboringcrypto_internal_OPENSSL_VERSION_NUMBER())
+}
+
 func enableBoringFIPSMode() {
 	enabled = true
 
@@ -68,8 +78,21 @@ func enableBoringFIPSMode() {
 }
 
 func fipsModeEnabled() bool {
-	return os.Getenv("GOLANG_FIPS") == "1" ||
-		C._goboringcrypto_FIPS_mode() == fipsOn
+	// Due to the way providers work in openssl 3, the FIPS methods are not
+	// necessarily going to be available for us to load based on the GOLANG_FIPS
+	// environment variable alone. For now, we must rely on the config to tell
+	// us if the provider is configured and active.
+	fipsConfigured := C._goboringcrypto_FIPS_mode() == fipsOn
+	openSSLVersion := openSSLVersion()
+	if openSSLVersion >= OPENSSL_VERSION_3_0_0 {
+		if !fipsConfigured && os.Getenv("GOLANG_FIPS") == "1" {
+			panic("GOLANG_FIPS=1 specified but OpenSSL FIPS provider is not configured")
+		}
+		return fipsConfigured
+
+	} else {
+		return os.Getenv("GOLANG_FIPS") == "1" || fipsConfigured
+	}
 }
 
 var randstub bool
@@ -126,23 +149,35 @@ func PanicIfStrictFIPS(msg string) {
 }
 
 func NewOpenSSLError(msg string) error {
-	var b strings.Builder
 	var e C.ulong
+	message := fmt.Sprintf("\n%v\nopenssl error(s):", msg)
+	if openSSLVersion() >= OPENSSL_VERSION_3_0_0 {
+		for {
+			var buf [256]C.char
+			var file, fnc, data *C.char
+			var line, flags C.int
+			e = C._goboringcrypto_internal_ERR_get_error_all(&file, &line, &fnc, &data, &flags)
+			if e == 0 {
+				break
+			}
 
-	b.WriteString(msg)
-	b.WriteString("\nopenssl error(s):\n")
-
-	for {
-		e = C._goboringcrypto_internal_ERR_get_error()
-		if e == 0 {
-			break
+			C._goboringcrypto_internal_ERR_error_string_n(e,(*C.uchar)(unsafe.Pointer (&buf[0])), 256)
+			message = fmt.Sprintf(
+				"%v\nfile: %v\nline: %v\nfunction: %v\nflags: %v\nerror string: %s\n",
+				message,C.GoString(file), line, C.GoString(fnc), flags, C.GoString(&(buf[0])))
 		}
-		var buf [256]byte
-		C._goboringcrypto_internal_ERR_error_string_n(e, base(buf[:]), 256)
-		b.Write(buf[:])
-		b.WriteByte('\n')
+	} else {
+		for {
+			var buf [256]C.char
+			e = C._goboringcrypto_internal_ERR_get_error()
+			C._goboringcrypto_internal_ERR_error_string_n(e,(*C.uchar)(unsafe.Pointer (&buf[0])), 256)
+			if e == 0 {
+				break
+			}
+			message = fmt.Sprintf("%v: %v\n", message, buf)
+		}
 	}
-	return errors.New(b.String())
+	return errors.New(message)
 }
 
 type fail string

@@ -9,7 +9,6 @@ import (
 	"crypto"
 	"crypto/internal/boring"
 	"crypto/rand"
-	"crypto/sha1"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -32,22 +31,22 @@ type DecryptPKCS1v15Test struct {
 	in, out string
 }
 
-// These test vectors were generated with `openssl rsautl -pkcs -encrypt`
+// Test vectors for testRSA2048PrivateKey
 var decryptPKCS1v15Tests = []DecryptPKCS1v15Test{
 	{
-		"gIcUIoVkD6ATMBk/u/nlCZCCWRKdkfjCgFdo35VpRXLduiKXhNz1XupLLzTXAybEq15juc+EgY5o0DHv/nt3yg==",
+		"Ppg5lRhQZ8zLMgU8jFWURwm+Oj3t1+9x8qIDZwWMlP6O1QVO4xXxHdheVnLRa0Iq+L5HTgjk/PNNkSLIMD11ERxbMD5NtXoj64qaQDkyIBXaN0FNc5Nga/Lbb+vXVYSJ5F4KIOUYaOwzgNSCMensYNz5/7TloMy2Zoqa6vsWzcU+ujfyFaNjJXC26ZM0zv/4v9Aqqb/WIsLjEgdVvplqL1jwbI8Vv/MLEpQRay3S2RHoS9PIcvGKe3Ze0nOE8rAPiRQKfAsX+zlMkw1+LDttb5Dg/vM4lGF6jTg/nmfgCb6gjWE+QpapLKuZIN3WOwG/zslKeROErPn71xAlVeHI1Q==",
 		"x",
 	},
 	{
-		"Y7TOCSqofGhkRb+jaVRLzK8xw2cSo1IVES19utzv6hwvx+M8kFsoWQm5DzBeJCZTCVDPkTpavUuEbgp8hnUGDw==",
+		"kjtn1z9R67b0t7RydEoXeK9GC9wWt1J47i+14alOLCuWr9aqnJxYJS+jr2Z3/TWf4qqTiEujIP5bzvM8vnU2cnJqOGUqoH5xH1+8gq9aD0RbVY0auvUxPUKI3foLoMlp6M1fTSJGiuD9DASp7BZfiMvsU1kKPrLlHpu4azOKbAfIojyyt64Dl3cIpha8FBakym1SRM2iJKKBVae3Reu58uGX9lHroJAWiIdDT4VDIGXQv9dvsViPn4hvWKls5xYtf3V5GPHyvrptsLYcqBOUXM1Wnu2SpZxKRuyz9tWA3w377XNByDMchLJeC4qxdA6ayo53ckXr0no0fU0JrRHkdg==",
 		"testing.",
 	},
 	{
-		"arReP9DJtEVyV2Dg3dDp4c/PSk1O6lxkoJ8HcFupoRorBZG+7+1fDAwT1olNddFnQMjmkb8vxwmNMoTAT/BFjQ==",
+		"gljV2jJNON8RwzgVezwG/ddFWPSpGHgnUgEot42vU7Kow5TMvd43f9QAJsPQd0ocT9YIp/3km+2CSWWr+5E3fWW0p2cQBxUfnsJFsNKPvQt6Ct7Bn8HzkhxLJuvIShFzQlBuph4hBuN33dWhAFFDESsZnPvU6EFJlmTHrmqY+H9cdECU4hXQ1R7Z+lHlvT8RxDNBu1fdAarRXcKrw9EeN2ZwSvVx62aXnAcAQQkijmOn9dkObgqeii/wHPI28SR/Aa/hTw1XE5DoZmDBCx6EFJ4hcY7MKAX0iSQiaxinM+IxkqiCftOnvYv737cD/vKG6llhGCCDx0Et5xYu2JWakw==",
 		"testing.\n",
 	},
 	{
-		"WtaBXIoGC54+vH0NH0CHHE+dRDOsMc/6BrfFu2lEqcKL9+uDuWaf+Xj9mrbQCjjZcpQuX733zyok/jsnqe/Ftw==",
+		"iJiYwVBtLhZBmYngT5u+YR5+raI33OvpShPR9arl4zSss+eK5krMANZUTrRCsw8Tho6kpyDgVohfH5V/8zX4Rtslak1peZdvnmcEkJCFk0FpnlcALRBGTCXUJEwxlSgaTz00awCjkfLzMYNCwTAlEP9QxUX2kSIABKSUw4ARwZ5jQTGCdJNl696Q/cF1JjEqsjpPbjn4UYkV3gNl0xXPiTVgfNJKZir1caEGOKfOsfbTFixvA5oANgRySxwZfoj/6dW9xIVgcq/ssmkTl8TnTKQTY0dRTNWs8+HuQxp2I4MSmAun6LYdr8pom1IazJtp1BEaSDZ+thRIQ/oMsYDJXQ==",
 		"01234567890123456789012345678901234567890123456789012",
 	},
 }
@@ -55,10 +54,10 @@ var decryptPKCS1v15Tests = []DecryptPKCS1v15Test{
 func TestDecryptPKCS1v15(t *testing.T) {
 	decryptionFuncs := []func([]byte) ([]byte, error){
 		func(ciphertext []byte) (plaintext []byte, err error) {
-			return DecryptPKCS1v15(nil, rsaPrivateKey, ciphertext)
+			return DecryptPKCS1v15(nil, testRSA2048PrivateKey, ciphertext)
 		},
 		func(ciphertext []byte) (plaintext []byte, err error) {
-			return rsaPrivateKey.Decrypt(nil, ciphertext, nil)
+			return testRSA2048PrivateKey.Decrypt(nil, ciphertext, nil)
 		},
 	}
 
@@ -78,14 +77,14 @@ func TestDecryptPKCS1v15(t *testing.T) {
 
 func TestEncryptPKCS1v15(t *testing.T) {
 	random := rand.Reader
-	k := (rsaPrivateKey.N.BitLen() + 7) / 8
+	k := (testRSA2048PrivateKey.N.BitLen() + 7) / 8
 
 	tryEncryptDecrypt := func(in []byte, blind bool) bool {
 		if len(in) > k-11 {
 			in = in[0 : k-11]
 		}
 
-		ciphertext, err := EncryptPKCS1v15(random, &rsaPrivateKey.PublicKey, in)
+		ciphertext, err := EncryptPKCS1v15(random, &testRSA2048PrivateKey.PublicKey, in)
 		if err != nil {
 			t.Errorf("error encrypting: %s", err)
 			return false
@@ -97,7 +96,7 @@ func TestEncryptPKCS1v15(t *testing.T) {
 		} else {
 			rand = random
 		}
-		plaintext, err := DecryptPKCS1v15(rand, rsaPrivateKey, ciphertext)
+		plaintext, err := DecryptPKCS1v15(rand, testRSA2048PrivateKey, ciphertext)
 		if err != nil {
 			t.Errorf("error decrypting: %s", err)
 			return false
@@ -117,22 +116,22 @@ func TestEncryptPKCS1v15(t *testing.T) {
 	quick.Check(tryEncryptDecrypt, config)
 }
 
-// These test vectors were generated with `openssl rsautl -pkcs -encrypt`
+// Test vectors for testRSA2048PrivateKey
 var decryptPKCS1v15SessionKeyTests = []DecryptPKCS1v15Test{
 	{
-		"e6ukkae6Gykq0fKzYwULpZehX+UPXYzMoB5mHQUDEiclRbOTqas4Y0E6nwns1BBpdvEJcilhl5zsox/6DtGsYg==",
+		"cSBy/rsocfCY2L/WDP7+oyI/uk0qf3BuJvWo1VwV/DG9XLuu7J1Gb2e7hYl3kmdf6rSnoqDuVE3viOsGeq1OsW9w0uw08syTwdOp34z90qxlrrKsGjjz9XIgErqwlWvfQ5KQQb8KA29Ub7q0sqQMMQD75bUxN3P4GhtOG6kNVY33QoCIVR65vHLcqe3SlrxAfYzlOjMNwdPsNP1GGVyAZpccxOiBJSUrssAFvRJ3g62wj2xrrtneRztmOGOy8ZSiEjGNjJ4/lmJXt2GyPXapTTKeHFbyqh5Xu8PNgMxaCgtWgMqnK6CPbJOGgski9axyaxPzjKEjUcs99dJ1mTT+qw==",
 		"1234",
 	},
 	{
-		"Dtis4uk/q/LQGGqGk97P59K03hkCIVFMEFZRgVWOAAhxgYpCRG0MX2adptt92l67IqMki6iVQyyt0TtX3IdtEw==",
+		"lcsS8tzZSJSiaaOSQSO4pT3Je5vvrNfAVUy3Axojr4uRreMuLRTIOOmEYRM/JcWakpJelPd+EHG/aXxId8aCoBg1MkH5q8AHW3zUARhlOd91rpASVs03v5wuk0jtiQiqr0HLNyxifSEzj04VPklc6n00yuHbI+DNTATTVkxj3a5hgOECqKi2matXGcJ5FtMEPAi2V+36y2dQ+DA/tgQrhlZ4ycA2FJnjvOHRJbC6QwNzPkzbjTlCqNzq92nwWKDypVJ29CrIQ2HYXG63DOuT96gIa08hyeZEeIrAUjtb9DK1TSEF/9BDASffHevW3/CqfpRYnFSNOj2xli3wBn1Dvg==",
 		"FAIL",
 	},
 	{
-		"LIyFyCYCptPxrvTxpol8F3M7ZivlMsf53zs0vHRAv+rDIh2YsHS69ePMoPMe3TkOMZ3NupiL3takPxIs1sK+dw==",
+		"Bsrz5yYuevhqx1Pxx4zEsegU2aVBZ2h9ebtAgQkq3N/og0t+8O92XpPBoNH/HT2jHclh01aij1niCqdBn2/6GBN4irnVjrWQkoAV2Q5Q+gVS0ZYeTzeX/15M/iq9xeLjBPXqj5PmNYh+vbL05FyPB+CcY8MPyv7HmtDsAWRVDxQVWy6y4lmC1/VwnG5jtmAbapE+Vyty0iVb9/Q6UaaV7DVKVssEDmwnychibJ4ACcTQ18kLkB1AE73dXp1B/XHh6ExbHXoaPeaRYr2gEI0No6VBTrMrG5eVz3dub/a5MVeat9n/oU2QQ3s/Pm0FlF9n2mwgvKm/4nLjwjiTFt3ToQ==",
 		"abcd",
 	},
 	{
-		"bafnobel46bKy76JzqU/RIVOH0uAYvzUtauKmIidKgM0sMlvobYVAVQPeUQ/oTGjbIZ1v/6Gyi5AO4DtHruGdw==",
+		"FKynVeuuoYxonMoXWwIw3mY7KTV3yS3fe2D+h5v6FXs/0xb5PeINCEq0+Ub5LFAZcx/lIbnt4bkLZcaKDxLpBCxpvpZNdgGxP970BvE5xmOuagF47VaqCciiERTTztRjwKTu0PZ5VtcpsxiSN4axlC1NOpJnIpDsNOWUaf5G6fCCEdfZWwgxaHLbxSAy+IdUHBH+honCPPZAyGyhERdcDRGJ8a6R20MFXC18e8asHtF5VWaicaYe0fy1Mrii46WqFY8hwoSrbHOGEQkjRymM/IQvXFdxQ1vtzAFavUsr5taiVe84DvcFJ5eRZ2jpVQTdO4gBy6RyD64iNSrv8a5dqA==",
 		"FAIL",
 	},
 }
@@ -140,7 +139,7 @@ var decryptPKCS1v15SessionKeyTests = []DecryptPKCS1v15Test{
 func TestEncryptPKCS1v15SessionKey(t *testing.T) {
 	for i, test := range decryptPKCS1v15SessionKeyTests {
 		key := []byte("FAIL")
-		err := DecryptPKCS1v15SessionKey(nil, rsaPrivateKey, decodeBase64(test.in), key)
+		err := DecryptPKCS1v15SessionKey(nil, testRSA2048PrivateKey, decodeBase64(test.in), key)
 		if err != nil {
 			t.Errorf("#%d error decrypting", i)
 		}
@@ -153,7 +152,7 @@ func TestEncryptPKCS1v15SessionKey(t *testing.T) {
 
 func TestEncryptPKCS1v15DecrypterSessionKey(t *testing.T) {
 	for i, test := range decryptPKCS1v15SessionKeyTests {
-		plaintext, err := rsaPrivateKey.Decrypt(rand.Reader, decodeBase64(test.in), &PKCS1v15DecryptOptions{SessionKeyLen: 4})
+		plaintext, err := testRSA2048PrivateKey.Decrypt(rand.Reader, decodeBase64(test.in), &PKCS1v15DecryptOptions{SessionKeyLen: 4})
 		if err != nil {
 			t.Fatalf("#%d: error decrypting: %s", i, err)
 		}
@@ -187,19 +186,19 @@ type signPKCS1v15Test struct {
 	in, out string
 }
 
-// These vectors have been tested with
-//   `openssl rsautl -verify -inkey pk -in signature | hexdump -C`
-var signPKCS1v15Tests = []signPKCS1v15Test{
-	{"Test.\n", "a4f3fa6ea93bcdd0c57be020c1193ecbfd6f200a3d95c409769b029578fa0e336ad9a347600e40d3ae823b8c7e6bad88cc07c1d54c3a1523cbbb6d58efc362ae"},
+// Test vector for testRSA2048PrivateKey
+// generated with `openssl pkeyutl -rawin -digest sha256 -sign -inkey <key>`
+ var signPKCS1v15Tests = []signPKCS1v15Test{
+	{"Test.\n", "467c3c8f16223ba09aecfe44488d6b34b3f91f11379949b1d8af31636ee8b3aa51eebb96ee11678323cb1f909af17c9d0fe4b6012078af8120474474efd1bb51765e1647369ddba6525c6608113857bb0e2aaed9ad01fe041b476b162f7d4db55bb31fa957046616ce463cecb2a66f38fa62c594d07afcc870582d545853b31fa705ab8565e4085804c32e73459720bf4e08f097843b0845116d4376231fa2472abc89b1e42462002bf70f9a1df31db6d2ab6dc52c8223798a4f57c40d6a9123b80739846d779044eac28d8c783e8ce73919f1d4a6efe8fb601b8d36c5c9b61654d6f8717d1fb9fcafa19669200900899dd08ce921a1745312eb06040a405903"},
 }
 
 func TestSignPKCS1v15(t *testing.T) {
 	for i, test := range signPKCS1v15Tests {
-		h := sha1.New()
+		h := sha256.New()
 		h.Write([]byte(test.in))
 		digest := h.Sum(nil)
 
-		s, err := SignPKCS1v15(nil, rsaPrivateKey, crypto.SHA1, digest)
+		s, err := SignPKCS1v15(nil, testRSA2048PrivateKey, crypto.SHA256, digest)
 		if err != nil {
 			t.Errorf("#%d %s", i, err)
 		}
@@ -213,13 +212,13 @@ func TestSignPKCS1v15(t *testing.T) {
 
 func TestVerifyPKCS1v15(t *testing.T) {
 	for i, test := range signPKCS1v15Tests {
-		h := sha1.New()
+		h := sha256.New()
 		h.Write([]byte(test.in))
 		digest := h.Sum(nil)
 
 		sig, _ := hex.DecodeString(test.out)
 
-		err := VerifyPKCS1v15(&rsaPrivateKey.PublicKey, crypto.SHA1, digest, sig)
+		err := VerifyPKCS1v15(&testRSA2048PrivateKey.PublicKey, crypto.SHA256, digest, sig)
 		if err != nil {
 			t.Errorf("#%d %s", i, err)
 		}
@@ -230,7 +229,7 @@ func TestHashVerifyPKCS1v15(t *testing.T) {
 	for i, test := range signPKCS1v15Tests {
 		sig, _ := hex.DecodeString(test.out)
 
-		err := HashVerifyPKCS1v15(&rsaPrivateKey.PublicKey, crypto.SHA1, []byte(test.in), sig)
+		err := HashVerifyPKCS1v15(&testRSA2048PrivateKey.PublicKey, crypto.SHA256, []byte(test.in), sig)
 		if err != nil {
 			t.Errorf("#%d %s", i, err)
 		}
@@ -273,13 +272,13 @@ func TestUnpaddedSignature(t *testing.T) {
 func TestShortSessionKey(t *testing.T) {
 	// This tests that attempting to decrypt a session key where the
 	// ciphertext is too small doesn't run outside the array bounds.
-	ciphertext, err := EncryptPKCS1v15(rand.Reader, &rsaPrivateKey.PublicKey, []byte{1})
+	ciphertext, err := EncryptPKCS1v15(rand.Reader, &testRSA2048PrivateKey.PublicKey, []byte{1})
 	if err != nil {
 		t.Fatalf("Failed to encrypt short message: %s", err)
 	}
 
 	var key [32]byte
-	if err := DecryptPKCS1v15SessionKey(nil, rsaPrivateKey, ciphertext, key[:]); err != nil {
+	if err := DecryptPKCS1v15SessionKey(nil, testRSA2048PrivateKey, ciphertext, key[:]); err != nil {
 		t.Fatalf("Failed to decrypt short message: %s", err)
 	}
 

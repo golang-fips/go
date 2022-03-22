@@ -165,7 +165,7 @@ func setupRSA(withKey func(func(*C.GO_RSA) C.int) C.int,
 		// Depending on the malloc implementation, if clabel is allocated with malloc(0),
 		// metadata for the size-zero allocation is never cleaned up, which is a memory leak.
 		// As such, we must only allocate clabel if the label is of non zero length.
-		if len(label) > 0 {
+		if (len(label) > 0) || (openSSLVersion() > OPENSSL_VERSION_3_0_0) {
 			clabel = (*C.uint8_t)(C.malloc(C.size_t(len(label))))
 			if clabel == nil {
 				return nil, nil, fail("OPENSSL_malloc")

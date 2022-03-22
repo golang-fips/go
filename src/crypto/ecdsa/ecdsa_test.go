@@ -323,6 +323,9 @@ func TestVectors(t *testing.T) {
 			h.Write(msg)
 			hashed := h.Sum(hashed[:0])
 			if boring.Enabled() {
+				if ch == crypto.SHA1 {
+					t.Skip("SHA-1 not supported in certain OpenSSL configurations")
+				}
 				if HashVerify(pub, msg, r, s, ch) != expected {
 					t.Fatalf("incorrect result on line %d", lineNo)
 				}

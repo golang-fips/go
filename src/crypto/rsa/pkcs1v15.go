@@ -102,7 +102,7 @@ func DecryptPKCS1v15(rand io.Reader, priv *PrivateKey, ciphertext []byte) ([]byt
 		}
 		out, err := boring.DecryptRSAPKCS1(bkey, ciphertext)
 		if err != nil {
-			return nil, ErrDecryption
+			return nil, err
 		}
 		return out, nil
 	}
