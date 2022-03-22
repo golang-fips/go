@@ -27,3 +27,8 @@ Main differences from the upstream BoringCrypto fork are:
 * Not statically linked, we instead use `dlopen` to call into OpenSSL.
 * FIPS mode (or `boring` mode as the package is named) is enabled either via an environment variable `GOLANG_FIPS=1` or by virtue of the host being in FIPS mode.
 * A few more downstream modifications to ensure complete test coverage, and some downstream code changes to support various versions of OpenSSL
+
+## Branches
+
+The `main` branch contains only a license file and this README. The FIPS patches are stored on versioned branches
+which follow the naming convention: `go1.x-openssl-fips`.
