@@ -35,6 +35,7 @@ import (
 	"crypto/internal/boring"
 	"crypto/internal/randutil"
 	"unsafe"
+	"fmt"
 )
 
 var bigZero = big.NewInt(0)
@@ -664,7 +665,7 @@ func DecryptOAEP(hash hash.Hash, random io.Reader, priv *PrivateKey, ciphertext 
 		}
 		out, err := boring.DecryptRSAOAEP(hash, bkey, ciphertext, label)
 		if err != nil {
-			return nil, ErrDecryption
+			return nil, fmt.Errorf("decryption error: %s", err)
 		}
 		return out, nil
 	}

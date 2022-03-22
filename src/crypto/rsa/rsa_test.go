@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"math/big"
 	"testing"
+
 )
 
 import "crypto/internal/boring"
@@ -34,34 +35,42 @@ func TestKeyGeneration(t *testing.T) {
 }
 
 func Test3PrimeKeyGeneration(t *testing.T) {
-	size := 768
+	var sizes []int
 	if testing.Short() {
-		size = 256
+		sizes = []int{256}
+	} else {
+		sizes = []int{128, 768, 1024, 2048, 3072}
 	}
+	for _, size := range sizes {
 
-	priv, err := GenerateMultiPrimeKey(rand.Reader, 3, size)
-	if err != nil {
-		t.Errorf("failed to generate key")
+		priv, err := GenerateMultiPrimeKey(rand.Reader, 3, size)
+		if err != nil {
+			t.Errorf("failed to generate key")
+		}
+		testKeyBasics(t, priv)
 	}
-	testKeyBasics(t, priv)
 }
 
 func Test4PrimeKeyGeneration(t *testing.T) {
-	size := 768
+	var sizes []int
 	if testing.Short() {
-		size = 256
+		sizes = []int{256}
+	} else {
+		sizes = []int{128, 768, 1024, 2048, 3072}
 	}
+	for _, size := range sizes {
 
-	priv, err := GenerateMultiPrimeKey(rand.Reader, 4, size)
-	if err != nil {
-		t.Errorf("failed to generate key")
+		priv, err := GenerateMultiPrimeKey(rand.Reader, 4, size)
+		if err != nil {
+			t.Errorf("failed to generate key")
+		}
+		testKeyBasics(t, priv)
 	}
-	testKeyBasics(t, priv)
 }
 
 func TestNPrimeKeyGeneration(t *testing.T) {
 	primeSize := 64
-	maxN := 24
+	maxN := 32
 	if testing.Short() {
 		primeSize = 16
 		maxN = 16
@@ -117,18 +126,22 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
 	if boring.Enabled() {
 		// Cannot call encrypt/decrypt directly. Test via PKCS1v15.
 		msg := []byte("hi!")
-		enc, err := EncryptPKCS1v15(rand.Reader, &priv.PublicKey, msg)
-		if err != nil {
-			t.Errorf("EncryptPKCS1v15: %v", err)
-			return
-		}
-		dec, err := DecryptPKCS1v15(rand.Reader, priv, enc)
-		if err != nil {
-			t.Errorf("DecryptPKCS1v15: %v", err)
-			return
-		}
-		if !bytes.Equal(dec, msg) {
-			t.Errorf("got:%x want:%x (%+v)", dec, msg, priv)
+		if priv.Size() >= 256 {
+			enc, err := EncryptPKCS1v15(rand.Reader, &priv.PublicKey, msg)
+			if err != nil {
+				t.Errorf("EncryptPKCS1v15: %v", err)
+				return
+			}
+			dec, err := DecryptPKCS1v15(rand.Reader, priv, enc)
+			if err != nil {
+				t.Errorf("DecryptPKCS1v15: %v", err)
+				return
+			}
+			if !bytes.Equal(dec, msg) {
+				t.Errorf("got:%x want:%x (%+v)", dec, msg, priv)
+			}
+		} else {
+			t.Logf("skipping check for unsupported key less than 2048 bits")
 		}
 		return
 	}
@@ -164,6 +177,7 @@ func fromBase10(base10 string) *big.Int {
 }
 
 var test2048Key *PrivateKey
+var testRSA2048PrivateKey *PrivateKey
 
 func init() {
 	test2048Key = &PrivateKey{
@@ -178,6 +192,21 @@ func init() {
 		},
 	}
 	test2048Key.Precompute()
+	// This is the same testRSA2048PrivateKey from src/crypto/tls/boring_test.go,
+	// just formatted without using the x509 Parser
+	testRSA2048PrivateKey = &PrivateKey {
+		PublicKey: PublicKey{
+                        N: fromBase10("20191212046465051006148469115982609963794084216822290493008497548603282433337961188011759317867632936762484431807200684727542982286641865915343951546098189846608892055894575224375729344858650310374442622904229900868894242623139807621975608166515302294530216022389036816474348374698399654955992710180316983674809047409565569027596663420090767109285120403886497729233127551307356270679924351259776100107640885071765865832767303853854517356000385050677175012549806941229051812974721510192346810990827150439838227830352248569839727388943852973737249863837089274675024496841834194785931485429238306703429257731792443735979"),
+                        E: 65537,
+                },
+                D: fromBase10("17880854551669112566868255345124108779447961606053558991611260520405836487267781427740459393783689829925402008838157275130340717548134956040019107677074732476577915942750039777107871579671122369249613210066309031335411813988461299033587444447689322284662780986426216011635232478916424602504476935371549462113036228740820951710434375466081011497256196435741125837599218374223248197677547321257961509961401385322723627033844333644253777689603896264679633990939957571483400832267925506777396569554295752505112186882586887396943424085633026984063372469902814987050483471096892524886948283571883744403645335501920852525393"),
+                Primes: []*big.Int{
+                        fromBase10("135564917074042739008372452399559667250812269638554028593490636590148234941034106656615266472037321030780472224077878987192393666277731486488609490961161995141171813440923127505183021899359310251888145112092740773465142711876177808655062479870526201006500762429604105802612357839979630776094264195301632424911"),
+                        fromBase10("148941278335581696308445609123523329975323575697232717856977715718810138995490768513650108277383732380774181214791356462453504708304090734692215322335879527529217737837271384209093576836051031684425884921572908683147368296418243939771852059523598364231128661438022752350148969064661946939745752818523498309989"),
+                },
+	}
+	testRSA2048PrivateKey.Precompute()
+
 }
 
 func BenchmarkRSA2048Decrypt(b *testing.B) {
@@ -317,6 +346,11 @@ func TestEncryptDecryptOAEP(t *testing.T) {
 		priv.PublicKey = PublicKey{N: n, E: test.e}
 		priv.D = d
 
+		if boring.Enabled() && priv.PublicKey.Size() < 256 {
+			t.Logf("skipping check for unsupported key less than 2048 bits")
+			continue;
+		}
+		t.Logf("running check for supported key size")
 		for j, message := range test.msgs {
 			label := []byte(fmt.Sprintf("hi#%d", j))
 			enc, err := EncryptOAEP(sha256, rand.Reader, &priv.PublicKey, message.in, label)

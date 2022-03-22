@@ -14,6 +14,15 @@
 
 #include <openssl/ossl_typ.h>
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000
+#define OPENSSL_DLSYM_CALL(handle, func) dlsym(handle, func)
+#else
+#define __USE_GNU
+#define OPENSSL_DLSYM_CALL(handle, func) dlvsym(handle, func, "OPENSSL_3.0.0")
+#endif
+
+#include <dlfcn.h>
+
 #define unlikely(x) __builtin_expect(!!(x), 0)
 #define DEFINEFUNC(ret, func, args, argscall)        \
 	typedef ret(*_goboringcrypto_PTR_##func) args;   \
@@ -22,7 +31,7 @@
 	{                                                \
 		if (unlikely(!_g_##func))                    \
 		{                                            \
-			_g_##func = dlsym(handle, #func);        \
+			_g_##func = OPENSSL_DLSYM_CALL(handle, #func); \
 		}                                            \
 		return _g_##func argscall;                   \
 	}
@@ -34,7 +43,7 @@
 	{                                                \
 		if (unlikely(!_g_internal_##func))                    \
 		{                                            \
-			_g_internal_##func = dlsym(handle, #func);        \
+			_g_internal_##func = OPENSSL_DLSYM_CALL(handle, #func); \
 		}                                            \
 		return _g_internal_##func argscall;                   \
 	}
@@ -45,7 +54,6 @@
 		return func argscall;                     \
 	}
 
-#include <dlfcn.h>
 
 static void* handle;
 static void*
@@ -57,8 +65,10 @@ _goboringcrypto_DLOPEN_OPENSSL(void)
 	}
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
 	handle = dlopen("libcrypto.so.10", RTLD_NOW | RTLD_GLOBAL);
-#else
+#elif OPENSSL_VERSION_NUMBER < 0x30000000L
 	handle = dlopen("libcrypto.so.1.1", RTLD_NOW | RTLD_GLOBAL);
+#else
+	handle = dlopen("libcrypto.so.3", RTLD_NOW | RTLD_GLOBAL);
 #endif
 	return handle;
 }
@@ -68,6 +78,10 @@ _goboringcrypto_DLOPEN_OPENSSL(void)
 
 DEFINEFUNCINTERNAL(int, OPENSSL_init, (void), ())
 
+static unsigned long _goboringcrypto_internal_OPENSSL_VERSION_NUMBER(void) {
+	return OPENSSL_VERSION_NUMBER;
+}
+
 static void
 _goboringcrypto_OPENSSL_setup(void) {
 	_goboringcrypto_internal_OPENSSL_init();
@@ -76,6 +90,9 @@ _goboringcrypto_OPENSSL_setup(void) {
 #include <openssl/err.h>
 DEFINEFUNCINTERNAL(void, ERR_print_errors_fp, (FILE* fp), (fp))
 DEFINEFUNCINTERNAL(unsigned long, ERR_get_error, (void), ())
+DEFINEFUNCINTERNAL(unsigned long, ERR_get_error_all,
+		(const char **file, int *line, const char **func, const char **data, int *flags),
+		(file, line, func, data, flags))
 DEFINEFUNCINTERNAL(void, ERR_error_string_n, (unsigned long e, unsigned char *buf, size_t len), (e, buf, len))
 
 #include <openssl/crypto.h>
@@ -112,8 +129,15 @@ _goboringcrypto_CRYPTO_set_locking_callback(void (*locking_function)(int mode, i
 
 int _goboringcrypto_OPENSSL_thread_setup(void);
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
 DEFINEFUNC(int, FIPS_mode, (void), ())
 DEFINEFUNC(int, FIPS_mode_set, (int r), (r))
+#else
+DEFINEFUNC(int, EVP_default_properties_is_fips_enabled, (OSSL_LIB_CTX *libctx), (libctx))
+static inline int _goboringcrypto_FIPS_mode(void) {
+	return _goboringcrypto_EVP_default_properties_is_fips_enabled(NULL);
+}
+#endif
 
 #include <openssl/rand.h>
 
@@ -711,12 +735,17 @@ _goboringcrypto_EVP_PKEY_CTX_set_rsa_padding(GO_EVP_PKEY_CTX* ctx, int pad) {
 #endif
 }
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000
 static inline int
 _goboringcrypto_EVP_PKEY_CTX_set0_rsa_oaep_label(GO_EVP_PKEY_CTX *ctx, uint8_t *l, int llen)
 {
-
-	return _goboringcrypto_EVP_PKEY_CTX_ctrl(ctx, EVP_PKEY_RSA, EVP_PKEY_OP_TYPE_CRYPT, EVP_PKEY_CTRL_RSA_OAEP_LABEL, llen, (void *)l);
+       return _goboringcrypto_EVP_PKEY_CTX_ctrl(ctx, EVP_PKEY_RSA, EVP_PKEY_OP_TYPE_CRYPT, EVP_PKEY_CTRL_RSA_OAEP_LABEL, llen, (void *)l);
 }
+#else
+DEFINEFUNC(int, EVP_PKEY_CTX_set0_rsa_oaep_label,
+		(GO_EVP_PKEY_CTX *ctx, uint8_t *l, int llen),
+		(ctx, l, llen))
+#endif
 
 static inline int
 _goboringcrypto_EVP_PKEY_CTX_set_rsa_oaep_md(GO_EVP_PKEY_CTX *ctx, const GO_EVP_MD *md)
@@ -736,6 +765,7 @@ static inline int
 _goboringcrypto_EVP_PKEY_CTX_set_signature_md(EVP_PKEY_CTX *ctx, const EVP_MD *md) {
 	return _goboringcrypto_EVP_PKEY_CTX_ctrl(ctx, -1, EVP_PKEY_OP_TYPE_SIG, EVP_PKEY_CTRL_MD, 0, (void *)md);
 }
+
 static inline int
 _goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(GO_EVP_PKEY_CTX * ctx, const GO_EVP_MD *md) {
 	return _goboringcrypto_EVP_PKEY_CTX_ctrl(ctx, EVP_PKEY_RSA,

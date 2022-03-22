@@ -127,7 +127,11 @@ func (c *aesCipher) Decrypt(dst, src []byte) {
 			panic("cipher: unable to initialize EVP cipher ctx")
 		}
 	}
-
+	// Workaround - padding detection is broken but we don't need it
+	// since we check for full blocks
+	if C._goboringcrypto_EVP_CIPHER_CTX_set_padding(c.dec_ctx, 0) != 1 {
+		panic("crypto/cipher: could not disable cipher padding")
+	}
 	outlen := C.int(0)
 	C._goboringcrypto_EVP_CipherUpdate(c.dec_ctx, (*C.uchar)(unsafe.Pointer(&dst[0])), &outlen, (*C.uchar)(unsafe.Pointer(&src[0])), C.int(aesBlockSize))
 	runtime.KeepAlive(c)
@@ -154,6 +158,11 @@ func (x *aesCBC) CryptBlocks(dst, src []byte) {
 	}
 	if len(src) > 0 {
 		outlen := C.int(0)
+		// Workaround - padding detection is broken but we don't need it
+		// since we check for full blocks
+		if C._goboringcrypto_EVP_CIPHER_CTX_set_padding(x.ctx, 0) != 1 {
+			panic("crypto/cipher: could not disable cipher padding")
+		}
 		if C._goboringcrypto_EVP_CipherUpdate(
 			x.ctx,
 			base(dst), &outlen,
