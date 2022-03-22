@@ -26,7 +26,7 @@ import (
 func TestBoringServerProtocolVersion(t *testing.T) {
 	test := func(name string, v uint16, msg string) {
 		t.Run(name, func(t *testing.T) {
-			serverConfig := testConfig.Clone()
+			serverConfig := testConfigTemplate()
 			serverConfig.MinVersion = VersionSSL30
 			clientHello := &clientHelloMsg{
 				vers:               v,
@@ -108,7 +108,7 @@ func isBoringSignatureScheme(alg SignatureScheme) bool {
 }
 
 func TestBoringServerCipherSuites(t *testing.T) {
-	serverConfig := testConfig.Clone()
+	serverConfig := testConfigTemplate()
 	serverConfig.CipherSuites = allCipherSuites()
 	serverConfig.Certificates = make([]Certificate, 1)
 
@@ -148,7 +148,7 @@ func TestBoringServerCipherSuites(t *testing.T) {
 }
 
 func TestBoringServerCurves(t *testing.T) {
-	serverConfig := testConfig.Clone()
+	serverConfig := testConfigTemplate()
 	serverConfig.Certificates = make([]Certificate, 1)
 	serverConfig.Certificates[0].Certificate = [][]byte{testECDSACertificate}
 	serverConfig.Certificates[0].PrivateKey = testECDSAPrivateKey
@@ -203,7 +203,7 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
 
 	for _, sigHash := range defaultSupportedSignatureAlgorithms {
 		t.Run(fmt.Sprintf("%#x", sigHash), func(t *testing.T) {
-			serverConfig := testConfig.Clone()
+			serverConfig := testConfigTemplate()
 			serverConfig.Certificates = make([]Certificate, 1)
 
 			testingOnlyForceClientHelloSignatureAlgorithms = []SignatureScheme{sigHash}
@@ -262,7 +262,7 @@ func TestBoringClientHello(t *testing.T) {
 	defer c.Close()
 	defer s.Close()
 
-	clientConfig := testConfig.Clone()
+	clientConfig := testConfigTemplate()
 	// All sorts of traps for the client to avoid.
 	clientConfig.MinVersion = VersionSSL30
 	clientConfig.MaxVersion = VersionTLS13
@@ -325,7 +325,7 @@ func TestBoringCertAlgs(t *testing.T) {
 	I_M2 := boringCert(t, "I_M2", I_R1.key, M2_R1, boringCertCA|boringCertFIPSOK)
 
 	L1_I := boringCert(t, "L1_I", boringECDSAKey(t, elliptic.P384()), I_R1, boringCertLeaf|boringCertFIPSOK)
-	L2_I := boringCert(t, "L2_I", boringRSAKey(t, 1024), I_R1, boringCertLeaf)
+	L2_I := boringCert(t, "L2_I", boringRSAKey(t, 2048), I_R1, boringCertLeaf|boringCertFIPSOK)
 	_ = boringCert(t, "L3_I", boringECDSAKey(t, elliptic.P521()), I_R1, boringCertLeaf|boringCertFIPSOK)
 
 	// boringCert checked that isBoringCertificate matches the caller's boringCertFIPSOK bit.
@@ -336,12 +336,12 @@ func TestBoringCertAlgs(t *testing.T) {
 
 	// client verifying server cert
 	testServerCert := func(t *testing.T, desc string, pool *x509.CertPool, key interface{}, list [][]byte, ok bool) {
-		clientConfig := testConfig.Clone()
+		clientConfig := testConfigTemplate()
 		clientConfig.RootCAs = pool
 		clientConfig.InsecureSkipVerify = false
 		clientConfig.ServerName = "example.com"
 
-		serverConfig := testConfig.Clone()
+		serverConfig := testConfigTemplate()
 		serverConfig.Certificates = []Certificate{{Certificate: list, PrivateKey: key}}
 		serverConfig.BuildNameToCertificate()
 
@@ -364,11 +364,11 @@ func TestBoringCertAlgs(t *testing.T) {
 
 	// server verifying client cert
 	testClientCert := func(t *testing.T, desc string, pool *x509.CertPool, key interface{}, list [][]byte, ok bool) {
-		clientConfig := testConfig.Clone()
+		clientConfig := testConfigTemplate()
 		clientConfig.ServerName = "example.com"
 		clientConfig.Certificates = []Certificate{{Certificate: list, PrivateKey: key}}
 
-		serverConfig := testConfig.Clone()
+		serverConfig := testConfigTemplate()
 		serverConfig.ClientCAs = pool
 		serverConfig.ClientAuth = RequireAndVerifyClientCert
 
@@ -393,11 +393,12 @@ func TestBoringCertAlgs(t *testing.T) {
 	// exhaustive test with computed answers.
 	r1pool := x509.NewCertPool()
 	r1pool.AddCert(R1.cert)
-	testServerCert(t, "basic", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, true)
-	testClientCert(t, "basic (client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, true)
+	shouldPass := true
+	testClientCert(t, "basic (client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, shouldPass)
+	testClientCert(t, "basic (client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, shouldPass)
 	fipstls.Force()
-	testServerCert(t, "basic (fips)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
-	testClientCert(t, "basic (fips, client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
+	testServerCert(t, "basic (fips)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, true)
+	testClientCert(t, "basic (fips, client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, true)
 	fipstls.Abandon()
 
 	if t.Failed() {
@@ -457,6 +458,10 @@ func TestBoringCertAlgs(t *testing.T) {
 				addRoot(r&1, R1)
 				addRoot(r&2, R2)
 				rootName = rootName[1:] // strip leading comma
+				// openssl 3 FIPS provider fails these now without fipstls.Force()
+				if boring.Enabled() {
+					shouldVerify = shouldVerifyFIPS
+				}
 				testServerCert(t, listName+"->"+rootName[1:], pool, leaf.key, list, shouldVerify)
 				testClientCert(t, listName+"->"+rootName[1:]+"(client cert)", pool, leaf.key, list, shouldVerify)
 				fipstls.Force()
@@ -575,6 +580,16 @@ var (
 	testRSA2048Certificate []byte
 	testRSA2048PrivateKey  *rsa.PrivateKey
 )
+
+func testConfigTemplate() *Config {
+	config := testConfig.Clone()
+	if boring.Enabled() {
+		config.Certificates[0].Certificate = [][]byte{testRSA2048Certificate}
+		config.Certificates[0].PrivateKey = testRSA2048PrivateKey
+	}
+	return config
+
+}
 
 func init() {
 	block, _ := pem.Decode([]byte(`

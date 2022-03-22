@@ -45,15 +45,15 @@ int _goboringcrypto_RSA_digest_and_sign_pss_mgf1(GO_RSA *rsa, unsigned int *out_
 
 	if (_goboringcrypto_EVP_PKEY_sign_init(ctx) <= 0)
 		goto err;
+	if (_goboringcrypto_EVP_PKEY_CTX_set_signature_md(ctx, md) <= 0)
+		goto err;
 	if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PSS_PADDING) <= 0)
 		goto err;
 	if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, salt_len) <= 0)
 		goto err;
-	if (_goboringcrypto_EVP_PKEY_CTX_set_signature_md(ctx, md) <= 0)
-		goto err;
-	if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, mgf1_md) <= 0)
-		goto err;
-
+	if (mgf1_md)
+		if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, mgf1_md) <= 0)
+			goto err;
 	if (1 != _goboringcrypto_EVP_DigestUpdate(mdctx, in, in_len))
 		goto err;
 
@@ -98,15 +98,15 @@ int _goboringcrypto_RSA_sign_pss_mgf1(GO_RSA *rsa, unsigned int *out_len, uint8_
 
 	if (_goboringcrypto_EVP_PKEY_sign_init(ctx) <= 0)
 		goto err;
+	if (_goboringcrypto_EVP_PKEY_CTX_set_signature_md(ctx, md) <= 0)
+		goto err;
 	if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_padding(ctx, RSA_PKCS1_PSS_PADDING) <= 0)
 		goto err;
 	if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, salt_len) <= 0)
 		goto err;
-	if (_goboringcrypto_EVP_PKEY_CTX_set_signature_md(ctx, md) <= 0)
-		goto err;
-	if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, mgf1_md) <= 0)
-		goto err;
-
+	if (mgf1_md)
+		if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, mgf1_md) <= 0)
+			goto err;
 	/* Determine buffer length */
 	if (_goboringcrypto_EVP_PKEY_sign(ctx, NULL, &siglen, in, in_len) <= 0)
 		goto err;
@@ -155,8 +155,9 @@ int _goboringcrypto_RSA_verify_pss_mgf1(RSA *rsa, const uint8_t *msg, unsigned i
 		goto err;
 	if (_goboringcrypto_EVP_PKEY_CTX_set_signature_md(ctx, md) <= 0)
 		goto err;
-	if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, mgf1_md) <= 0)
-		goto err;
+	if (mgf1_md)
+		if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, mgf1_md) <= 0)
+			goto err;
 	if (_goboringcrypto_EVP_PKEY_verify(ctx, sig, sig_len, msg, msg_len) <= 0)
 		goto err;
 
