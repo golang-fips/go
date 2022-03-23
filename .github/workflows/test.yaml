@@ -1,0 +1,51 @@
+name: Build and test
+on:
+  pull_request:
+    branches:
+      - 'go*-openssl-fips'
+env:
+  GOROOT_BOOTSTRAP: "/"
+  GOROOT_FINAL: "/usr/lib/golang"
+  GOHOSTOS: "linux"
+  GOHOSTARCH: "amd64"
+  GOOS: "linux"
+  GOARCH: "amd64"
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/golang-fips/go:main
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: |
+          pushd $GITHUB_WORKSPACE/src
+          ./make.bash -v
+          popd
+        shell: bash
+
+      - name: Test
+        run: |
+          export GOROOT=$GITHUB_WORKSPACE
+          pushd $GITHUB_WORKSPACE/src
+          PATH="$GOROOT/bin:$PATH" run.bash -v -v -v -k --no-rebuild
+          popd
+        shell: bash
+
+      - name: Test with FIPS enabled
+        run: |
+          export GOROOT=$GITHUB_WORKSPACE
+          export OPENSSL_FORCE_FIPS_MODE=1
+          pushd $GITHUB_WORKSPACE/src/crypto
+          # Run all crypto tests but skip TLS, we will run FIPS specific TLS tests later
+          GOLANG_FIPS=1 go test $(go list ./... | grep -v tls) -v
+          # Check that signature functions have parity between boring and notboring
+          CGO_ENABLED=0 go test $(go list ./... | grep -v tls) -v
+          popd
+          # Run all FIPS specific TLS tests
+          pushd $GITHUB_WORKSPACE/src/crypto
+          GOLANG_FIPS=1 go test -v -run "Boring"
+          popd
+        shell: bash
