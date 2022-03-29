@@ -153,7 +153,7 @@ static inline int _goboringcrypto_FIPS_mode(void) {
 #include <openssl/rand.h>
 
 DEFINEFUNC(int, RAND_set_rand_method, (const RAND_METHOD *rand), (rand))
-DEFINEFUNC(RAND_METHOD*, RAND_get_rand_method, (void), ())
+DEFINEFUNC(const RAND_METHOD*, RAND_get_rand_method, (void), ())
 DEFINEFUNC(int, RAND_bytes, (uint8_t * arg0, size_t arg1), (arg0, arg1))
 
 int _goboringcrypto_stub_openssl_rand(void);
@@ -277,7 +277,7 @@ _goboringcrypto_HMAC_size(const GO_HMAC_CTX* arg0) {
 	return _goboringcrypto_internal_EVP_MD_size(arg0->md);
 }
 #else
-DEFINEFUNCINTERNAL(EVP_MD*, HMAC_CTX_get_md, (const GO_HMAC_CTX* ctx), (ctx))
+DEFINEFUNCINTERNAL(const EVP_MD*, HMAC_CTX_get_md, (const GO_HMAC_CTX* ctx), (ctx))
 # if OPENSSL_VERSION_NUMBER < 0x30000000L
 static inline size_t
 _goboringcrypto_HMAC_size(const GO_HMAC_CTX* arg0) {
