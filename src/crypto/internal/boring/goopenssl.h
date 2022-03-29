@@ -89,10 +89,24 @@ _goboringcrypto_OPENSSL_setup(void) {
 
 #include <openssl/err.h>
 DEFINEFUNCINTERNAL(void, ERR_print_errors_fp, (FILE* fp), (fp))
-DEFINEFUNCINTERNAL(unsigned long, ERR_get_error, (void), ())
+#if OPENSSL_VERSION_NUMBER < 0x30000000
+DEFINEFUNCINTERNAL(unsigned long, ERR_get_error_line_data,
+		   (const char **file, int *line, const char **data, int *flags),
+		   (file, line, data, flags))
+static inline unsigned long
+_goboringcrypto_internal_ERR_get_error_all(const char **file, int *line, const char **func, const char **data, int *flags)
+{
+	unsigned long e = _goboringcrypto_internal_ERR_get_error_line_data(file, line, data, flags);
+	if (e == 0 && func != NULL) {
+		*func = "unknown";
+	}
+	return e;
+}
+#else
 DEFINEFUNCINTERNAL(unsigned long, ERR_get_error_all,
 		(const char **file, int *line, const char **func, const char **data, int *flags),
 		(file, line, func, data, flags))
+#endif
 DEFINEFUNCINTERNAL(void, ERR_error_string_n, (unsigned long e, unsigned char *buf, size_t len), (e, buf, len))
 
 #include <openssl/crypto.h>
