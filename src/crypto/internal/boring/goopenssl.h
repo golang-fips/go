@@ -76,7 +76,7 @@ _goboringcrypto_DLOPEN_OPENSSL(void)
 #include <openssl/opensslv.h>
 #include <openssl/ssl.h>
 
-DEFINEFUNCINTERNAL(int, OPENSSL_init, (void), ())
+DEFINEFUNCINTERNAL(void, OPENSSL_init, (void), ())
 
 static unsigned long _goboringcrypto_internal_OPENSSL_VERSION_NUMBER(void) {
 	return OPENSSL_VERSION_NUMBER;
