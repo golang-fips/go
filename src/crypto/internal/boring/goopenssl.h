@@ -97,35 +97,32 @@ DEFINEFUNCINTERNAL(void, ERR_error_string_n, (unsigned long e, unsigned char *bu
 
 #include <openssl/crypto.h>
 
-DEFINEFUNCINTERNAL(int, CRYPTO_num_locks, (void), ())
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+DEFINEFUNC(int, CRYPTO_num_locks, (void), ())
+#else
 static inline int
 _goboringcrypto_CRYPTO_num_locks(void) {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-	return _goboringcrypto_internal_CRYPTO_num_locks();
-#else
-	return CRYPTO_num_locks();
-#endif
+	return CRYPTO_num_locks(); /* defined as macro */
 }
-DEFINEFUNCINTERNAL(void, CRYPTO_set_id_callback, (unsigned long (*id_function)(void)), (id_function))
+#endif
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+DEFINEFUNC(void, CRYPTO_set_id_callback, (unsigned long (*id_function)(void)), (id_function))
+#else
 static inline void
 _goboringcrypto_CRYPTO_set_id_callback(unsigned long (*id_function)(void)) {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-	_goboringcrypto_internal_CRYPTO_set_id_callback(id_function);
-#else
-	CRYPTO_set_id_callback(id_function);
-#endif
+	CRYPTO_set_id_callback(id_function); /* defined as macro */
 }
-DEFINEFUNCINTERNAL(void, CRYPTO_set_locking_callback,
+#endif
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
+DEFINEFUNC(void, CRYPTO_set_locking_callback,
 	(void (*locking_function)(int mode, int n, const char *file, int line)), 
 	(locking_function))
+#else
 static inline void
 _goboringcrypto_CRYPTO_set_locking_callback(void (*locking_function)(int mode, int n, const char *file, int line)) {
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-	_goboringcrypto_internal_CRYPTO_set_locking_callback(locking_function);
-#else
-	CRYPTO_set_locking_callback(locking_function);
-#endif
+	CRYPTO_set_locking_callback(locking_function); /* defined as macro */
 }
+#endif
 
 int _goboringcrypto_OPENSSL_thread_setup(void);
 
