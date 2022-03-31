@@ -173,6 +173,7 @@ func VerifyECDSA(pub *PublicKeyECDSA, msg []byte, r, s *big.Int, h crypto.Hash) 
 	}
 	if h == crypto.Hash(0) {
 		ok := C._goboringcrypto_internal_ECDSA_verify(0, base(msg), C.size_t(len(msg)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), C.uint(len(sig)), pub.key) > 0
+		runtime.KeepAlive(pub)
 		return ok
 	}
 	md := cryptoHashToMD(h)
