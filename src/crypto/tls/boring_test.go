@@ -156,6 +156,9 @@ func TestBoringServerCurves(t *testing.T) {
 
 	for _, curveid := range defaultCurvePreferences {
 		t.Run(fmt.Sprintf("curve=%d", curveid), func(t *testing.T) {
+			// In our version we always enable FIPS TLS. We must abondon it here so that
+			// the test can run as intended, and then re-enable it after all the tests have run.
+			fipstls.Abandon()
 			clientHello := &clientHelloMsg{
 				vers:               VersionTLS12,
 				random:             make([]byte, 32),
@@ -179,6 +182,7 @@ func TestBoringServerCurves(t *testing.T) {
 			})
 		})
 	}
+	fipstls.Force()
 }
 
 func boringHandshake(t *testing.T, clientConfig, serverConfig *Config) (clientErr, serverErr error) {
