@@ -11,6 +11,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/ed25519"
 	"crypto/elliptic"
+	"crypto/internal/boring"
 	"crypto/rand"
 	"crypto/rsa"
 	_ "crypto/sha256"
@@ -160,20 +161,20 @@ func init() {
 	if testPrivateKey, err = ParsePKCS1PrivateKey(block.Bytes); err != nil {
 		panic("Failed to parse private key: " + err.Error())
 	}
-        // This is the same testRSA2048PrivateKey from src/crypto/tls/boring_test.go,
-        // just formatted without using the x509 Parser
-        testPrivateKey2048 = &rsa.PrivateKey {
-                PublicKey: rsa.PublicKey{
-                        N: fromBase10("20191212046465051006148469115982609963794084216822290493008497548603282433337961188011759317867632936762484431807200684727542982286641865915343951546098189846608892055894575224375729344858650310374442622904229900868894242623139807621975608166515302294530216022389036816474348374698399654955992710180316983674809047409565569027596663420090767109285120403886497729233127551307356270679924351259776100107640885071765865832767303853854517356000385050677175012549806941229051812974721510192346810990827150439838227830352248569839727388943852973737249863837089274675024496841834194785931485429238306703429257731792443735979"),
-                        E: 65537,
-                },
-                D: fromBase10("17880854551669112566868255345124108779447961606053558991611260520405836487267781427740459393783689829925402008838157275130340717548134956040019107677074732476577915942750039777107871579671122369249613210066309031335411813988461299033587444447689322284662780986426216011635232478916424602504476935371549462113036228740820951710434375466081011497256196435741125837599218374223248197677547321257961509961401385322723627033844333644253777689603896264679633990939957571483400832267925506777396569554295752505112186882586887396943424085633026984063372469902814987050483471096892524886948283571883744403645335501920852525393"),
-                Primes: []*big.Int{
-                        fromBase10("135564917074042739008372452399559667250812269638554028593490636590148234941034106656615266472037321030780472224077878987192393666277731486488609490961161995141171813440923127505183021899359310251888145112092740773465142711876177808655062479870526201006500762429604105802612357839979630776094264195301632424911"),
-                        fromBase10("148941278335581696308445609123523329975323575697232717856977715718810138995490768513650108277383732380774181214791356462453504708304090734692215322335879527529217737837271384209093576836051031684425884921572908683147368296418243939771852059523598364231128661438022752350148969064661946939745752818523498309989"),
-                },
-        }
-        testPrivateKey2048.Precompute()
+	// This is the same testRSA2048PrivateKey from src/crypto/tls/boring_test.go,
+	// just formatted without using the x509 Parser
+	testPrivateKey2048 = &rsa.PrivateKey{
+		PublicKey: rsa.PublicKey{
+			N: fromBase10("20191212046465051006148469115982609963794084216822290493008497548603282433337961188011759317867632936762484431807200684727542982286641865915343951546098189846608892055894575224375729344858650310374442622904229900868894242623139807621975608166515302294530216022389036816474348374698399654955992710180316983674809047409565569027596663420090767109285120403886497729233127551307356270679924351259776100107640885071765865832767303853854517356000385050677175012549806941229051812974721510192346810990827150439838227830352248569839727388943852973737249863837089274675024496841834194785931485429238306703429257731792443735979"),
+			E: 65537,
+		},
+		D: fromBase10("17880854551669112566868255345124108779447961606053558991611260520405836487267781427740459393783689829925402008838157275130340717548134956040019107677074732476577915942750039777107871579671122369249613210066309031335411813988461299033587444447689322284662780986426216011635232478916424602504476935371549462113036228740820951710434375466081011497256196435741125837599218374223248197677547321257961509961401385322723627033844333644253777689603896264679633990939957571483400832267925506777396569554295752505112186882586887396943424085633026984063372469902814987050483471096892524886948283571883744403645335501920852525393"),
+		Primes: []*big.Int{
+			fromBase10("135564917074042739008372452399559667250812269638554028593490636590148234941034106656615266472037321030780472224077878987192393666277731486488609490961161995141171813440923127505183021899359310251888145112092740773465142711876177808655062479870526201006500762429604105802612357839979630776094264195301632424911"),
+			fromBase10("148941278335581696308445609123523329975323575697232717856977715718810138995490768513650108277383732380774181214791356462453504708304090734692215322335879527529217737837271384209093576836051031684425884921572908683147368296418243939771852059523598364231128661438022752350148969064661946939745752818523498309989"),
+		},
+	}
+	testPrivateKey2048.Precompute()
 
 }
 
@@ -1814,16 +1815,18 @@ func TestInsecureAlgorithmErrorString(t *testing.T) {
 }
 
 // These CSR was generated with OpenSSL:
-//  openssl req -out CSR.csr -new -sha256 -nodes -keyout privateKey.key -config openssl.cnf
+//
+//	openssl req -out CSR.csr -new -sha256 -nodes -keyout privateKey.key -config openssl.cnf
 //
 // With openssl.cnf containing the following sections:
-//   [ v3_req ]
-//   basicConstraints = CA:FALSE
-//   keyUsage = nonRepudiation, digitalSignature, keyEncipherment
-//   subjectAltName = email:gopher@golang.org,DNS:test.example.com
-//   [ req_attributes ]
-//   challengePassword = ignored challenge
-//   unstructuredName  = ignored unstructured name
+//
+//	[ v3_req ]
+//	basicConstraints = CA:FALSE
+//	keyUsage = nonRepudiation, digitalSignature, keyEncipherment
+//	subjectAltName = email:gopher@golang.org,DNS:test.example.com
+//	[ req_attributes ]
+//	challengePassword = ignored challenge
+//	unstructuredName  = ignored unstructured name
 var csrBase64Array = [...]string{
 	// Just [ v3_req ]
 	"MIIDHDCCAgQCAQAwfjELMAkGA1UEBhMCQVUxEzARBgNVBAgMClNvbWUtU3RhdGUxITAfBgNVBAoMGEludGVybmV0IFdpZGdpdHMgUHR5IEx0ZDEUMBIGA1UEAwwLQ29tbW9uIE5hbWUxITAfBgkqhkiG9w0BCQEWEnRlc3RAZW1haWwuYWRkcmVzczCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAK1GY4YFx2ujlZEOJxQVYmsjUnLsd5nFVnNpLE4cV+77sgv9NPNlB8uhn3MXt5leD34rm/2BisCHOifPucYlSrszo2beuKhvwn4+2FxDmWtBEMu/QA16L5IvoOfYZm/gJTsPwKDqvaR0tTU67a9OtxwNTBMI56YKtmwd/o8d3hYv9cg+9ZGAZ/gKONcg/OWYx/XRh6bd0g8DMbCikpWgXKDsvvK1Nk+VtkDO1JxuBaj4Lz/p/MifTfnHoqHxWOWl4EaTs4Ychxsv34/rSj1KD1tJqorIv5Xv2aqv4sjxfbrYzX4kvS5SC1goIovLnhj5UjmQ3Qy8u65eow/LLWw+YFcCAwEAAaBZMFcGCSqGSIb3DQEJDjFKMEgwCQYDVR0TBAIwADALBgNVHQ8EBAMCBeAwLgYDVR0RBCcwJYERZ29waGVyQGdvbGFuZy5vcmeCEHRlc3QuZXhhbXBsZS5jb20wDQYJKoZIhvcNAQELBQADggEBAB6VPMRrchvNW61Tokyq3ZvO6/NoGIbuwUn54q6l5VZW0Ep5Nq8juhegSSnaJ0jrovmUgKDN9vEo2KxuAtwG6udS6Ami3zP+hRd4k9Q8djJPb78nrjzWiindLK5Fps9U5mMoi1ER8ViveyAOTfnZt/jsKUaRsscY2FzE9t9/o5moE6LTcHUS4Ap1eheR+J72WOnQYn3cifYaemsA9MJuLko+kQ6xseqttbh9zjqd9fiCSh/LNkzos9c+mg2yMADitaZinAh+HZi50ooEbjaT3erNq9O6RqwJlgD00g6MQdoz9bTAryCUhCQfkIaepmQ7BxS0pqWNW3MMwfDwx/Snz6g=",
@@ -2940,30 +2943,15 @@ func TestCreateCertificateBrokenSigner(t *testing.T) {
 }
 
 func TestCreateCertificateLegacy(t *testing.T) {
-	ecdsaPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
-	if err != nil {
-		t.Fatalf("Failed to generate ECDSA key: %s", err)
+	sigAlg := MD5WithRSA
+	template := &Certificate{
+		SerialNumber:       big.NewInt(10),
+		DNSNames:           []string{"example.com"},
+		SignatureAlgorithm: sigAlg,
 	}
-
-	for _, sigAlg := range []SignatureAlgorithm{
-		MD5WithRSA, SHA1WithRSA, ECDSAWithSHA1,
-	} {
-		template := &Certificate{
-			SerialNumber:       big.NewInt(10),
-			DNSNames:           []string{"example.com"},
-			SignatureAlgorithm: sigAlg,
-		}
-		var k crypto.Signer
-		switch sigAlg {
-		case MD5WithRSA, SHA1WithRSA:
-			k = testPrivateKey
-		case ECDSAWithSHA1:
-			k = ecdsaPriv
-		}
-		_, err := CreateCertificate(rand.Reader, template, template, k.Public(), &brokenSigner{k.Public()})
-		if err != nil {
-			t.Fatalf("CreateCertificate failed when SignatureAlgorithm = %v: %s", sigAlg, err)
-		}
+	_, err := CreateCertificate(rand.Reader, template, template, testPrivateKey.Public(), &brokenSigner{testPrivateKey.Public()})
+	if err != nil {
+		t.Fatalf("CreateCertificate failed when SignatureAlgorithm = %v: %s", sigAlg, err)
 	}
 }
 
@@ -3362,5 +3350,71 @@ func TestLargeOID(t *testing.T) {
 	_, err := ParseCertificate(b.Bytes)
 	if err != nil {
 		t.Fatalf("ParseCertificate to failed to parse certificate with large OID: %s", err)
+	}
+}
+
+func TestDisableSHA1ForCertOnly(t *testing.T) {
+	if boring.Enabled() {
+		t.Skip("test not relavent in boring mode")
+	}
+	defer func(old bool) { debugAllowSHA1 = old }(debugAllowSHA1)
+	debugAllowSHA1 = false
+
+	tmpl := &Certificate{
+		SerialNumber:          big.NewInt(1),
+		NotBefore:             time.Now().Add(-time.Hour),
+		NotAfter:              time.Now().Add(time.Hour),
+		SignatureAlgorithm:    SHA1WithRSA,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+		KeyUsage:              KeyUsageCertSign | KeyUsageCRLSign,
+	}
+	certDER, err := CreateCertificate(rand.Reader, tmpl, tmpl, rsaPrivateKey.Public(), rsaPrivateKey)
+	if err != nil {
+		t.Fatalf("failed to generate test cert: %s", err)
+	}
+	cert, err := ParseCertificate(certDER)
+	if err != nil {
+		t.Fatalf("failed to parse test cert: %s", err)
+	}
+
+	err = cert.CheckSignatureFrom(cert)
+	if err == nil {
+		t.Error("expected CheckSignatureFrom to fail")
+	} else if _, ok := err.(InsecureAlgorithmError); !ok {
+		t.Errorf("expected InsecureAlgorithmError error, got %T", err)
+	}
+
+	crlDER, err := CreateRevocationList(rand.Reader, &RevocationList{
+		SignatureAlgorithm: SHA1WithRSA,
+		Number:             big.NewInt(1),
+		ThisUpdate:         time.Now().Add(-time.Hour),
+		NextUpdate:         time.Now().Add(time.Hour),
+	}, cert, rsaPrivateKey)
+	if err != nil {
+		t.Fatalf("failed to generate test CRL: %s", err)
+	}
+	// TODO(rolandshoemaker): this should be ParseRevocationList once it lands
+	crl, err := ParseCRL(crlDER)
+	if err != nil {
+		t.Fatalf("failed to parse test CRL: %s", err)
+	}
+
+	if err = cert.CheckCRLSignature(crl); err != nil {
+		t.Errorf("unexpected error: %s", err)
+	}
+
+	// This is an unrelated OCSP response, which will fail signature verification
+	// but shouldn't return a InsecureAlgorithmError, since SHA1 should be allowed
+	// for OCSP.
+	ocspTBSHex := "30819fa2160414884451ff502a695e2d88f421bad90cf2cecbea7c180f32303133303631383037323434335a30743072304a300906052b0e03021a0500041448b60d38238df8456e4ee5843ea394111802979f0414884451ff502a695e2d88f421bad90cf2cecbea7c021100f78b13b946fc9635d8ab49de9d2148218000180f32303133303631383037323434335aa011180f32303133303632323037323434335a"
+	ocspTBS, err := hex.DecodeString(ocspTBSHex)
+	if err != nil {
+		t.Fatalf("failed to decode OCSP response TBS hex: %s", err)
+	}
+
+	err = cert.CheckSignature(SHA1WithRSA, ocspTBS, nil)
+	if err != rsa.ErrVerification {
+		t.Errorf("unexpected error: %s", err)
 	}
 }
