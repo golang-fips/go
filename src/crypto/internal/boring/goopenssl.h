@@ -418,7 +418,7 @@ DEFINEFUNC(int, ECDSA_do_verify, (const uint8_t *arg0, size_t arg1, const GO_ECD
 DEFINEFUNC(size_t, ECDSA_size, (const GO_EC_KEY *arg0), (arg0))
 
 DEFINEFUNCINTERNAL(int, ECDSA_sign, 
-	(int type, const unsigned char *dgst, size_t dgstlen, unsigned char *sig, unsigned int *siglen, EC_KEY *eckey),
+	(int type, const unsigned char *dgst, size_t dgstlen, unsigned char *sig, size_t *siglen, EC_KEY *eckey),
 	(type, dgst, dgstlen, sig, siglen, eckey))
 
 DEFINEFUNCINTERNAL(int, ECDSA_verify, 
@@ -456,7 +456,7 @@ DEFINEFUNC(int, EVP_DigestUpdate,
 	(EVP_MD_CTX* ctx, const void *d, size_t cnt),
 	(ctx, d, cnt))
 DEFINEFUNC(int, EVP_DigestSignFinal,
-	(EVP_MD_CTX* ctx, unsigned char *sig, unsigned int *siglen),
+	(EVP_MD_CTX* ctx, unsigned char *sig, size_t *siglen),
 	(ctx, sig, siglen))
 
 DEFINEFUNC(int, EVP_DigestVerifyInit,
@@ -466,7 +466,7 @@ DEFINEFUNC(int, EVP_DigestVerifyFinal,
 	(EVP_MD_CTX* ctx, const uint8_t *sig, unsigned int siglen),
 	(ctx, sig, siglen))
 
-int _goboringcrypto_EVP_sign(EVP_MD* md, EVP_PKEY_CTX *ctx, const uint8_t *msg, size_t msgLen, uint8_t *sig, unsigned int *slen, EVP_PKEY *eckey);
+int _goboringcrypto_EVP_sign(EVP_MD* md, EVP_PKEY_CTX *ctx, const uint8_t *msg, size_t msgLen, uint8_t *sig, size_t *slen, EVP_PKEY *eckey);
 int _goboringcrypto_EVP_verify(EVP_MD* md, EVP_PKEY_CTX *ctx, const uint8_t *msg, size_t msgLen, const uint8_t *sig, unsigned int slen, EVP_PKEY *key);
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
@@ -478,7 +478,7 @@ static inline void _goboringcrypto_EVP_MD_CTX_free(EVP_MD_CTX *ctx) {
 }
 #endif
 
-int _goboringcrypto_ECDSA_sign(EVP_MD *md, const uint8_t *arg1, size_t arg2, uint8_t *arg3, unsigned int *arg4, GO_EC_KEY *arg5);
+int _goboringcrypto_ECDSA_sign(EVP_MD *md, const uint8_t *arg1, size_t arg2, uint8_t *arg3, size_t *arg4, GO_EC_KEY *arg5);
 int _goboringcrypto_ECDSA_verify(EVP_MD *md, const uint8_t *arg1, size_t arg2, const uint8_t *arg3, unsigned int arg4, GO_EC_KEY *arg5);
 
 #include <openssl/rsa.h>
@@ -487,7 +487,7 @@ int _goboringcrypto_ECDSA_verify(EVP_MD *md, const uint8_t *arg1, size_t arg2, c
 typedef RSA GO_RSA;
 typedef BN_GENCB GO_BN_GENCB;
 
-int _goboringcrypto_EVP_RSA_sign(EVP_MD* md, const uint8_t *msg, unsigned int msgLen, uint8_t *sig, unsigned int *slen, RSA *rsa);
+int _goboringcrypto_EVP_RSA_sign(EVP_MD* md, const uint8_t *msg, unsigned int msgLen, uint8_t *sig, size_t *slen, RSA *rsa);
 int _goboringcrypto_EVP_RSA_verify(EVP_MD* md, const uint8_t *msg, unsigned int msgLen, const uint8_t *sig, unsigned int slen, GO_RSA *rsa);
 
 DEFINEFUNC(GO_RSA *, RSA_new, (void), ())
@@ -499,7 +499,7 @@ DEFINEFUNC(int, RSA_public_decrypt,
 	(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding),
 	(flen, from, to, rsa, padding))
 DEFINEFUNC(int, RSA_sign,
-	(int arg0, const uint8_t *arg1, unsigned int arg2, uint8_t *arg3, unsigned int *arg4, GO_RSA *arg5),
+	(int arg0, const uint8_t *arg1, unsigned int arg2, uint8_t *arg3, size_t *arg4, GO_RSA *arg5),
 	(arg0, arg1, arg2, arg3, arg4, arg5))
 DEFINEFUNC(int, RSA_verify,
 	(int arg0, const uint8_t *arg1, unsigned int arg2, const uint8_t *arg3, unsigned int arg4, GO_RSA *arg5),
@@ -788,10 +788,10 @@ _goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(GO_EVP_PKEY_CTX * ctx, const GO_EVP
 }
 
 DEFINEFUNC(int, EVP_PKEY_decrypt,
-		   (GO_EVP_PKEY_CTX * arg0, uint8_t *arg1, unsigned int *arg2, const uint8_t *arg3, unsigned int arg4),
+		   (GO_EVP_PKEY_CTX * arg0, uint8_t *arg1, size_t *arg2, const uint8_t *arg3, unsigned int arg4),
 		   (arg0, arg1, arg2, arg3, arg4))
 DEFINEFUNC(int, EVP_PKEY_encrypt,
-		   (GO_EVP_PKEY_CTX * arg0, uint8_t *arg1, unsigned int *arg2, const uint8_t *arg3, unsigned int arg4),
+		   (GO_EVP_PKEY_CTX * arg0, uint8_t *arg1, size_t *arg2, const uint8_t *arg3, unsigned int arg4),
 		   (arg0, arg1, arg2, arg3, arg4))
 DEFINEFUNC(int, EVP_PKEY_decrypt_init, (GO_EVP_PKEY_CTX * arg0), (arg0))
 DEFINEFUNC(int, EVP_PKEY_encrypt_init, (GO_EVP_PKEY_CTX * arg0), (arg0))
