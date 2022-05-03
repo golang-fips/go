@@ -1,0 +1,73 @@
+name: "Test Go"
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  ack:
+    name: "Check if the comment is valid"
+    runs-on: ubuntu-latest
+    if: |
+      github.event.issue.pull_request
+      && contains(github.event.comment.body, '/test')
+      && contains(fromJson('["OWNER", "MEMBER"]'), github.event.comment.author_association)    
+    outputs:
+      architectures: ${{ steps.set-compose.outputs.architectures }}
+      composes: ${{ steps.set-compose.outputs.composes }}
+    steps:
+      - name: "Set the targets"
+        id: set-compose
+        shell: python
+        env:
+          COMMENT: ${{ github.event.comment.body }}
+        run: |
+          import os
+          import re
+          import argparse
+
+          composes=['RHEL-7-LatestReleased', 'RHEL-8-Released', 'RHEL-9.0.0-Nightly']
+          architectures=['x86_64', 'ppc64le', 's390x', 'aarch64']
+
+          parser = argparse.ArgumentParser(prog="ack")
+
+          parser.add_argument('--os', choices=composes, nargs='+', default=composes)
+          parser.add_argument('--arch', choices=architectures, nargs='+', default=architectures)
+
+
+          try:
+              comment = re.search('/test (.*)', os.environ['COMMENT']).group(1)
+          except:
+              comment = ""
+
+
+          options = parser.parse_intermixed_args(comment.split())
+
+          print("::set-output name=architectures::{}".format(options.arch))
+          print("::set-output name=composes::{}".format(options.os))
+
+  test:
+    name: "Schedule tests"
+    runs-on: ubuntu-latest
+    needs: ack
+    strategy:
+      matrix:
+        arch: ${{fromJson(needs.ack.outputs.architectures)}}
+        compose: ${{fromJson(needs.ack.outputs.composes)}}
+    steps:
+      - name: Checkout repo and switch to corresponding pull request
+        uses: actions/checkout@v3
+        with:
+          ref: "refs/pull/${{ github.event.issue.number }}/head"
+
+      - name: Schedule test on Testing Farm
+        uses: sclorg/testing-farm-as-github-action@v1
+        with:
+          api_key: ${{ secrets.TF_API_KEY }}
+          git_url: https://github.com/alexsaezm/go-fips-plans.git
+          git_ref: main
+          compose: ${{ matrix.compose }}
+          arch: ${{ matrix.arch }}
+          tf_scope: private
+          pull_request_status_name: "${{ matrix.compose }} - ${{ matrix.arch }}"
+          create_issue_comment: false
