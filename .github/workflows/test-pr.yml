@@ -39,7 +39,6 @@ jobs:
               'rhel9': 'RHEL-9.0.0-Nightly'
           }
 
-          #composes=['RHEL-7-LatestReleased', 'RHEL-8-Released', 'RHEL-9.0.0-Nightly']
           architectures=['x86_64', 'ppc64le', 's390x', 'aarch64']
 
           parser = argparse.ArgumentParser(prog="ack")
