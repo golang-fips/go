@@ -78,3 +78,6 @@ jobs:
           pull_request_status_name: "${{ matrix.compose }} - ${{ matrix.arch }}"
           update_pull_request_status: true
           create_issue_comment: false
+        env:
+          REPO_URL: "https://github.com/alexsaezm/go-fips.git"
+          PR_NUM: "${{ github.event.issue.number }}"
