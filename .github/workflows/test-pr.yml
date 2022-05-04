@@ -26,20 +26,32 @@ jobs:
           import re
           import argparse
 
-          composes=['RHEL-7-LatestReleased', 'RHEL-8-Released', 'RHEL-9.0.0-Nightly']
+          class ParseCompose(argparse.Action):
+              def __call__(self, parser, namespace, values, option_string=None):
+                  setattr(namespace, self.dest, list())
+                  for v in values:
+                      getattr(namespace, self.dest).append(composes[v])
+                      
+
+          composes = {
+              'rhel7': 'RHEL-7-LatestReleased',
+              'rhel8': 'RHEL-8-Released',
+              'rhel9': 'RHEL-9.0.0-Nightly'
+          }
+
+          #composes=['RHEL-7-LatestReleased', 'RHEL-8-Released', 'RHEL-9.0.0-Nightly']
           architectures=['x86_64', 'ppc64le', 's390x', 'aarch64']
 
           parser = argparse.ArgumentParser(prog="ack")
 
-          parser.add_argument('--os', choices=composes, nargs='+', default=composes)
-          parser.add_argument('--arch', choices=architectures, nargs='+', default=architectures)
+          parser.add_argument('-o', '--os', choices=composes, nargs='+', action=ParseCompose, default=list(composes.values()))
+          parser.add_argument('-a', '--arch', choices=architectures, nargs='+', default=architectures)
 
 
           try:
               comment = re.search('/test (.*)', os.environ['COMMENT']).group(1)
           except:
               comment = ""
-
 
           options = parser.parse_intermixed_args(comment.split())
 
