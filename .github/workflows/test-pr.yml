@@ -74,7 +74,7 @@ jobs:
           git_ref: main
           compose: ${{ matrix.compose }}
           arch: ${{ matrix.arch }}
-          variables: "REPO_URL=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY;REPO_NAME=$GITHUB_REPOSITORY;PR_NUMBER=${{ github.event.comment.issue_url }}"
+          variables: "REPO_URL=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY;REPO_NAME=$GITHUB_REPOSITORY;PR_NUMBER=${{ github.event.issue.number }}"
           tf_scope: private
           pull_request_status_name: "${{ matrix.compose }} - ${{ matrix.arch }}"
           update_pull_request_status: true
