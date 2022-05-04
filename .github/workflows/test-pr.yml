@@ -82,4 +82,5 @@ jobs:
           arch: ${{ matrix.arch }}
           tf_scope: private
           pull_request_status_name: "${{ matrix.compose }} - ${{ matrix.arch }}"
+          update_pull_request_status: true
           create_issue_comment: false
