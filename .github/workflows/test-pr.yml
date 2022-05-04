@@ -66,11 +66,6 @@ jobs:
         arch: ${{fromJson(needs.ack.outputs.architectures)}}
         compose: ${{fromJson(needs.ack.outputs.composes)}}
     steps:
-      - name: Checkout repo and switch to corresponding pull request
-        uses: actions/checkout@v3
-        with:
-          ref: "refs/pull/${{ github.event.issue.number }}/head"
-
       - name: Schedule test on Testing Farm
         uses: sclorg/testing-farm-as-github-action@v1
         with:
