@@ -34,7 +34,7 @@ jobs:
                       
 
           composes = {
-              'rhel7': 'RHEL-7-LatestReleased',
+              'rhel7': 'RHEL-7-LatestUpdated',
               'rhel8': 'RHEL-8-Released',
               'rhel9': 'RHEL-9.0.0-Nightly'
           }
