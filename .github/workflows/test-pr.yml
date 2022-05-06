@@ -70,7 +70,7 @@ jobs:
         uses: sclorg/testing-farm-as-github-action@v1
         with:
           api_key: ${{ secrets.TF_API_KEY }}
-          git_url: https://github.com/alexsaezm/go-fips-plans.git
+          git_url: https://github.com/golang-fips/release.git
           git_ref: main
           compose: ${{ matrix.compose }}
           arch: ${{ matrix.arch }}
