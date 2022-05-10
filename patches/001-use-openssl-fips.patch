@@ -1,0 +1,4852 @@
+diff --git a/src/cmd/go/testdata/script/gopath_std_vendor.txt b/src/cmd/go/testdata/script/gopath_std_vendor.txt
+index a0a41a50de..208aa7008a 100644
+--- a/src/cmd/go/testdata/script/gopath_std_vendor.txt
++++ b/src/cmd/go/testdata/script/gopath_std_vendor.txt
+@@ -21,11 +21,11 @@ go build .
+ 
+ go list -deps -f '{{.ImportPath}} {{.Dir}}' .
+ stdout $GOPATH[/\\]src[/\\]vendor[/\\]golang.org[/\\]x[/\\]net[/\\]http2[/\\]hpack
+-! stdout $GOROOT[/\\]src[/\\]vendor
++! stdout $GOROOT[/\\]src[/\\]vendor[/\\]golang.org[/\\]x[/\\]net[/\\]http2[/\\]hpack
+ 
+ go list -test -deps -f '{{.ImportPath}} {{.Dir}}' .
+ stdout $GOPATH[/\\]src[/\\]vendor[/\\]golang.org[/\\]x[/\\]net[/\\]http2[/\\]hpack
+-! stdout $GOROOT[/\\]src[/\\]vendor
++! stdout $GOROOT[/\\]src[/\\]vendor[/\\]golang.org[/\\]x[/\\]net[/\\]http2[/\\]hpack
+ 
+ -- issue16333/issue16333.go --
+ package vendoring17
+diff --git a/src/cmd/link/internal/ld/lib.go b/src/cmd/link/internal/ld/lib.go
+index 5b82dc287d..eaaa5e8d6d 100644
+--- a/src/cmd/link/internal/ld/lib.go
++++ b/src/cmd/link/internal/ld/lib.go
+@@ -1015,7 +1015,7 @@ var hostobj []Hostobj
+ // These packages can use internal linking mode.
+ // Others trigger external mode.
+ var internalpkg = []string{
+-	"crypto/internal/boring",
++	"vendor/github.com/golang-fips/openssl-fips/openssl",
+ 	"crypto/x509",
+ 	"net",
+ 	"os/user",
+diff --git a/src/crypto/aes/cipher.go b/src/crypto/aes/cipher.go
+index 29d01796eb..f7a8c42508 100644
+--- a/src/crypto/aes/cipher.go
++++ b/src/crypto/aes/cipher.go
+@@ -8,10 +8,10 @@ import (
+ 	"crypto/cipher"
+ 	"crypto/internal/subtle"
+ 	"strconv"
++
++	boring "crypto/internal/backend"
+ )
+ 
+-import "crypto/internal/boring"
+-
+ // The AES block size in bytes.
+ const BlockSize = 16
+ 
+@@ -39,7 +39,7 @@ func NewCipher(key []byte) (cipher.Block, error) {
+ 	case 16, 24, 32:
+ 		break
+ 	}
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		return boring.NewAESCipher(key)
+ 	}
+ 	return newCipher(key)
+diff --git a/src/crypto/aes/cipher_asm.go b/src/crypto/aes/cipher_asm.go
+index ecc6ccbbfb..a165df7417 100644
+--- a/src/crypto/aes/cipher_asm.go
++++ b/src/crypto/aes/cipher_asm.go
+@@ -10,10 +10,10 @@ import (
+ 	"crypto/cipher"
+ 	"crypto/internal/subtle"
+ 	"internal/cpu"
++
++	boring "crypto/internal/backend"
+ )
+ 
+-import "crypto/internal/boring"
+-
+ // defined in asm_*.s
+ 
+ //go:noescape
+diff --git a/src/crypto/boring/boring.go b/src/crypto/boring/boring.go
+index 19e2a0876f..658d416062 100644
+--- a/src/crypto/boring/boring.go
++++ b/src/crypto/boring/boring.go
+@@ -11,9 +11,9 @@
+ // is satisfied, so that applications can tag files that use this package.
+ package boring
+ 
+-import "crypto/internal/boring"
++import boring "crypto/internal/backend"
+ 
+ // Enabled reports whether BoringCrypto handles supported crypto operations.
+ func Enabled() bool {
+-	return boring.Enabled
++	return boring.Enabled()
+ }
+diff --git a/src/crypto/boring/boring_test.go b/src/crypto/boring/boring_test.go
+index ace50de0c2..63c5d88471 100644
+--- a/src/crypto/boring/boring_test.go
++++ b/src/crypto/boring/boring_test.go
+@@ -11,6 +11,7 @@ import (
+ )
+ 
+ func TestEnabled(t *testing.T) {
++	t.Skip("upstream expects Enabled to be set automatically")
+ 	supportedPlatform := runtime.GOOS == "linux" && runtime.GOARCH == "amd64"
+ 	if supportedPlatform && !boring.Enabled() {
+ 		t.Error("Enabled returned false on a supported platform")
+diff --git a/src/crypto/ecdsa/boring.go b/src/crypto/ecdsa/boring.go
+index fa15ecb850..92c42e28d5 100644
+--- a/src/crypto/ecdsa/boring.go
++++ b/src/crypto/ecdsa/boring.go
+@@ -5,7 +5,7 @@
+ package ecdsa
+ 
+ import (
+-	"crypto/internal/boring"
++	boring "crypto/internal/backend"
+ 	"math/big"
+ 	"sync/atomic"
+ 	"unsafe"
+diff --git a/src/crypto/ecdsa/ecdsa.go b/src/crypto/ecdsa/ecdsa.go
+index c1dd32a2d8..f1ece819b1 100644
+--- a/src/crypto/ecdsa/ecdsa.go
++++ b/src/crypto/ecdsa/ecdsa.go
+@@ -32,10 +32,8 @@ import (
+ 
+ 	"golang.org/x/crypto/cryptobyte"
+ 	"golang.org/x/crypto/cryptobyte/asn1"
+-)
+ 
+-import (
+-	"crypto/internal/boring"
++	boring "crypto/internal/backend"
+ 	"unsafe"
+ )
+ 
+@@ -116,12 +114,12 @@ func (priv *PrivateKey) Equal(x crypto.PrivateKey) bool {
+ // where the private part is kept in, for example, a hardware module. Common
+ // uses can use the SignASN1 function in this package directly.
+ func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOpts) ([]byte, error) {
+-	if boring.Enabled && rand == boring.RandReader {
++	if boring.Enabled() && rand == boring.RandReader {
+ 		b, err := boringPrivateKey(priv)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+-		return boring.SignMarshalECDSA(b, digest)
++		return boring.SignMarshalECDSA(b, digest, crypto.Hash(0))
+ 	}
+ 	boring.UnreachableExceptTests()
+ 
+@@ -161,7 +159,7 @@ func randFieldElement(c elliptic.Curve, rand io.Reader) (k *big.Int, err error)
+ 
+ // GenerateKey generates a public and private key pair.
+ func GenerateKey(c elliptic.Curve, rand io.Reader) (*PrivateKey, error) {
+-	if boring.Enabled && rand == boring.RandReader {
++	if boring.Enabled() && rand == boring.RandReader {
+ 		x, y, d, err := boring.GenerateKeyECDSA(c.Params().Name)
+ 		if err != nil {
+ 			return nil, err
+@@ -221,12 +219,12 @@ var errZeroParam = errors.New("zero parameter")
+ func Sign(rand io.Reader, priv *PrivateKey, hash []byte) (r, s *big.Int, err error) {
+ 	randutil.MaybeReadByte(rand)
+ 
+-	if boring.Enabled && rand == boring.RandReader {
++	if boring.Enabled() && rand == boring.RandReader {
+ 		b, err := boringPrivateKey(priv)
+ 		if err != nil {
+ 			return nil, nil, err
+ 		}
+-		return boring.SignECDSA(b, hash)
++		return boring.SignECDSA(b, hash, crypto.Hash(0))
+ 	}
+ 	boring.UnreachableExceptTests()
+ 
+@@ -326,12 +324,12 @@ func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte) ([]byte, error) {
+ // return value records whether the signature is valid. Most applications should
+ // use VerifyASN1 instead of dealing directly with r, s.
+ func Verify(pub *PublicKey, hash []byte, r, s *big.Int) bool {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		b, err := boringPublicKey(pub)
+ 		if err != nil {
+ 			return false
+ 		}
+-		return boring.VerifyECDSA(b, hash, r, s)
++		return boring.VerifyECDSA(b, hash, r, s, crypto.Hash(0))
+ 	}
+ 	boring.UnreachableExceptTests()
+ 
+diff --git a/src/crypto/hmac/hmac.go b/src/crypto/hmac/hmac.go
+index 34805765d5..ce3197506d 100644
+--- a/src/crypto/hmac/hmac.go
++++ b/src/crypto/hmac/hmac.go
+@@ -24,10 +24,10 @@ package hmac
+ import (
+ 	"crypto/subtle"
+ 	"hash"
++
++	boring "crypto/internal/backend"
+ )
+ 
+-import "crypto/internal/boring"
+-
+ // FIPS 198-1:
+ // https://csrc.nist.gov/publications/fips/fips198-1/FIPS-198-1_final.pdf
+ 
+@@ -128,7 +128,7 @@ func (h *hmac) Reset() {
+ // the returned Hash does not implement encoding.BinaryMarshaler
+ // or encoding.BinaryUnmarshaler.
+ func New(h func() hash.Hash, key []byte) hash.Hash {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		hm := boring.NewHMAC(h, key)
+ 		if hm != nil {
+ 			return hm
+diff --git a/src/crypto/hmac/hmac_test.go b/src/crypto/hmac/hmac_test.go
+index 55415abf02..575e0025fe 100644
+--- a/src/crypto/hmac/hmac_test.go
++++ b/src/crypto/hmac/hmac_test.go
+@@ -6,7 +6,7 @@ package hmac
+ 
+ import (
+ 	"bytes"
+-	"crypto/internal/boring"
++	boring "crypto/internal/backend"
+ 	"crypto/md5"
+ 	"crypto/sha1"
+ 	"crypto/sha256"
+@@ -584,7 +584,7 @@ func TestHMAC(t *testing.T) {
+ }
+ 
+ func TestNonUniqueHash(t *testing.T) {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		t.Skip("hash.Hash provided by boringcrypto are not comparable")
+ 	}
+ 	sha := sha256.New()
+diff --git a/src/crypto/internal/backend/dummy.s b/src/crypto/internal/backend/dummy.s
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
+new file mode 100644
+index 0000000000..6273b1ec6d
+--- /dev/null
++++ b/src/crypto/internal/backend/nobackend.go
+@@ -0,0 +1,112 @@
++// Copyright 2017 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build !linux || !cgo || android || cmd_go_bootstrap || msan || gocrypt
++// +build !linux !cgo android cmd_go_bootstrap msan gocrypt
++
++package backend
++
++import (
++	"crypto"
++	"crypto/cipher"
++	"crypto/internal/boring/sig"
++	"hash"
++	"math/big"
++)
++
++func Enabled() bool { return false }
++
++// Unreachable marks code that should be unreachable
++// when OpenSSLCrypto is in use. It is a no-op without OpenSSLCrypto.
++func Unreachable() {
++	// Code that's unreachable when using OpenSSLCrypto
++	// is exactly the code we want to detect for reporting
++	// standard Go crypto.
++	sig.StandardCrypto()
++}
++
++// UnreachableExceptTests marks code that should be unreachable
++// when OpenSSLCrypto is in use. It is a no-op without OpenSSLCrypto.
++func UnreachableExceptTests() {}
++
++type randReader int
++
++func (randReader) Read(b []byte) (int, error) { panic("opensslcrypto: not available") }
++
++const RandReader = randReader(0)
++
++func NewSHA1() hash.Hash   { panic("opensslcrypto: not available") }
++func NewSHA224() hash.Hash { panic("opensslcrypto: not available") }
++func NewSHA256() hash.Hash { panic("opensslcrypto: not available") }
++func NewSHA384() hash.Hash { panic("opensslcrypto: not available") }
++func NewSHA512() hash.Hash { panic("opensslcrypto: not available") }
++
++func NewHMAC(h func() hash.Hash, key []byte) hash.Hash { panic("opensslcrypto: not available") }
++
++func NewAESCipher(key []byte) (cipher.Block, error) { panic("opensslcrypto: not available") }
++
++type PublicKeyECDSA struct{ _ int }
++type PrivateKeyECDSA struct{ _ int }
++
++func GenerateKeyECDSA(curve string) (X, Y, D *big.Int, err error) {
++	panic("opensslcrypto: not available")
++}
++func NewPrivateKeyECDSA(curve string, X, Y, D *big.Int) (*PrivateKeyECDSA, error) {
++	panic("opensslcrypto: not available")
++}
++func NewPublicKeyECDSA(curve string, X, Y *big.Int) (*PublicKeyECDSA, error) {
++	panic("opensslcrypto: not available")
++}
++func SignECDSA(priv *PrivateKeyECDSA, hash []byte) (r, s *big.Int, err error) {
++	panic("opensslcrypto: not available")
++}
++func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, r, s *big.Int) bool {
++	panic("opensslcrypto: not available")
++}
++
++type PublicKeyRSA struct{ _ int }
++type PrivateKeyRSA struct{ _ int }
++
++func DecryptRSAOAEP(h hash.Hash, priv *PrivateKeyRSA, ciphertext, label []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func DecryptRSAPKCS1(priv *PrivateKeyRSA, ciphertext []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func DecryptRSANoPadding(priv *PrivateKeyRSA, ciphertext []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func EncryptRSAOAEP(h hash.Hash, pub *PublicKeyRSA, msg, label []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func EncryptRSAPKCS1(pub *PublicKeyRSA, msg []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func EncryptRSANoPadding(pub *PublicKeyRSA, msg []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func GenerateKeyRSA(bits int) (N, E, D, P, Q, Dp, Dq, Qinv *big.Int, err error) {
++	panic("opensslcrypto: not available")
++}
++func NewPrivateKeyRSA(N, E, D, P, Q, Dp, Dq, Qinv *big.Int) (*PrivateKeyRSA, error) {
++	panic("opensslcrypto: not available")
++}
++func NewPublicKeyRSA(N, E *big.Int) (*PublicKeyRSA, error) {
++	panic("opensslcrypto: not available")
++}
++func SignRSAPKCS1v15(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func SignRSAPSS(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte, saltLen int) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte) error {
++	panic("opensslcrypto: not available")
++}
++func VerifyRSAPSS(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte, saltLen int) error {
++	panic("opensslcrypto: not available")
++}
+diff --git a/src/crypto/internal/backend/openssl.go b/src/crypto/internal/backend/openssl.go
+new file mode 100644
+index 0000000000..c5360fb8dc
+--- /dev/null
++++ b/src/crypto/internal/backend/openssl.go
+@@ -0,0 +1,84 @@
++// Copyright 2017 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build linux && !android && !gocrypt && !cmd_go_bootstrap && !msan
++// +build linux,!android,!gocrypt,!cmd_go_bootstrap,!msan
++
++// Package openssl provides access to OpenSSLCrypto implementation functions.
++// Check the variable Enabled to find out whether OpenSSLCrypto is available.
++// If OpenSSLCrypto is not available, the functions in this package all panic.
++package backend
++
++import (
++	"github.com/golang-fips/openssl-fips/openssl"
++)
++
++// Enabled controls whether FIPS crypto is enabled.
++var Enabled = openssl.Enabled
++
++// Unreachable marks code that should be unreachable
++// when OpenSSLCrypto is in use. It panics only when
++// the system is in FIPS mode.
++func Unreachable() {
++	if Enabled() {
++		panic("opensslcrypto: invalid code execution")
++	}
++}
++
++// Provided by runtime.crypto_backend_runtime_arg0 to avoid os import.
++func runtime_arg0() string
++
++func hasSuffix(s, t string) bool {
++	return len(s) > len(t) && s[len(s)-len(t):] == t
++}
++
++// UnreachableExceptTests marks code that should be unreachable
++// when OpenSSLCrypto is in use. It panics.
++func UnreachableExceptTests() {
++	name := runtime_arg0()
++	// If OpenSSLCrypto ran on Windows we'd need to allow _test.exe and .test.exe as well.
++	if Enabled() && !hasSuffix(name, "_test") && !hasSuffix(name, ".test") {
++		println("opensslcrypto: unexpected code execution in", name)
++		panic("opensslcrypto: invalid code execution")
++	}
++}
++
++const RandReader = openssl.RandReader
++
++var NewSHA1 = openssl.NewSHA1
++var NewSHA224 = openssl.NewSHA224
++var NewSHA256 = openssl.NewSHA256
++var NewSHA384 = openssl.NewSHA384
++var NewSHA512 = openssl.NewSHA512
++
++var NewHMAC = openssl.NewHMAC
++
++var NewAESCipher = openssl.NewAESCipher
++
++type PublicKeyECDSA = openssl.PublicKeyECDSA
++type PrivateKeyECDSA = openssl.PrivateKeyECDSA
++
++var GenerateKeyECDSA = openssl.GenerateKeyECDSA
++var NewPrivateKeyECDSA = openssl.NewPrivateKeyECDSA
++var NewPublicKeyECDSA = openssl.NewPublicKeyECDSA
++var SignECDSA = openssl.SignECDSA
++var SignMarshalECDSA = openssl.SignMarshalECDSA
++var VerifyECDSA = openssl.VerifyECDSA
++
++type PublicKeyRSA = openssl.PublicKeyRSA
++type PrivateKeyRSA = openssl.PrivateKeyRSA
++
++var DecryptRSAOAEP = openssl.DecryptRSAOAEP
++var DecryptRSAPKCS1 = openssl.DecryptRSAPKCS1
++var DecryptRSANoPadding = openssl.DecryptRSANoPadding
++var EncryptRSAOAEP = openssl.EncryptRSAOAEP
++var EncryptRSAPKCS1 = openssl.EncryptRSAPKCS1
++var EncryptRSANoPadding = openssl.EncryptRSANoPadding
++var GenerateKeyRSA = openssl.GenerateKeyRSA
++var NewPrivateKeyRSA = openssl.NewPrivateKeyRSA
++var NewPublicKeyRSA = openssl.NewPublicKeyRSA
++var SignRSAPKCS1v15 = openssl.SignRSAPKCS1v15
++var SignRSAPSS = openssl.SignRSAPSS
++var VerifyRSAPKCS1v15 = openssl.VerifyRSAPKCS1v15
++var VerifyRSAPSS = openssl.VerifyRSAPSS
+diff --git a/src/crypto/internal/boring/aes.go b/src/crypto/internal/boring/aes.go
+deleted file mode 100644
+index b5d360151c..0000000000
+--- a/src/crypto/internal/boring/aes.go
++++ /dev/null
+@@ -1,389 +0,0 @@
+-// Copyright 2017 The Go Authors. All rights reserved.
+-// Use of this source code is governed by a BSD-style
+-// license that can be found in the LICENSE file.
+-
+-//go:build linux && amd64 && !android && !cmd_go_bootstrap && !msan
+-// +build linux,amd64,!android,!cmd_go_bootstrap,!msan
+-
+-package boring
+-
+-/*
+-
+-#include "goboringcrypto.h"
+-
+-// These wrappers allocate out_len on the C stack, and check that it matches the expected
+-// value, to avoid having to pass a pointer from Go, which would escape to the heap.
+-
+-int EVP_AEAD_CTX_seal_wrapper(const GO_EVP_AEAD_CTX *ctx, uint8_t *out,
+-							  size_t exp_out_len,
+-							  const uint8_t *nonce, size_t nonce_len,
+-							  const uint8_t *in, size_t in_len,
+-							  const uint8_t *ad, size_t ad_len) {
+-	size_t out_len;
+-	int ok = _goboringcrypto_EVP_AEAD_CTX_seal(ctx, out, &out_len, exp_out_len,
+-		nonce, nonce_len, in, in_len, ad, ad_len);
+-	if (out_len != exp_out_len) {
+-		return 0;
+-	}
+-	return ok;
+-};
+-
+-int EVP_AEAD_CTX_open_wrapper(const GO_EVP_AEAD_CTX *ctx, uint8_t *out,
+-							  size_t exp_out_len,
+-							  const uint8_t *nonce, size_t nonce_len,
+-							  const uint8_t *in, size_t in_len,
+-							  const uint8_t *ad, size_t ad_len) {
+-	size_t out_len;
+-	int ok = _goboringcrypto_EVP_AEAD_CTX_open(ctx, out, &out_len, exp_out_len,
+-		nonce, nonce_len, in, in_len, ad, ad_len);
+-	if (out_len != exp_out_len) {
+-		return 0;
+-	}
+-	return ok;
+-};
+-
+-*/
+-import "C"
+-import (
+-	"crypto/cipher"
+-	"errors"
+-	"runtime"
+-	"strconv"
+-	"unsafe"
+-)
+-
+-type aesKeySizeError int
+-
+-func (k aesKeySizeError) Error() string {
+-	return "crypto/aes: invalid key size " + strconv.Itoa(int(k))
+-}
+-
+-const aesBlockSize = 16
+-
+-type aesCipher struct {
+-	key []byte
+-	enc C.GO_AES_KEY
+-	dec C.GO_AES_KEY
+-}
+-
+-type extraModes interface {
+-	// Copied out of crypto/aes/modes.go.
+-	NewCBCEncrypter(iv []byte) cipher.BlockMode
+-	NewCBCDecrypter(iv []byte) cipher.BlockMode
+-	NewCTR(iv []byte) cipher.Stream
+-	NewGCM(nonceSize, tagSize int) (cipher.AEAD, error)
+-
+-	// Invented for BoringCrypto.
+-	NewGCMTLS() (cipher.AEAD, error)
+-}
+-
+-var _ extraModes = (*aesCipher)(nil)
+-
+-func NewAESCipher(key []byte) (cipher.Block, error) {
+-	c := &aesCipher{key: make([]byte, len(key))}
+-	copy(c.key, key)
+-	// Note: 0 is success, contradicting the usual BoringCrypto convention.
+-	if C._goboringcrypto_AES_set_decrypt_key((*C.uint8_t)(unsafe.Pointer(&c.key[0])), C.uint(8*len(c.key)), &c.dec) != 0 ||
+-		C._goboringcrypto_AES_set_encrypt_key((*C.uint8_t)(unsafe.Pointer(&c.key[0])), C.uint(8*len(c.key)), &c.enc) != 0 {
+-		return nil, aesKeySizeError(len(key))
+-	}
+-	return c, nil
+-}
+-
+-func (c *aesCipher) BlockSize() int { return aesBlockSize }
+-
+-func (c *aesCipher) Encrypt(dst, src []byte) {
+-	if inexactOverlap(dst, src) {
+-		panic("crypto/cipher: invalid buffer overlap")
+-	}
+-	if len(src) < aesBlockSize {
+-		panic("crypto/aes: input not full block")
+-	}
+-	if len(dst) < aesBlockSize {
+-		panic("crypto/aes: output not full block")
+-	}
+-	C._goboringcrypto_AES_encrypt(
+-		(*C.uint8_t)(unsafe.Pointer(&src[0])),
+-		(*C.uint8_t)(unsafe.Pointer(&dst[0])),
+-		&c.enc)
+-}
+-
+-func (c *aesCipher) Decrypt(dst, src []byte) {
+-	if inexactOverlap(dst, src) {
+-		panic("crypto/cipher: invalid buffer overlap")
+-	}
+-	if len(src) < aesBlockSize {
+-		panic("crypto/aes: input not full block")
+-	}
+-	if len(dst) < aesBlockSize {
+-		panic("crypto/aes: output not full block")
+-	}
+-	C._goboringcrypto_AES_decrypt(
+-		(*C.uint8_t)(unsafe.Pointer(&src[0])),
+-		(*C.uint8_t)(unsafe.Pointer(&dst[0])),
+-		&c.dec)
+-}
+-
+-type aesCBC struct {
+-	key  *C.GO_AES_KEY
+-	mode C.int
+-	iv   [aesBlockSize]byte
+-}
+-
+-func (x *aesCBC) BlockSize() int { return aesBlockSize }
+-
+-func (x *aesCBC) CryptBlocks(dst, src []byte) {
+-	if inexactOverlap(dst, src) {
+-		panic("crypto/cipher: invalid buffer overlap")
+-	}
+-	if len(src)%aesBlockSize != 0 {
+-		panic("crypto/cipher: input not full blocks")
+-	}
+-	if len(dst) < len(src) {
+-		panic("crypto/cipher: output smaller than input")
+-	}
+-	if len(src) > 0 {
+-		C._goboringcrypto_AES_cbc_encrypt(
+-			(*C.uint8_t)(unsafe.Pointer(&src[0])),
+-			(*C.uint8_t)(unsafe.Pointer(&dst[0])),
+-			C.size_t(len(src)), x.key,
+-			(*C.uint8_t)(unsafe.Pointer(&x.iv[0])), x.mode)
+-	}
+-}
+-
+-func (x *aesCBC) SetIV(iv []byte) {
+-	if len(iv) != aesBlockSize {
+-		panic("cipher: incorrect length IV")
+-	}
+-	copy(x.iv[:], iv)
+-}
+-
+-func (c *aesCipher) NewCBCEncrypter(iv []byte) cipher.BlockMode {
+-	x := &aesCBC{key: &c.enc, mode: C.GO_AES_ENCRYPT}
+-	copy(x.iv[:], iv)
+-	return x
+-}
+-
+-func (c *aesCipher) NewCBCDecrypter(iv []byte) cipher.BlockMode {
+-	x := &aesCBC{key: &c.dec, mode: C.GO_AES_DECRYPT}
+-	copy(x.iv[:], iv)
+-	return x
+-}
+-
+-type aesCTR struct {
+-	key        *C.GO_AES_KEY
+-	iv         [aesBlockSize]byte
+-	num        C.uint
+-	ecount_buf [16]C.uint8_t
+-}
+-
+-func (x *aesCTR) XORKeyStream(dst, src []byte) {
+-	if inexactOverlap(dst, src) {
+-		panic("crypto/cipher: invalid buffer overlap")
+-	}
+-	if len(dst) < len(src) {
+-		panic("crypto/cipher: output smaller than input")
+-	}
+-	if len(src) == 0 {
+-		return
+-	}
+-	C._goboringcrypto_AES_ctr128_encrypt(
+-		(*C.uint8_t)(unsafe.Pointer(&src[0])),
+-		(*C.uint8_t)(unsafe.Pointer(&dst[0])),
+-		C.size_t(len(src)), x.key, (*C.uint8_t)(unsafe.Pointer(&x.iv[0])),
+-		&x.ecount_buf[0], &x.num)
+-}
+-
+-func (c *aesCipher) NewCTR(iv []byte) cipher.Stream {
+-	x := &aesCTR{key: &c.enc}
+-	copy(x.iv[:], iv)
+-	return x
+-}
+-
+-type aesGCM struct {
+-	ctx  C.GO_EVP_AEAD_CTX
+-	aead *C.GO_EVP_AEAD
+-}
+-
+-const (
+-	gcmBlockSize         = 16
+-	gcmTagSize           = 16
+-	gcmStandardNonceSize = 12
+-)
+-
+-type aesNonceSizeError int
+-
+-func (n aesNonceSizeError) Error() string {
+-	return "crypto/aes: invalid GCM nonce size " + strconv.Itoa(int(n))
+-}
+-
+-type noGCM struct {
+-	cipher.Block
+-}
+-
+-func (c *aesCipher) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
+-	if nonceSize != gcmStandardNonceSize && tagSize != gcmTagSize {
+-		return nil, errors.New("crypto/aes: GCM tag and nonce sizes can't be non-standard at the same time")
+-	}
+-	// Fall back to standard library for GCM with non-standard nonce or tag size.
+-	if nonceSize != gcmStandardNonceSize {
+-		return cipher.NewGCMWithNonceSize(&noGCM{c}, nonceSize)
+-	}
+-	if tagSize != gcmTagSize {
+-		return cipher.NewGCMWithTagSize(&noGCM{c}, tagSize)
+-	}
+-	return c.newGCM(false)
+-}
+-
+-func (c *aesCipher) NewGCMTLS() (cipher.AEAD, error) {
+-	return c.newGCM(true)
+-}
+-
+-func (c *aesCipher) newGCM(tls bool) (cipher.AEAD, error) {
+-	var aead *C.GO_EVP_AEAD
+-	switch len(c.key) * 8 {
+-	case 128:
+-		if tls {
+-			aead = C._goboringcrypto_EVP_aead_aes_128_gcm_tls12()
+-		} else {
+-			aead = C._goboringcrypto_EVP_aead_aes_128_gcm()
+-		}
+-	case 256:
+-		if tls {
+-			aead = C._goboringcrypto_EVP_aead_aes_256_gcm_tls12()
+-		} else {
+-			aead = C._goboringcrypto_EVP_aead_aes_256_gcm()
+-		}
+-	default:
+-		// Fall back to standard library for GCM with non-standard key size.
+-		return cipher.NewGCMWithNonceSize(&noGCM{c}, gcmStandardNonceSize)
+-	}
+-
+-	g := &aesGCM{aead: aead}
+-	if C._goboringcrypto_EVP_AEAD_CTX_init(&g.ctx, aead, (*C.uint8_t)(unsafe.Pointer(&c.key[0])), C.size_t(len(c.key)), C.GO_EVP_AEAD_DEFAULT_TAG_LENGTH, nil) == 0 {
+-		return nil, fail("EVP_AEAD_CTX_init")
+-	}
+-	// Note: Because of the finalizer, any time g.ctx is passed to cgo,
+-	// that call must be followed by a call to runtime.KeepAlive(g),
+-	// to make sure g is not collected (and finalized) before the cgo
+-	// call returns.
+-	runtime.SetFinalizer(g, (*aesGCM).finalize)
+-	if g.NonceSize() != gcmStandardNonceSize {
+-		panic("boringcrypto: internal confusion about nonce size")
+-	}
+-	if g.Overhead() != gcmTagSize {
+-		panic("boringcrypto: internal confusion about tag size")
+-	}
+-
+-	return g, nil
+-}
+-
+-func (g *aesGCM) finalize() {
+-	C._goboringcrypto_EVP_AEAD_CTX_cleanup(&g.ctx)
+-}
+-
+-func (g *aesGCM) NonceSize() int {
+-	return int(C._goboringcrypto_EVP_AEAD_nonce_length(g.aead))
+-}
+-
+-func (g *aesGCM) Overhead() int {
+-	return int(C._goboringcrypto_EVP_AEAD_max_overhead(g.aead))
+-}
+-
+-// base returns the address of the underlying array in b,
+-// being careful not to panic when b has zero length.
+-func base(b []byte) *C.uint8_t {
+-	if len(b) == 0 {
+-		return nil
+-	}
+-	return (*C.uint8_t)(unsafe.Pointer(&b[0]))
+-}
+-
+-func (g *aesGCM) Seal(dst, nonce, plaintext, additionalData []byte) []byte {
+-	if len(nonce) != gcmStandardNonceSize {
+-		panic("cipher: incorrect nonce length given to GCM")
+-	}
+-	if uint64(len(plaintext)) > ((1<<32)-2)*aesBlockSize || len(plaintext)+gcmTagSize < len(plaintext) {
+-		panic("cipher: message too large for GCM")
+-	}
+-	if len(dst)+len(plaintext)+gcmTagSize < len(dst) {
+-		panic("cipher: message too large for buffer")
+-	}
+-
+-	// Make room in dst to append plaintext+overhead.
+-	n := len(dst)
+-	for cap(dst) < n+len(plaintext)+gcmTagSize {
+-		dst = append(dst[:cap(dst)], 0)
+-	}
+-	dst = dst[:n+len(plaintext)+gcmTagSize]
+-
+-	// Check delayed until now to make sure len(dst) is accurate.
+-	if inexactOverlap(dst[n:], plaintext) {
+-		panic("cipher: invalid buffer overlap")
+-	}
+-
+-	outLen := C.size_t(len(plaintext) + gcmTagSize)
+-	ok := C.EVP_AEAD_CTX_seal_wrapper(
+-		&g.ctx,
+-		(*C.uint8_t)(unsafe.Pointer(&dst[n])), outLen,
+-		base(nonce), C.size_t(len(nonce)),
+-		base(plaintext), C.size_t(len(plaintext)),
+-		base(additionalData), C.size_t(len(additionalData)))
+-	runtime.KeepAlive(g)
+-	if ok == 0 {
+-		panic(fail("EVP_AEAD_CTX_seal"))
+-	}
+-	return dst[:n+int(outLen)]
+-}
+-
+-var errOpen = errors.New("cipher: message authentication failed")
+-
+-func (g *aesGCM) Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, error) {
+-	if len(nonce) != gcmStandardNonceSize {
+-		panic("cipher: incorrect nonce length given to GCM")
+-	}
+-	if len(ciphertext) < gcmTagSize {
+-		return nil, errOpen
+-	}
+-	if uint64(len(ciphertext)) > ((1<<32)-2)*aesBlockSize+gcmTagSize {
+-		return nil, errOpen
+-	}
+-
+-	// Make room in dst to append ciphertext without tag.
+-	n := len(dst)
+-	for cap(dst) < n+len(ciphertext)-gcmTagSize {
+-		dst = append(dst[:cap(dst)], 0)
+-	}
+-	dst = dst[:n+len(ciphertext)-gcmTagSize]
+-
+-	// Check delayed until now to make sure len(dst) is accurate.
+-	if inexactOverlap(dst[n:], ciphertext) {
+-		panic("cipher: invalid buffer overlap")
+-	}
+-
+-	outLen := C.size_t(len(ciphertext) - gcmTagSize)
+-	ok := C.EVP_AEAD_CTX_open_wrapper(
+-		&g.ctx,
+-		base(dst[n:]), outLen,
+-		base(nonce), C.size_t(len(nonce)),
+-		base(ciphertext), C.size_t(len(ciphertext)),
+-		base(additionalData), C.size_t(len(additionalData)))
+-	runtime.KeepAlive(g)
+-	if ok == 0 {
+-		return nil, errOpen
+-	}
+-	return dst[:n+int(outLen)], nil
+-}
+-
+-func anyOverlap(x, y []byte) bool {
+-	return len(x) > 0 && len(y) > 0 &&
+-		uintptr(unsafe.Pointer(&x[0])) <= uintptr(unsafe.Pointer(&y[len(y)-1])) &&
+-		uintptr(unsafe.Pointer(&y[0])) <= uintptr(unsafe.Pointer(&x[len(x)-1]))
+-}
+-
+-func inexactOverlap(x, y []byte) bool {
+-	if len(x) == 0 || len(y) == 0 || &x[0] == &y[0] {
+-		return false
+-	}
+-	return anyOverlap(x, y)
+-}
+diff --git a/src/crypto/internal/boring/boring.go b/src/crypto/internal/boring/boring.go
+deleted file mode 100644
+index b8804ceb68..0000000000
+--- a/src/crypto/internal/boring/boring.go
++++ /dev/null
+@@ -1,86 +0,0 @@
+-// Copyright 2017 The Go Authors. All rights reserved.
+-// Use of this source code is governed by a BSD-style
+-// license that can be found in the LICENSE file.
+-
+-//go:build linux && amd64 && !android && !cmd_go_bootstrap && !msan
+-// +build linux,amd64,!android,!cmd_go_bootstrap,!msan
+-
+-package boring
+-
+-/*
+-// goboringcrypto_linux_amd64.syso references pthread functions.
+-#cgo LDFLAGS: "-pthread"
+-
+-#include "goboringcrypto.h"
+-*/
+-import "C"
+-import (
+-	"crypto/internal/boring/sig"
+-	"math/big"
+-)
+-
+-const available = true
+-
+-func init() {
+-	C._goboringcrypto_BORINGSSL_bcm_power_on_self_test()
+-	if C._goboringcrypto_FIPS_mode() != 1 {
+-		panic("boringcrypto: not in FIPS mode")
+-	}
+-	sig.BoringCrypto()
+-}
+-
+-// Unreachable marks code that should be unreachable
+-// when BoringCrypto is in use. It panics.
+-func Unreachable() {
+-	panic("boringcrypto: invalid code execution")
+-}
+-
+-// provided by runtime to avoid os import
+-func runtime_arg0() string
+-
+-func hasSuffix(s, t string) bool {
+-	return len(s) > len(t) && s[len(s)-len(t):] == t
+-}
+-
+-// UnreachableExceptTests marks code that should be unreachable
+-// when BoringCrypto is in use. It panics.
+-func UnreachableExceptTests() {
+-	name := runtime_arg0()
+-	// If BoringCrypto ran on Windows we'd need to allow _test.exe and .test.exe as well.
+-	if !hasSuffix(name, "_test") && !hasSuffix(name, ".test") {
+-		println("boringcrypto: unexpected code execution in", name)
+-		panic("boringcrypto: invalid code execution")
+-	}
+-}
+-
+-type fail string
+-
+-func (e fail) Error() string { return "boringcrypto: " + string(e) + " failed" }
+-
+-func bigToBN(x *big.Int) *C.GO_BIGNUM {
+-	raw := x.Bytes()
+-	return C._goboringcrypto_BN_bin2bn(base(raw), C.size_t(len(raw)), nil)
+-}
+-
+-func bnToBig(bn *C.GO_BIGNUM) *big.Int {
+-	raw := make([]byte, C._goboringcrypto_BN_num_bytes(bn))
+-	n := C._goboringcrypto_BN_bn2bin(bn, base(raw))
+-	return new(big.Int).SetBytes(raw[:n])
+-}
+-
+-func bigToBn(bnp **C.GO_BIGNUM, b *big.Int) bool {
+-	if *bnp != nil {
+-		C._goboringcrypto_BN_free(*bnp)
+-		*bnp = nil
+-	}
+-	if b == nil {
+-		return true
+-	}
+-	raw := b.Bytes()
+-	bn := C._goboringcrypto_BN_bin2bn(base(raw), C.size_t(len(raw)), nil)
+-	if bn == nil {
+-		return false
+-	}
+-	*bnp = bn
+-	return true
+-}
+diff --git a/src/crypto/internal/boring/boring_test.go b/src/crypto/internal/boring/boring_test.go
+deleted file mode 100644
+index 83bbbd3404..0000000000
+--- a/src/crypto/internal/boring/boring_test.go
++++ /dev/null
+@@ -1,34 +0,0 @@
+-// Copyright 2017 The Go Authors. All rights reserved.
+-// Use of this source code is governed by a BSD-style
+-// license that can be found in the LICENSE file.
+-
+-// Most functionality in this package is tested by replacing existing code
+-// and inheriting that code's tests.
+-
+-package boring
+-
+-import "testing"
+-
+-// Test that func init does not panic.
+-func TestInit(t *testing.T) {}
+-
+-// Test that Unreachable panics.
+-func TestUnreachable(t *testing.T) {
+-	defer func() {
+-		if Enabled {
+-			if err := recover(); err == nil {
+-				t.Fatal("expected Unreachable to panic")
+-			}
+-		} else {
+-			if err := recover(); err != nil {
+-				t.Fatalf("expected Unreachable to be a no-op")
+-			}
+-		}
+-	}()
+-	Unreachable()
+-}
+-
+-// Test that UnreachableExceptTests does not panic (this is a test).
+-func TestUnreachableExceptTests(t *testing.T) {
+-	UnreachableExceptTests()
+-}
+diff --git a/src/crypto/internal/boring/doc.go b/src/crypto/internal/boring/doc.go
+deleted file mode 100644
+index 64f41e3c82..0000000000
+--- a/src/crypto/internal/boring/doc.go
++++ /dev/null
+@@ -1,14 +0,0 @@
+-// Copyright 2017 The Go Authors. All rights reserved.
+-// Use of this source code is governed by a BSD-style
+-// license that can be found in the LICENSE file.
+-
+-// Package boring provides access to BoringCrypto implementation functions.
+-// Check the constant Enabled to find out whether BoringCrypto is available.
+-// If BoringCrypto is not available, the functions in this package all panic.
+-package boring
+-
+-// Enabled reports whether BoringCrypto is available.
+-// When enabled is false, all functions in this package panic.
+-//
+-// BoringCrypto is only available on linux/amd64 systems.
+-const Enabled = available
+diff --git a/src/crypto/rand/rand_unix.go b/src/crypto/rand/rand_unix.go
+index 28f2f5b58b..50156ac080 100644
+--- a/src/crypto/rand/rand_unix.go
++++ b/src/crypto/rand/rand_unix.go
+@@ -20,17 +20,17 @@ import (
+ 	"sync"
+ 	"sync/atomic"
+ 	"time"
++
++	boring "crypto/internal/backend"
+ )
+ 
+-import "crypto/internal/boring"
+-
+ const urandomDevice = "/dev/urandom"
+ 
+ // Easy implementation: read from /dev/urandom.
+ // This is sufficient on Linux, OS X, and FreeBSD.
+ 
+ func init() {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		Reader = boring.RandReader
+ 		return
+ 	}
+diff --git a/src/crypto/rsa/boring.go b/src/crypto/rsa/boring.go
+index 0f362a2f16..856bc26aea 100644
+--- a/src/crypto/rsa/boring.go
++++ b/src/crypto/rsa/boring.go
+@@ -5,7 +5,7 @@
+ package rsa
+ 
+ import (
+-	"crypto/internal/boring"
++	boring "crypto/internal/backend"
+ 	"math/big"
+ 	"sync/atomic"
+ 	"unsafe"
+diff --git a/src/crypto/rsa/pkcs1v15.go b/src/crypto/rsa/pkcs1v15.go
+index 213ddb4add..d4d9383bb6 100644
+--- a/src/crypto/rsa/pkcs1v15.go
++++ b/src/crypto/rsa/pkcs1v15.go
+@@ -12,10 +12,10 @@ import (
+ 	"math/big"
+ 
+ 	"crypto/internal/randutil"
++
++	boring "crypto/internal/backend"
+ )
+ 
+-import "crypto/internal/boring"
+-
+ // This file implements encryption and decryption using PKCS #1 v1.5 padding.
+ 
+ // PKCS1v15DecrypterOpts is for passing options to PKCS #1 v1.5 decryption using
+@@ -49,7 +49,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
+ 		return nil, ErrMessageTooLong
+ 	}
+ 
+-	if boring.Enabled && random == boring.RandReader {
++	if boring.Enabled() && random == boring.RandReader {
+ 		bkey, err := boringPublicKey(pub)
+ 		if err != nil {
+ 			return nil, err
+@@ -69,7 +69,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
+ 	em[len(em)-len(msg)-1] = 0
+ 	copy(mm, msg)
+ 
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		var bkey *boring.PublicKeyRSA
+ 		bkey, err = boringPublicKey(pub)
+ 		if err != nil {
+@@ -96,7 +96,7 @@ func DecryptPKCS1v15(rand io.Reader, priv *PrivateKey, ciphertext []byte) ([]byt
+ 		return nil, err
+ 	}
+ 
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		bkey, err := boringPrivateKey(priv)
+ 		if err != nil {
+ 			return nil, err
+@@ -128,8 +128,8 @@ func DecryptPKCS1v15(rand io.Reader, priv *PrivateKey, ciphertext []byte) ([]byt
+ // session key beforehand and continue the protocol with the resulting value.
+ // This will remove any possibility that an attacker can learn any information
+ // about the plaintext.
+-// See ``Chosen Ciphertext Attacks Against Protocols Based on the RSA
+-// Encryption Standard PKCS #1'', Daniel Bleichenbacher, Advances in Cryptology
++// See “Chosen Ciphertext Attacks Against Protocols Based on the RSA
++// Encryption Standard PKCS #1”, Daniel Bleichenbacher, Advances in Cryptology
+ // (Crypto '98).
+ //
+ // Note that if the session key is too small then it may be possible for an
+@@ -175,7 +175,7 @@ func decryptPKCS1v15(rand io.Reader, priv *PrivateKey, ciphertext []byte) (valid
+ 		return
+ 	}
+ 
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		var bkey *boring.PrivateKeyRSA
+ 		bkey, err = boringPrivateKey(priv)
+ 		if err != nil {
+@@ -242,10 +242,12 @@ func nonZeroRandomBytes(s []byte, rand io.Reader) (err error) {
+ }
+ 
+ // These are ASN1 DER structures:
+-//   DigestInfo ::= SEQUENCE {
+-//     digestAlgorithm AlgorithmIdentifier,
+-//     digest OCTET STRING
+-//   }
++//
++//	DigestInfo ::= SEQUENCE {
++//	  digestAlgorithm AlgorithmIdentifier,
++//	  digest OCTET STRING
++//	}
++//
+ // For performance, we don't use the generic ASN1 encoder. Rather, we
+ // precompute a prefix of the digest value that makes a valid ASN1 DER string
+ // with the correct contents.
+@@ -285,12 +287,12 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
+ 		return nil, ErrMessageTooLong
+ 	}
+ 
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		bkey, err := boringPrivateKey(priv)
+ 		if err != nil {
+ 			return nil, err
+ 		}
+-		return boring.SignRSAPKCS1v15(bkey, hash, hashed)
++		return boring.SignRSAPKCS1v15(bkey, hash, hashed, true)
+ 	}
+ 
+ 	// EM = 0x00 || 0x01 || PS || 0x00 || T
+@@ -317,12 +319,12 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
+ // returning a nil error. If hash is zero then hashed is used directly. This
+ // isn't advisable except for interoperability.
+ func VerifyPKCS1v15(pub *PublicKey, hash crypto.Hash, hashed []byte, sig []byte) error {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		bkey, err := boringPublicKey(pub)
+ 		if err != nil {
+ 			return err
+ 		}
+-		if err := boring.VerifyRSAPKCS1v15(bkey, hash, hashed, sig); err != nil {
++		if err := boring.VerifyRSAPKCS1v15(bkey, hash, hashed, sig, hash != crypto.Hash(0)); err != nil {
+ 			return ErrVerification
+ 		}
+ 		return nil
+diff --git a/src/crypto/rsa/pss.go b/src/crypto/rsa/pss.go
+index 16ebc0e6a7..1ad3f40760 100644
+--- a/src/crypto/rsa/pss.go
++++ b/src/crypto/rsa/pss.go
+@@ -13,9 +13,9 @@ import (
+ 	"hash"
+ 	"io"
+ 	"math/big"
+-)
+ 
+-import "crypto/internal/boring"
++	boring "crypto/internal/backend"
++)
+ 
+ // Per RFC 8017, Section 9.1
+ //
+@@ -216,7 +216,7 @@ func signPSSWithSalt(rand io.Reader, priv *PrivateKey, hash crypto.Hash, hashed,
+ 		return nil, err
+ 	}
+ 
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		bkey, err := boringPrivateKey(priv)
+ 		if err != nil {
+ 			return nil, err
+@@ -291,7 +291,7 @@ func SignPSS(rand io.Reader, priv *PrivateKey, hash crypto.Hash, digest []byte,
+ 		saltLength = hash.Size()
+ 	}
+ 
+-	if boring.Enabled && rand == boring.RandReader {
++	if boring.Enabled() && rand == boring.RandReader {
+ 		bkey, err := boringPrivateKey(priv)
+ 		if err != nil {
+ 			return nil, err
+@@ -313,7 +313,7 @@ func SignPSS(rand io.Reader, priv *PrivateKey, hash crypto.Hash, digest []byte,
+ // argument may be nil, in which case sensible defaults are used. opts.Hash is
+ // ignored.
+ func VerifyPSS(pub *PublicKey, hash crypto.Hash, digest []byte, sig []byte, opts *PSSOptions) error {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		bkey, err := boringPublicKey(pub)
+ 		if err != nil {
+ 			return err
+diff --git a/src/crypto/rsa/rsa.go b/src/crypto/rsa/rsa.go
+index eef967f826..5eead12ac9 100644
+--- a/src/crypto/rsa/rsa.go
++++ b/src/crypto/rsa/rsa.go
+@@ -33,10 +33,8 @@ import (
+ 	"math/big"
+ 
+ 	"crypto/internal/randutil"
+-)
+ 
+-import (
+-	"crypto/internal/boring"
++	boring "crypto/internal/backend"
+ 	"unsafe"
+ )
+ 
+@@ -265,7 +263,7 @@ func GenerateKey(random io.Reader, bits int) (*PrivateKey, error) {
+ func GenerateMultiPrimeKey(random io.Reader, nprimes int, bits int) (*PrivateKey, error) {
+ 	randutil.MaybeReadByte(random)
+ 
+-	if boring.Enabled && random == boring.RandReader && nprimes == 2 && (bits == 2048 || bits == 3072) {
++	if boring.Enabled() && random == boring.RandReader && nprimes == 2 && (bits == 2048 || bits == 3072) {
+ 		N, E, D, P, Q, Dp, Dq, Qinv, err := boring.GenerateKeyRSA(bits)
+ 		if err != nil {
+ 			return nil, err
+@@ -453,7 +451,7 @@ func EncryptOAEP(hash hash.Hash, random io.Reader, pub *PublicKey, msg []byte, l
+ 		return nil, ErrMessageTooLong
+ 	}
+ 
+-	if boring.Enabled && random == boring.RandReader {
++	if boring.Enabled() && random == boring.RandReader {
+ 		bkey, err := boringPublicKey(pub)
+ 		if err != nil {
+ 			return nil, err
+@@ -482,7 +480,7 @@ func EncryptOAEP(hash hash.Hash, random io.Reader, pub *PublicKey, msg []byte, l
+ 	mgf1XOR(db, hash, seed)
+ 	mgf1XOR(seed, hash, db)
+ 
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		var bkey *boring.PublicKeyRSA
+ 		bkey, err = boringPublicKey(pub)
+ 		if err != nil {
+@@ -660,7 +658,7 @@ func DecryptOAEP(hash hash.Hash, random io.Reader, priv *PrivateKey, ciphertext
+ 		return nil, ErrDecryption
+ 	}
+ 
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		bkey, err := boringPrivateKey(priv)
+ 		if err != nil {
+ 			return nil, err
+diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
+index 766d9a954f..608110dafe 100644
+--- a/src/crypto/rsa/rsa_test.go
++++ b/src/crypto/rsa/rsa_test.go
+@@ -15,7 +15,7 @@ import (
+ 	"testing"
+ )
+ 
+-import "crypto/internal/boring"
++import boring "crypto/internal/backend"
+ 
+ func TestKeyGeneration(t *testing.T) {
+ 	for _, size := range []int{128, 1024, 2048, 3072} {
+@@ -114,7 +114,7 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
+ 		t.Errorf("private exponent too large")
+ 	}
+ 
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		// Cannot call encrypt/decrypt directly. Test via PKCS1v15.
+ 		msg := []byte("hi!")
+ 		enc, err := EncryptPKCS1v15(rand.Reader, &priv.PublicKey, msg)
+@@ -181,7 +181,7 @@ func init() {
+ }
+ 
+ func BenchmarkRSA2048Decrypt(b *testing.B) {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		b.Skip("no raw decrypt in BoringCrypto")
+ 	}
+ 
+@@ -207,7 +207,7 @@ func BenchmarkRSA2048Sign(b *testing.B) {
+ }
+ 
+ func Benchmark3PrimeRSA2048Decrypt(b *testing.B) {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		b.Skip("no raw decrypt in BoringCrypto")
+ 	}
+ 
+diff --git a/src/crypto/sha1/boring.go b/src/crypto/sha1/boring.go
+index 1cacf93f9b..1d92167aba 100644
+--- a/src/crypto/sha1/boring.go
++++ b/src/crypto/sha1/boring.go
+@@ -12,11 +12,11 @@
+ package sha1
+ 
+ import (
+-	"crypto/internal/boring"
++	boring "crypto/internal/backend"
+ 	"hash"
+ )
+ 
+-const boringEnabled = boring.Enabled
++var boringEnabled = boring.Enabled()
+ 
+ func boringNewSHA1() hash.Hash { return boring.NewSHA1() }
+ 
+diff --git a/src/crypto/sha1/notboring.go b/src/crypto/sha1/notboring.go
+index 2412c9062d..7515a2dfe8 100644
+--- a/src/crypto/sha1/notboring.go
++++ b/src/crypto/sha1/notboring.go
+@@ -11,7 +11,7 @@ import (
+ 	"hash"
+ )
+ 
+-const boringEnabled = false
++var boringEnabled = false
+ 
+ func boringNewSHA1() hash.Hash { panic("boringcrypto: not available") }
+ 
+diff --git a/src/crypto/sha1/sha1_test.go b/src/crypto/sha1/sha1_test.go
+index f1a5448dd2..088dd5ea3f 100644
+--- a/src/crypto/sha1/sha1_test.go
++++ b/src/crypto/sha1/sha1_test.go
+@@ -16,7 +16,7 @@ import (
+ 	"testing"
+ )
+ 
+-import "crypto/internal/boring"
++import boring "crypto/internal/backend"
+ 
+ type sha1Test struct {
+ 	out       string
+@@ -79,7 +79,7 @@ func TestGolden(t *testing.T) {
+ 				io.WriteString(c, g.in[len(g.in)/2:])
+ 				sum = c.Sum(nil)
+ 			case 3:
+-				if boring.Enabled {
++				if boring.Enabled() {
+ 					continue
+ 				}
+ 				io.WriteString(c, g.in[0:len(g.in)/2])
+@@ -146,7 +146,7 @@ func TestBlockSize(t *testing.T) {
+ 
+ // Tests that blockGeneric (pure Go) and block (in assembly for some architectures) match.
+ func TestBlockGeneric(t *testing.T) {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		t.Skip("BoringCrypto doesn't expose digest")
+ 	}
+ 	for i := 1; i < 30; i++ { // arbitrary factor
+@@ -219,7 +219,7 @@ func TestLargeHashes(t *testing.T) {
+ }
+ 
+ func TestAllocations(t *testing.T) {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		t.Skip("BoringCrypto doesn't allocate the same way as stdlib")
+ 	}
+ 	in := []byte("hello, world!")
+diff --git a/src/crypto/sha256/sha256.go b/src/crypto/sha256/sha256.go
+index 465d00e0e6..ae56ff2e3e 100644
+--- a/src/crypto/sha256/sha256.go
++++ b/src/crypto/sha256/sha256.go
+@@ -11,9 +11,9 @@ import (
+ 	"encoding/binary"
+ 	"errors"
+ 	"hash"
+-)
+ 
+-import "crypto/internal/boring"
++	boring "crypto/internal/backend"
++)
+ 
+ func init() {
+ 	crypto.RegisterHash(crypto.SHA224, New224)
+@@ -161,7 +161,7 @@ func (d *digest) Reset() {
+ // encoding.BinaryUnmarshaler to marshal and unmarshal the internal
+ // state of the hash.
+ func New() hash.Hash {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		return boring.NewSHA256()
+ 	}
+ 	d := new(digest)
+@@ -171,7 +171,7 @@ func New() hash.Hash {
+ 
+ // New224 returns a new hash.Hash computing the SHA224 checksum.
+ func New224() hash.Hash {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		return boring.NewSHA224()
+ 	}
+ 	d := new(digest)
+@@ -262,7 +262,7 @@ func (d *digest) checkSum() [Size]byte {
+ 
+ // Sum256 returns the SHA256 checksum of the data.
+ func Sum256(data []byte) [Size]byte {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		h := New()
+ 		h.Write(data)
+ 		var ret [Size]byte
+@@ -277,7 +277,7 @@ func Sum256(data []byte) [Size]byte {
+ 
+ // Sum224 returns the SHA224 checksum of the data.
+ func Sum224(data []byte) [Size224]byte {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		h := New224()
+ 		h.Write(data)
+ 		var ret [Size224]byte
+diff --git a/src/crypto/sha256/sha256_test.go b/src/crypto/sha256/sha256_test.go
+index a762afc4d9..1b01dda771 100644
+--- a/src/crypto/sha256/sha256_test.go
++++ b/src/crypto/sha256/sha256_test.go
+@@ -16,7 +16,7 @@ import (
+ 	"testing"
+ )
+ 
+-import "crypto/internal/boring"
++import boring "crypto/internal/backend"
+ 
+ type sha256Test struct {
+ 	out       string
+@@ -218,7 +218,7 @@ func TestBlockSize(t *testing.T) {
+ 
+ // Tests that blockGeneric (pure Go) and block (in assembly for some architectures) match.
+ func TestBlockGeneric(t *testing.T) {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		t.Skip("BoringCrypto doesn't expose digest")
+ 	}
+ 	gen, asm := New().(*digest), New().(*digest)
+@@ -295,7 +295,7 @@ func TestLargeHashes(t *testing.T) {
+ }
+ 
+ func TestAllocations(t *testing.T) {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		t.Skip("BoringCrypto doesn't allocate the same way as stdlib")
+ 	}
+ 	in := []byte("hello, world!")
+diff --git a/src/crypto/sha512/sha512.go b/src/crypto/sha512/sha512.go
+index 1285cca7ee..4eced558fc 100644
+--- a/src/crypto/sha512/sha512.go
++++ b/src/crypto/sha512/sha512.go
+@@ -15,9 +15,9 @@ import (
+ 	"encoding/binary"
+ 	"errors"
+ 	"hash"
+-)
+ 
+-import "crypto/internal/boring"
++	boring "crypto/internal/backend"
++)
+ 
+ func init() {
+ 	crypto.RegisterHash(crypto.SHA384, New384)
+@@ -213,7 +213,7 @@ func consumeUint64(b []byte) ([]byte, uint64) {
+ 
+ // New returns a new hash.Hash computing the SHA-512 checksum.
+ func New() hash.Hash {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		return boring.NewSHA512()
+ 	}
+ 	d := &digest{function: crypto.SHA512}
+@@ -237,7 +237,7 @@ func New512_256() hash.Hash {
+ 
+ // New384 returns a new hash.Hash computing the SHA-384 checksum.
+ func New384() hash.Hash {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		return boring.NewSHA384()
+ 	}
+ 	d := &digest{function: crypto.SHA384}
+@@ -344,7 +344,7 @@ func (d *digest) checkSum() [Size]byte {
+ 
+ // Sum512 returns the SHA512 checksum of the data.
+ func Sum512(data []byte) [Size]byte {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		h := New()
+ 		h.Write(data)
+ 		var ret [Size]byte
+@@ -359,7 +359,7 @@ func Sum512(data []byte) [Size]byte {
+ 
+ // Sum384 returns the SHA384 checksum of the data.
+ func Sum384(data []byte) [Size384]byte {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		h := New384()
+ 		h.Write(data)
+ 		var ret [Size384]byte
+diff --git a/src/crypto/sha512/sha512_test.go b/src/crypto/sha512/sha512_test.go
+index 99d1423527..6370714f22 100644
+--- a/src/crypto/sha512/sha512_test.go
++++ b/src/crypto/sha512/sha512_test.go
+@@ -17,7 +17,7 @@ import (
+ 	"testing"
+ )
+ 
+-import "crypto/internal/boring"
++import boring "crypto/internal/backend"
+ 
+ type sha512Test struct {
+ 	out       string
+@@ -824,7 +824,7 @@ func TestBlockSize(t *testing.T) {
+ 
+ // Tests that blockGeneric (pure Go) and block (in assembly for some architectures) match.
+ func TestBlockGeneric(t *testing.T) {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		t.Skip("BoringCrypto doesn't expose digest")
+ 	}
+ 	gen, asm := New().(*digest), New().(*digest)
+@@ -894,7 +894,7 @@ func TestLargeHashes(t *testing.T) {
+ }
+ 
+ func TestAllocations(t *testing.T) {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		t.Skip("BoringCrypto doesn't allocate the same way as stdlib")
+ 	}
+ 	in := []byte("hello, world!")
+diff --git a/src/crypto/tls/cipher_suites.go b/src/crypto/tls/cipher_suites.go
+index 76312984ab..a364d853c6 100644
+--- a/src/crypto/tls/cipher_suites.go
++++ b/src/crypto/tls/cipher_suites.go
+@@ -4,14 +4,13 @@
+ 
+ package tls
+ 
+-import "crypto/internal/boring"
+-
+ import (
+ 	"crypto"
+ 	"crypto/aes"
+ 	"crypto/cipher"
+ 	"crypto/des"
+ 	"crypto/hmac"
++	boring "crypto/internal/backend"
+ 	"crypto/rc4"
+ 	"crypto/sha1"
+ 	"crypto/sha256"
+@@ -219,57 +218,56 @@ var cipherSuitesTLS13 = []*cipherSuiteTLS13{ // TODO: replace with a map.
+ //
+ //   - Anything else comes before RC4
+ //
+-//       RC4 has practically exploitable biases. See https://www.rc4nomore.com.
++//     RC4 has practically exploitable biases. See https://www.rc4nomore.com.
+ //
+ //   - Anything else comes before CBC_SHA256
+ //
+-//       SHA-256 variants of the CBC ciphersuites don't implement any Lucky13
+-//       countermeasures. See http://www.isg.rhul.ac.uk/tls/Lucky13.html and
+-//       https://www.imperialviolet.org/2013/02/04/luckythirteen.html.
++//     SHA-256 variants of the CBC ciphersuites don't implement any Lucky13
++//     countermeasures. See http://www.isg.rhul.ac.uk/tls/Lucky13.html and
++//     https://www.imperialviolet.org/2013/02/04/luckythirteen.html.
+ //
+ //   - Anything else comes before 3DES
+ //
+-//       3DES has 64-bit blocks, which makes it fundamentally susceptible to
+-//       birthday attacks. See https://sweet32.info.
++//     3DES has 64-bit blocks, which makes it fundamentally susceptible to
++//     birthday attacks. See https://sweet32.info.
+ //
+ //   - ECDHE comes before anything else
+ //
+-//       Once we got the broken stuff out of the way, the most important
+-//       property a cipher suite can have is forward secrecy. We don't
+-//       implement FFDHE, so that means ECDHE.
++//     Once we got the broken stuff out of the way, the most important
++//     property a cipher suite can have is forward secrecy. We don't
++//     implement FFDHE, so that means ECDHE.
+ //
+ //   - AEADs come before CBC ciphers
+ //
+-//       Even with Lucky13 countermeasures, MAC-then-Encrypt CBC cipher suites
+-//       are fundamentally fragile, and suffered from an endless sequence of
+-//       padding oracle attacks. See https://eprint.iacr.org/2015/1129,
+-//       https://www.imperialviolet.org/2014/12/08/poodleagain.html, and
+-//       https://blog.cloudflare.com/yet-another-padding-oracle-in-openssl-cbc-ciphersuites/.
++//     Even with Lucky13 countermeasures, MAC-then-Encrypt CBC cipher suites
++//     are fundamentally fragile, and suffered from an endless sequence of
++//     padding oracle attacks. See https://eprint.iacr.org/2015/1129,
++//     https://www.imperialviolet.org/2014/12/08/poodleagain.html, and
++//     https://blog.cloudflare.com/yet-another-padding-oracle-in-openssl-cbc-ciphersuites/.
+ //
+ //   - AES comes before ChaCha20
+ //
+-//       When AES hardware is available, AES-128-GCM and AES-256-GCM are faster
+-//       than ChaCha20Poly1305.
++//     When AES hardware is available, AES-128-GCM and AES-256-GCM are faster
++//     than ChaCha20Poly1305.
+ //
+-//       When AES hardware is not available, AES-128-GCM is one or more of: much
+-//       slower, way more complex, and less safe (because not constant time)
+-//       than ChaCha20Poly1305.
++//     When AES hardware is not available, AES-128-GCM is one or more of: much
++//     slower, way more complex, and less safe (because not constant time)
++//     than ChaCha20Poly1305.
+ //
+-//       We use this list if we think both peers have AES hardware, and
+-//       cipherSuitesPreferenceOrderNoAES otherwise.
++//     We use this list if we think both peers have AES hardware, and
++//     cipherSuitesPreferenceOrderNoAES otherwise.
+ //
+ //   - AES-128 comes before AES-256
+ //
+-//       The only potential advantages of AES-256 are better multi-target
+-//       margins, and hypothetical post-quantum properties. Neither apply to
+-//       TLS, and AES-256 is slower due to its four extra rounds (which don't
+-//       contribute to the advantages above).
++//     The only potential advantages of AES-256 are better multi-target
++//     margins, and hypothetical post-quantum properties. Neither apply to
++//     TLS, and AES-256 is slower due to its four extra rounds (which don't
++//     contribute to the advantages above).
+ //
+ //   - ECDSA comes before RSA
+ //
+-//       The relative order of ECDSA and RSA cipher suites doesn't matter,
+-//       as they depend on the certificate. Pick one to get a stable order.
+-//
++//     The relative order of ECDSA and RSA cipher suites doesn't matter,
++//     as they depend on the certificate. Pick one to get a stable order.
+ var cipherSuitesPreferenceOrder = []uint16{
+ 	// AEADs w/ ECDHE
+ 	TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256, TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+@@ -427,7 +425,7 @@ func macSHA1(key []byte) hash.Hash {
+ 	h := sha1.New
+ 	// The BoringCrypto SHA1 does not have a constant-time
+ 	// checksum function, so don't try to use it.
+-	if !boring.Enabled {
++	if !boring.Enabled() {
+ 		h = newConstantTimeHash(h)
+ 	}
+ 	return hmac.New(h, key)
+diff --git a/src/go.mod b/src/go.mod
+index bd6308add0..b50d96c62c 100644
+--- a/src/go.mod
++++ b/src/go.mod
+@@ -3,6 +3,7 @@ module std
+ go 1.18
+ 
+ require (
++	github.com/golang-fips/openssl-fips v0.0.0-20220505153334-362f46022010
+ 	golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
+ 	golang.org/x/net v0.0.0-20211209124913-491a49abca63
+ )
+diff --git a/src/go.sum b/src/go.sum
+index 8bf08531de..3c717a634d 100644
+--- a/src/go.sum
++++ b/src/go.sum
+@@ -1,3 +1,5 @@
++github.com/golang-fips/openssl-fips v0.0.0-20220505153334-362f46022010 h1:df6Fm3lRHuvH+OdR2wB8Wz7zzJ6+K5lxYqMUrK9za3Q=
++github.com/golang-fips/openssl-fips v0.0.0-20220505153334-362f46022010/go.mod h1:V2IU8imz/VkScnIbTOrdYsZ5R88ZFypCE0LzhRJ3HsI=
+ golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3 h1:0es+/5331RGQPcXlMfP+WrnIIS6dNnNRe0WB02W0F4M=
+ golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3/go.mod h1:IxCIyHEi3zRg3s0A5j5BB6A9Jmi73HwBIUl50j+osU4=
+ golang.org/x/net v0.0.0-20211209124913-491a49abca63 h1:iocB37TsdFuN6IBRZ+ry36wrkoV51/tl5vOWqkcPGvY=
+diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
+index ed8ddcb307..f8d29618d9 100644
+--- a/src/go/build/deps_test.go
++++ b/src/go/build/deps_test.go
+@@ -31,7 +31,7 @@ import (
+ //
+ // The general syntax of a rule is:
+ //
+-//		a, b < c, d;
++//	a, b < c, d;
+ //
+ // which means c and d come after a and b in the partial order
+ // (that is, c and d can import a and b),
+@@ -39,12 +39,12 @@ import (
+ //
+ // The rules can chain together, as in:
+ //
+-//		e < f, g < h;
++//	e < f, g < h;
+ //
+ // which is equivalent to
+ //
+-//		e < f, g;
+-//		f, g < h;
++//	e < f, g;
++//	f, g < h;
+ //
+ // Except for the special bottom element "NONE", each name
+ // must appear exactly once on the right-hand side of a rule.
+@@ -56,7 +56,7 @@ import (
+ //
+ // Negative assertions double-check the partial order:
+ //
+-//		i !< j
++//	i !< j
+ //
+ // means that it must NOT be the case that i < j.
+ // Negative assertions may appear anywhere in the rules,
+@@ -66,7 +66,6 @@ import (
+ //
+ // All-caps names are pseudo-names for specific points
+ // in the dependency lattice.
+-//
+ var depsRules = `
+ 	# No dependencies allowed for any of these packages.
+ 	NONE
+@@ -416,7 +415,13 @@ var depsRules = `
+ 	< crypto/ed25519/internal/edwards25519
+ 	< crypto/cipher
+ 	< encoding/asn1
+-	< crypto/internal/boring
++	< CRYPTO;
++	
++	CRYPTO < crypto/internal/boring;
++	
++	CRYPTO
++	< github.com/golang-fips/openssl-fips/openssl
++	< crypto/internal/backend
+ 	< crypto/aes, crypto/des, crypto/hmac, crypto/md5, crypto/rc4,
+ 	  crypto/sha1, crypto/sha256, crypto/sha512
+ 	< crypto/rand
+@@ -446,7 +451,7 @@ var depsRules = `
+ 	crypto/internal/boring/sig, crypto/internal/boring/fipstls
+ 	< crypto/tls/fipsonly;
+ 
+-	crypto/internal/boring
++	crypto/internal/backend
+ 	< crypto/boring;
+ 
+ 	# crypto-aware packages
+@@ -646,7 +651,7 @@ var buildIgnore = []byte("\n//go:build ignore")
+ 
+ func findImports(pkg string) ([]string, error) {
+ 	vpkg := pkg
+-	if strings.HasPrefix(pkg, "golang.org") {
++	if strings.HasPrefix(pkg, "golang.org") || strings.HasPrefix(pkg, "github.com") {
+ 		vpkg = "vendor/" + pkg
+ 	}
+ 	dir := filepath.Join(Default.GOROOT, "src", vpkg)
+diff --git a/src/runtime/runtime_boring.go b/src/runtime/runtime_boring.go
+index 5a98b20253..dc25cdcfd5 100644
+--- a/src/runtime/runtime_boring.go
++++ b/src/runtime/runtime_boring.go
+@@ -17,3 +17,8 @@ func boring_runtime_arg0() string {
+ 
+ //go:linkname fipstls_runtime_arg0 crypto/internal/boring/fipstls.runtime_arg0
+ func fipstls_runtime_arg0() string { return boring_runtime_arg0() }
++
++//go:linkname crypto_backend_runtime_arg0 crypto/internal/backend.runtime_arg0
++func crypto_backend_runtime_arg0() string {
++	return boring_runtime_arg0()
++}
+\ No newline at end of file
+diff --git a/src/vendor/github.com/golang-fips/openssl-fips/LICENSE b/src/vendor/github.com/golang-fips/openssl-fips/LICENSE
+new file mode 100644
+index 0000000000..093267eb6d
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl-fips/LICENSE
+@@ -0,0 +1,20 @@
++The MIT License (MIT)
++
++Copyright (c) 2022 Red Hat, Inc.
++
++Permission is hereby granted, free of charge, to any person obtaining a copy of
++this software and associated documentation files (the "Software"), to deal in
++the Software without restriction, including without limitation the rights to
++use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
++the Software, and to permit persons to whom the Software is furnished to do so,
++subject to the following conditions:
++
++The above copyright notice and this permission notice shall be included in all
++copies or substantial portions of the Software.
++
++THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
++IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
++FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
++COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
++IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+\ No newline at end of file
+diff --git a/src/vendor/github.com/golang-fips/openssl-fips/openssl/aes.go b/src/vendor/github.com/golang-fips/openssl-fips/openssl/aes.go
+new file mode 100644
+index 0000000000..3e807e8296
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/aes.go
+@@ -0,0 +1,490 @@
++// Copyright 2017 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
++// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
++
++package openssl
++
++// #include "goopenssl.h"
++import "C"
++import (
++	"crypto/cipher"
++	"errors"
++	"runtime"
++	"strconv"
++	"unsafe"
++)
++
++type aesKeySizeError int
++
++func (k aesKeySizeError) Error() string {
++	return "crypto/aes: invalid key size " + strconv.Itoa(int(k))
++}
++
++const aesBlockSize = 16
++
++type aesCipher struct {
++	key     []byte
++	enc_ctx *C.EVP_CIPHER_CTX
++	dec_ctx *C.EVP_CIPHER_CTX
++	cipher  *C.EVP_CIPHER
++}
++
++type extraModes interface {
++	// Copied out of crypto/aes/modes.go.
++	NewCBCEncrypter(iv []byte) cipher.BlockMode
++	NewCBCDecrypter(iv []byte) cipher.BlockMode
++	NewCTR(iv []byte) cipher.Stream
++	NewGCM(nonceSize, tagSize int) (cipher.AEAD, error)
++
++	// Invented for BoringCrypto.
++	NewGCMTLS() (cipher.AEAD, error)
++}
++
++var _ extraModes = (*aesCipher)(nil)
++
++func NewAESCipher(key []byte) (cipher.Block, error) {
++	c := &aesCipher{key: make([]byte, len(key))}
++	copy(c.key, key)
++
++	switch len(c.key) * 8 {
++	case 128:
++		c.cipher = C._goboringcrypto_EVP_aes_128_ecb()
++	case 192:
++		c.cipher = C._goboringcrypto_EVP_aes_192_ecb()
++	case 256:
++		c.cipher = C._goboringcrypto_EVP_aes_256_ecb()
++	default:
++		return nil, errors.New("crypto/cipher: Invalid key size")
++	}
++
++	runtime.SetFinalizer(c, (*aesCipher).finalize)
++
++	return c, nil
++}
++
++func (c *aesCipher) finalize() {
++	if c.enc_ctx != nil {
++		C._goboringcrypto_EVP_CIPHER_CTX_free(c.enc_ctx)
++	}
++	if c.dec_ctx != nil {
++		C._goboringcrypto_EVP_CIPHER_CTX_free(c.dec_ctx)
++	}
++}
++
++func (c *aesCipher) BlockSize() int { return aesBlockSize }
++
++func (c *aesCipher) Encrypt(dst, src []byte) {
++	if inexactOverlap(dst, src) {
++		panic("crypto/cipher: invalid buffer overlap")
++	}
++	if len(src) < aesBlockSize {
++		panic("crypto/aes: input not full block")
++	}
++	if len(dst) < aesBlockSize {
++		panic("crypto/aes: output not full block")
++	}
++
++	if c.enc_ctx == nil {
++		c.enc_ctx = C._goboringcrypto_EVP_CIPHER_CTX_new()
++		if c.enc_ctx == nil {
++			panic("cipher: unable to create EVP cipher ctx")
++		}
++
++		k := (*C.uchar)(unsafe.Pointer(&c.key[0]))
++
++		if C.int(1) != C._goboringcrypto_EVP_CipherInit_ex(c.enc_ctx, c.cipher, nil, k, nil, C.GO_AES_ENCRYPT) {
++			panic("cipher: unable to initialize EVP cipher ctx")
++		}
++	}
++
++	outlen := C.int(0)
++	C._goboringcrypto_EVP_CipherUpdate(c.enc_ctx, (*C.uchar)(unsafe.Pointer(&dst[0])), &outlen, (*C.uchar)(unsafe.Pointer(&src[0])), C.int(aesBlockSize))
++	runtime.KeepAlive(c)
++}
++
++func (c *aesCipher) Decrypt(dst, src []byte) {
++	if inexactOverlap(dst, src) {
++		panic("crypto/cipher: invalid buffer overlap")
++	}
++	if len(src) < aesBlockSize {
++		panic("crypto/aes: input not full block")
++	}
++	if len(dst) < aesBlockSize {
++		panic("crypto/aes: output not full block")
++	}
++	if c.dec_ctx == nil {
++		c.dec_ctx = C._goboringcrypto_EVP_CIPHER_CTX_new()
++		if c.dec_ctx == nil {
++			panic("cipher: unable to create EVP cipher ctx")
++		}
++
++		k := (*C.uchar)(unsafe.Pointer(&c.key[0]))
++
++		if C.int(1) != C._goboringcrypto_EVP_CipherInit_ex(c.dec_ctx, c.cipher, nil, k, nil, C.GO_AES_DECRYPT) {
++			panic("cipher: unable to initialize EVP cipher ctx")
++		}
++	}
++	// Workaround - padding detection is broken but we don't need it
++	// since we check for full blocks
++	if C._goboringcrypto_EVP_CIPHER_CTX_set_padding(c.dec_ctx, 0) != 1 {
++		panic("crypto/cipher: could not disable cipher padding")
++	}
++	outlen := C.int(0)
++	C._goboringcrypto_EVP_CipherUpdate(c.dec_ctx, (*C.uchar)(unsafe.Pointer(&dst[0])), &outlen, (*C.uchar)(unsafe.Pointer(&src[0])), C.int(aesBlockSize))
++	runtime.KeepAlive(c)
++}
++
++type aesCBC struct {
++	key  []byte
++	mode C.int
++	iv   [aesBlockSize]byte
++	ctx  *C.EVP_CIPHER_CTX
++}
++
++func (x *aesCBC) BlockSize() int { return aesBlockSize }
++
++func (x *aesCBC) CryptBlocks(dst, src []byte) {
++	if inexactOverlap(dst, src) {
++		panic("crypto/cipher: invalid buffer overlap")
++	}
++	if len(src)%aesBlockSize != 0 {
++		panic("crypto/cipher: input not full blocks")
++	}
++	if len(dst) < len(src) {
++		panic("crypto/cipher: output smaller than input")
++	}
++	if len(src) > 0 {
++		outlen := C.int(0)
++		// Workaround - padding detection is broken but we don't need it
++		// since we check for full blocks
++		if C._goboringcrypto_EVP_CIPHER_CTX_set_padding(x.ctx, 0) != 1 {
++			panic("crypto/cipher: could not disable cipher padding")
++		}
++		if C._goboringcrypto_EVP_CipherUpdate(
++			x.ctx,
++			base(dst), &outlen,
++			base(src), C.int(len(src)),
++		) != 1 {
++			panic("crypto/cipher: CipherUpdate failed")
++		}
++		runtime.KeepAlive(x)
++	}
++}
++
++func (x *aesCBC) SetIV(iv []byte) {
++	if len(iv) != aesBlockSize {
++		panic("cipher: incorrect length IV")
++	}
++	copy(x.iv[:], iv)
++	if C.int(1) != C._goboringcrypto_EVP_CipherInit_ex(x.ctx, nil, nil, nil, (*C.uchar)(unsafe.Pointer(&x.iv[0])), -1) {
++		panic("cipher: unable to initialize EVP cipher ctx")
++	}
++}
++
++func (c *aesCipher) NewCBCEncrypter(iv []byte) cipher.BlockMode {
++	x := &aesCBC{key: c.key, mode: C.GO_AES_ENCRYPT}
++	copy(x.iv[:], iv)
++
++	x.ctx = C._goboringcrypto_EVP_CIPHER_CTX_new()
++	if x.ctx == nil {
++		panic("cipher: unable to create EVP cipher ctx")
++	}
++
++	k := (*C.uchar)(unsafe.Pointer(&x.key[0]))
++	vec := (*C.uchar)(unsafe.Pointer(&x.iv[0]))
++
++	var cipher *C.EVP_CIPHER
++	switch len(c.key) * 8 {
++	case 128:
++		cipher = C._goboringcrypto_EVP_aes_128_cbc()
++	case 192:
++		cipher = C._goboringcrypto_EVP_aes_192_cbc()
++	case 256:
++		cipher = C._goboringcrypto_EVP_aes_256_cbc()
++	default:
++		panic("crypto/boring: unsupported key length")
++	}
++	if C.int(1) != C._goboringcrypto_EVP_CipherInit_ex(x.ctx, cipher, nil, k, vec, x.mode) {
++		panic("cipher: unable to initialize EVP cipher ctx")
++	}
++
++	runtime.SetFinalizer(x, (*aesCBC).finalize)
++
++	return x
++}
++
++func (c *aesCBC) finalize() {
++	C._goboringcrypto_EVP_CIPHER_CTX_free(c.ctx)
++}
++
++func (c *aesCipher) NewCBCDecrypter(iv []byte) cipher.BlockMode {
++	x := &aesCBC{key: c.key, mode: C.GO_AES_DECRYPT}
++	copy(x.iv[:], iv)
++
++	x.ctx = C._goboringcrypto_EVP_CIPHER_CTX_new()
++	if x.ctx == nil {
++		panic("cipher: unable to create EVP cipher ctx")
++	}
++
++	k := (*C.uchar)(unsafe.Pointer(&x.key[0]))
++	vec := (*C.uchar)(unsafe.Pointer(&x.iv[0]))
++
++	var cipher *C.EVP_CIPHER
++	switch len(c.key) * 8 {
++	case 128:
++		cipher = C._goboringcrypto_EVP_aes_128_cbc()
++	case 192:
++		cipher = C._goboringcrypto_EVP_aes_192_cbc()
++	case 256:
++		cipher = C._goboringcrypto_EVP_aes_256_cbc()
++	default:
++		panic("crypto/boring: unsupported key length")
++	}
++	if C.int(1) != C._goboringcrypto_EVP_CipherInit_ex(x.ctx, cipher, nil, k, vec, x.mode) {
++		panic("cipher: unable to initialize EVP cipher ctx")
++	}
++	if C.int(1) != C._goboringcrypto_EVP_CIPHER_CTX_set_padding(x.ctx, 0) {
++		panic("cipher: unable to set padding")
++	}
++
++	runtime.SetFinalizer(x, (*aesCBC).finalize)
++	return x
++}
++
++type aesCTR struct {
++	key        []byte
++	iv         [aesBlockSize]byte
++	ctx        *C.EVP_CIPHER_CTX
++	num        C.uint
++	ecount_buf [16]C.uint8_t
++}
++
++func (x *aesCTR) XORKeyStream(dst, src []byte) {
++	if inexactOverlap(dst, src) {
++		panic("crypto/cipher: invalid buffer overlap")
++	}
++	if len(dst) < len(src) {
++		panic("crypto/cipher: output smaller than input")
++	}
++	if len(src) == 0 {
++		return
++	}
++	C._goboringcrypto_EVP_AES_ctr128_enc(
++		x.ctx,
++		(*C.uint8_t)(unsafe.Pointer(&src[0])),
++		(*C.uint8_t)(unsafe.Pointer(&dst[0])),
++		C.size_t(len(src)))
++	runtime.KeepAlive(x)
++}
++
++func (c *aesCipher) NewCTR(iv []byte) cipher.Stream {
++	x := &aesCTR{key: c.key}
++	copy(x.iv[:], iv)
++
++	x.ctx = C._goboringcrypto_EVP_CIPHER_CTX_new()
++	if x.ctx == nil {
++		panic("cipher: unable to create EVP cipher ctx")
++	}
++
++	k := (*C.uchar)(unsafe.Pointer(&x.key[0]))
++	vec := (*C.uchar)(unsafe.Pointer(&x.iv[0]))
++
++	switch len(c.key) * 8 {
++	case 128:
++		if C.int(1) != C._goboringcrypto_EVP_EncryptInit_ex(x.ctx, C._goboringcrypto_EVP_aes_128_ctr(), nil, k, vec) {
++			panic("cipher: unable to initialize EVP cipher ctx")
++		}
++	case 192:
++		if C.int(1) != C._goboringcrypto_EVP_EncryptInit_ex(x.ctx, C._goboringcrypto_EVP_aes_192_ctr(), nil, k, vec) {
++			panic("cipher: unable to initialize EVP cipher ctx")
++		}
++	case 256:
++		if C.int(1) != C._goboringcrypto_EVP_EncryptInit_ex(x.ctx, C._goboringcrypto_EVP_aes_256_ctr(), nil, k, vec) {
++			panic("cipher: unable to initialize EVP cipher ctx")
++		}
++	}
++
++	runtime.SetFinalizer(x, (*aesCTR).finalize)
++
++	return x
++}
++
++func (c *aesCTR) finalize() {
++	C._goboringcrypto_EVP_CIPHER_CTX_free(c.ctx)
++}
++
++type aesGCM struct {
++	key []byte
++	tls bool
++}
++
++const (
++	gcmBlockSize         = 16
++	gcmTagSize           = 16
++	gcmStandardNonceSize = 12
++)
++
++type aesNonceSizeError int
++
++func (n aesNonceSizeError) Error() string {
++	return "crypto/aes: invalid GCM nonce size " + strconv.Itoa(int(n))
++}
++
++type noGCM struct {
++	cipher.Block
++}
++
++func (c *aesCipher) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
++	if nonceSize != gcmStandardNonceSize {
++		return nil, errors.New("crypto/aes: GCM nonce size can't be non-standard")
++	}
++	if tagSize != gcmTagSize {
++		return nil, errors.New("crypto/aes: GCM tag size can't be non-standard")
++	}
++	return c.newGCM(false)
++}
++
++func (c *aesCipher) NewGCMTLS() (cipher.AEAD, error) {
++	return c.newGCM(true)
++}
++
++func (c *aesCipher) newGCM(tls bool) (cipher.AEAD, error) {
++	keyLen := len(c.key) * 8
++
++	if keyLen != 128 && keyLen != 256 {
++		// Return error for GCM with non-standard key size.
++		return nil, fail("GCM invoked with non-standard key size")
++	}
++
++	g := &aesGCM{key: c.key, tls: tls}
++	if g.NonceSize() != gcmStandardNonceSize {
++		panic("boringcrypto: internal confusion about nonce size")
++	}
++	if g.Overhead() != gcmTagSize {
++		panic("boringcrypto: internal confusion about tag size")
++	}
++
++	return g, nil
++}
++
++func (g *aesGCM) NonceSize() int {
++	return gcmStandardNonceSize
++}
++
++func (g *aesGCM) Overhead() int {
++	return gcmTagSize
++}
++
++// base returns the address of the underlying array in b,
++// being careful not to panic when b has zero length.
++func base(b []byte) *C.uint8_t {
++	if len(b) == 0 {
++		return nil
++	}
++	return (*C.uint8_t)(unsafe.Pointer(&b[0]))
++}
++
++func (g *aesGCM) Seal(dst, nonce, plaintext, additionalData []byte) []byte {
++	if len(nonce) != gcmStandardNonceSize {
++		panic("cipher: incorrect nonce length given to GCM")
++	}
++	if uint64(len(plaintext)) > ((1<<32)-2)*aesBlockSize || len(plaintext)+gcmTagSize < len(plaintext) {
++		panic("cipher: message too large for GCM")
++	}
++	if len(dst)+len(plaintext)+gcmTagSize < len(dst) {
++		panic("cipher: message too large for buffer")
++	}
++
++	// Make room in dst to append plaintext+overhead.
++	n := len(dst)
++	for cap(dst) < n+len(plaintext)+gcmTagSize {
++		dst = append(dst[:cap(dst)], 0)
++	}
++	dst = dst[:n+len(plaintext)+gcmTagSize]
++
++	// Check delayed until now to make sure len(dst) is accurate.
++	if inexactOverlap(dst[n:], plaintext) {
++		panic("cipher: invalid buffer overlap")
++	}
++
++	var ciphertextLen C.size_t
++
++	if ok := C._goboringcrypto_EVP_CIPHER_CTX_seal(
++		(*C.uint8_t)(unsafe.Pointer(&dst[n])),
++		base(nonce), base(additionalData), C.size_t(len(additionalData)),
++		base(plaintext), C.size_t(len(plaintext)), &ciphertextLen,
++		base(g.key), C.int(len(g.key)*8)); ok != 1 {
++		panic("boringcrypto: EVP_CIPHER_CTX_seal fail")
++	}
++	runtime.KeepAlive(g)
++
++	if ciphertextLen != C.size_t(len(plaintext)+gcmTagSize) {
++		panic("boringcrypto: [seal] internal confusion about GCM tag size")
++	}
++	return dst[:n+int(ciphertextLen)]
++}
++
++var errOpen = errors.New("cipher: message authentication failed")
++
++func (g *aesGCM) Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, error) {
++	if len(nonce) != gcmStandardNonceSize {
++		panic("cipher: incorrect nonce length given to GCM")
++	}
++	if len(ciphertext) < gcmTagSize {
++		return nil, errOpen
++	}
++	if uint64(len(ciphertext)) > ((1<<32)-2)*aesBlockSize+gcmTagSize {
++		return nil, errOpen
++	}
++
++	// Make room in dst to append ciphertext without tag.
++	n := len(dst)
++	for cap(dst) < n+len(ciphertext)-gcmTagSize {
++		dst = append(dst[:cap(dst)], 0)
++	}
++	dst = dst[:n+len(ciphertext)-gcmTagSize]
++
++	// Check delayed until now to make sure len(dst) is accurate.
++	if inexactOverlap(dst[n:], ciphertext) {
++		panic("cipher: invalid buffer overlap")
++	}
++
++	tag := ciphertext[len(ciphertext)-gcmTagSize:]
++
++	var outLen C.size_t
++
++	ok := C._goboringcrypto_EVP_CIPHER_CTX_open(
++		base(ciphertext), C.int(len(ciphertext)-gcmTagSize),
++		base(additionalData), C.int(len(additionalData)),
++		base(tag), base(g.key), C.int(len(g.key)*8),
++		base(nonce), C.int(len(nonce)),
++		base(dst[n:]), &outLen)
++	runtime.KeepAlive(g)
++	if ok == 0 {
++		// Zero output buffer on error.
++		for i := range dst {
++			dst[i] = 0
++		}
++		return nil, errOpen
++	}
++	if outLen != C.size_t(len(ciphertext)-gcmTagSize) {
++		panic("boringcrypto: [open] internal confusion about GCM tag size")
++	}
++	return dst[:n+int(outLen)], nil
++}
++
++func anyOverlap(x, y []byte) bool {
++	return len(x) > 0 && len(y) > 0 &&
++		uintptr(unsafe.Pointer(&x[0])) <= uintptr(unsafe.Pointer(&y[len(y)-1])) &&
++		uintptr(unsafe.Pointer(&y[0])) <= uintptr(unsafe.Pointer(&x[len(x)-1]))
++}
++
++func inexactOverlap(x, y []byte) bool {
++	if len(x) == 0 || len(y) == 0 || &x[0] == &y[0] {
++		return false
++	}
++	return anyOverlap(x, y)
++}
+diff --git a/src/vendor/github.com/golang-fips/openssl-fips/openssl/doc.go b/src/vendor/github.com/golang-fips/openssl-fips/openssl/doc.go
+new file mode 100644
+index 0000000000..daf11d6c35
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/doc.go
+@@ -0,0 +1,12 @@
++// Copyright 2017 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++// package openssl provides access to OpenSSL implementation functions.
++package openssl
++
++// Enabled returns whether or not the boring package is enabled. When
++// the boring package is enabled that means FIPS mode is enabled.
++func Enabled() bool {
++	return enabled
++}
+diff --git a/src/crypto/internal/boring/ecdsa.go b/src/vendor/github.com/golang-fips/openssl-fips/openssl/ecdsa.go
+similarity index 66%
+rename from src/crypto/internal/boring/ecdsa.go
+rename to src/vendor/github.com/golang-fips/openssl-fips/openssl/ecdsa.go
+index b9c68a97af..eb4967e72f 100644
+--- a/src/crypto/internal/boring/ecdsa.go
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/ecdsa.go
+@@ -2,14 +2,15 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build linux && amd64 && !android && !cmd_go_bootstrap && !msan
+-// +build linux,amd64,!android,!cmd_go_bootstrap,!msan
++//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
++// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
+ 
+-package boring
++package openssl
+ 
+-// #include "goboringcrypto.h"
++// #include "goopenssl.h"
+ import "C"
+ import (
++	"crypto"
+ 	"encoding/asn1"
+ 	"errors"
+ 	"math/big"
+@@ -38,11 +39,12 @@ func (k *PublicKeyECDSA) finalize() {
+ }
+ 
+ var errUnknownCurve = errors.New("boringcrypto: unknown elliptic curve")
++var errUnsupportedCurve = errors.New("boringcrypto: unsupported elliptic curve")
+ 
+ func curveNID(curve string) (C.int, error) {
+ 	switch curve {
+ 	case "P-224":
+-		return C.GO_NID_secp224r1, nil
++		return 0, errUnsupportedCurve
+ 	case "P-256":
+ 		return C.GO_NID_X9_62_prime256v1, nil
+ 	case "P-384":
+@@ -74,13 +76,13 @@ func newECKey(curve string, X, Y *big.Int) (*C.GO_EC_KEY, error) {
+ 	}
+ 	key := C._goboringcrypto_EC_KEY_new_by_curve_name(nid)
+ 	if key == nil {
+-		return nil, fail("EC_KEY_new_by_curve_name")
++		return nil, NewOpenSSLError("EC_KEY_new_by_curve_name failed")
+ 	}
+ 	group := C._goboringcrypto_EC_KEY_get0_group(key)
+ 	pt := C._goboringcrypto_EC_POINT_new(group)
+ 	if pt == nil {
+ 		C._goboringcrypto_EC_KEY_free(key)
+-		return nil, fail("EC_POINT_new")
++		return nil, NewOpenSSLError("EC_POINT_new failed")
+ 	}
+ 	bx := bigToBN(X)
+ 	by := bigToBN(Y)
+@@ -95,7 +97,7 @@ func newECKey(curve string, X, Y *big.Int) (*C.GO_EC_KEY, error) {
+ 	C._goboringcrypto_EC_POINT_free(pt)
+ 	if !ok {
+ 		C._goboringcrypto_EC_KEY_free(key)
+-		return nil, fail("EC_POINT_set_affine_coordinates_GFp")
++		return nil, NewOpenSSLError("EC_POINT_free failed")
+ 	}
+ 	return key, nil
+ }
+@@ -112,7 +114,7 @@ func NewPrivateKeyECDSA(curve string, X, Y *big.Int, D *big.Int) (*PrivateKeyECD
+ 	}
+ 	if !ok {
+ 		C._goboringcrypto_EC_KEY_free(key)
+-		return nil, fail("EC_KEY_set_private_key")
++		return nil, NewOpenSSLError("EC_KEY_set_private_key failed")
+ 	}
+ 	k := &PrivateKeyECDSA{key}
+ 	// Note: Because of the finalizer, any time k.key is passed to cgo,
+@@ -123,12 +125,12 @@ func NewPrivateKeyECDSA(curve string, X, Y *big.Int, D *big.Int) (*PrivateKeyECD
+ 	return k, nil
+ }
+ 
+-func SignECDSA(priv *PrivateKeyECDSA, hash []byte) (r, s *big.Int, err error) {
++func SignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) (r, s *big.Int, err error) {
+ 	// We could use ECDSA_do_sign instead but would need to convert
+ 	// the resulting BIGNUMs to *big.Int form. If we're going to do a
+ 	// conversion, converting the ASN.1 form is more convenient and
+ 	// likely not much more expensive.
+-	sig, err := SignMarshalECDSA(priv, hash)
++	sig, err := SignMarshalECDSA(priv, hash, h)
+ 	if err != nil {
+ 		return nil, nil, err
+ 	}
+@@ -139,18 +141,29 @@ func SignECDSA(priv *PrivateKeyECDSA, hash []byte) (r, s *big.Int, err error) {
+ 	return esig.R, esig.S, nil
+ }
+ 
+-func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte) ([]byte, error) {
++func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) ([]byte, error) {
+ 	size := C._goboringcrypto_ECDSA_size(priv.key)
+ 	sig := make([]byte, size)
+ 	var sigLen C.uint
+-	if C._goboringcrypto_ECDSA_sign(0, base(hash), C.size_t(len(hash)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), &sigLen, priv.key) == 0 {
+-		return nil, fail("ECDSA_sign")
++	if h == crypto.Hash(0) {
++		ok := C._goboringcrypto_internal_ECDSA_sign(0, base(hash), C.size_t(len(hash)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), &sigLen, priv.key) > 0
++		if !ok {
++			return nil, NewOpenSSLError(("ECDSA_sign failed"))
++		}
++	} else {
++		md := cryptoHashToMD(h)
++		if md == nil {
++			panic("boring: invalid hash")
++		}
++		if C._goboringcrypto_ECDSA_sign(md, base(hash), C.size_t(len(hash)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), &sigLen, priv.key) == 0 {
++			return nil, NewOpenSSLError("ECDSA_sign failed")
++		}
+ 	}
+ 	runtime.KeepAlive(priv)
+ 	return sig[:sigLen], nil
+ }
+ 
+-func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, r, s *big.Int) bool {
++func VerifyECDSA(pub *PublicKeyECDSA, msg []byte, r, s *big.Int, h crypto.Hash) bool {
+ 	// We could use ECDSA_do_verify instead but would need to convert
+ 	// r and s to BIGNUM form. If we're going to do a conversion, marshaling
+ 	// to ASN.1 is more convenient and likely not much more expensive.
+@@ -158,7 +171,16 @@ func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, r, s *big.Int) bool {
+ 	if err != nil {
+ 		return false
+ 	}
+-	ok := C._goboringcrypto_ECDSA_verify(0, base(hash), C.size_t(len(hash)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), C.size_t(len(sig)), pub.key) != 0
++	if h == crypto.Hash(0) {
++		ok := C._goboringcrypto_internal_ECDSA_verify(0, base(msg), C.size_t(len(msg)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), C.uint(len(sig)), pub.key) > 0
++		runtime.KeepAlive(pub)
++		return ok
++	}
++	md := cryptoHashToMD(h)
++	if md == nil {
++		panic("boring: invalid hash")
++	}
++	ok := C._goboringcrypto_ECDSA_verify(md, base(msg), C.size_t(len(msg)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), C.uint(len(sig)), pub.key) > 0
+ 	runtime.KeepAlive(pub)
+ 	return ok
+ }
+@@ -170,30 +192,30 @@ func GenerateKeyECDSA(curve string) (X, Y, D *big.Int, err error) {
+ 	}
+ 	key := C._goboringcrypto_EC_KEY_new_by_curve_name(nid)
+ 	if key == nil {
+-		return nil, nil, nil, fail("EC_KEY_new_by_curve_name")
++		return nil, nil, nil, NewOpenSSLError("EC_KEY_new_by_curve_name failed")
+ 	}
+ 	defer C._goboringcrypto_EC_KEY_free(key)
+-	if C._goboringcrypto_EC_KEY_generate_key_fips(key) == 0 {
+-		return nil, nil, nil, fail("EC_KEY_generate_key_fips")
++	if C._goboringcrypto_EC_KEY_generate_key(key) == 0 {
++		return nil, nil, nil, NewOpenSSLError("EC_KEY_generate_key failed")
+ 	}
+ 	group := C._goboringcrypto_EC_KEY_get0_group(key)
+ 	pt := C._goboringcrypto_EC_KEY_get0_public_key(key)
+ 	bd := C._goboringcrypto_EC_KEY_get0_private_key(key)
+ 	if pt == nil || bd == nil {
+-		return nil, nil, nil, fail("EC_KEY_get0_private_key")
++		return nil, nil, nil, NewOpenSSLError("EC_KEY_get0_private_key failed")
+ 	}
+ 	bx := C._goboringcrypto_BN_new()
+ 	if bx == nil {
+-		return nil, nil, nil, fail("BN_new")
++		return nil, nil, nil, NewOpenSSLError("BN_new failed")
+ 	}
+ 	defer C._goboringcrypto_BN_free(bx)
+ 	by := C._goboringcrypto_BN_new()
+ 	if by == nil {
+-		return nil, nil, nil, fail("BN_new")
++		return nil, nil, nil, NewOpenSSLError("BN_new failed")
+ 	}
+ 	defer C._goboringcrypto_BN_free(by)
+ 	if C._goboringcrypto_EC_POINT_get_affine_coordinates_GFp(group, pt, bx, by, nil) == 0 {
+-		return nil, nil, nil, fail("EC_POINT_get_affine_coordinates_GFp")
++		return nil, nil, nil, NewOpenSSLError("EC_POINT_get_affine_coordinates_GFp failed")
+ 	}
+ 	return bnToBig(bx), bnToBig(by), bnToBig(bd), nil
+ }
+diff --git a/src/vendor/github.com/golang-fips/openssl-fips/openssl/goopenssl.h b/src/vendor/github.com/golang-fips/openssl-fips/openssl/goopenssl.h
+new file mode 100644
+index 0000000000..4820385f67
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/goopenssl.h
+@@ -0,0 +1,788 @@
++// Copyright 2017 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++// +build linux
++// +build !android
++// +build !no_openssl
++// +build !cmd_go_bootstrap
++// +build !msan
++
++// This header file describes the OpenSSL ABI as built for use in Go.
++
++#include <stdlib.h> // size_t
++#include <stdint.h> // uint8_t
++
++#include <openssl/ossl_typ.h>
++
++#if OPENSSL_VERSION_NUMBER < 0x30000000
++#define OPENSSL_DLSYM_CALL(handle, func) dlsym(handle, func)
++#else
++#define __USE_GNU
++#define OPENSSL_DLSYM_CALL(handle, func) dlvsym(handle, func, "OPENSSL_3.0.0")
++#endif
++
++#include <dlfcn.h>
++
++#define unlikely(x) __builtin_expect(!!(x), 0)
++#define DEFINEFUNC(ret, func, args, argscall)        \
++	typedef ret(*_goboringcrypto_PTR_##func) args;   \
++	static _goboringcrypto_PTR_##func _g_##func = 0; \
++	static inline ret _goboringcrypto_##func args    \
++	{                                                \
++		if (unlikely(!_g_##func))                    \
++		{                                            \
++			_g_##func = OPENSSL_DLSYM_CALL(handle, #func); \
++		}                                            \
++		return _g_##func argscall;                   \
++	}
++
++#define DEFINEFUNCINTERNAL(ret, func, args, argscall)        \
++	typedef ret(*_goboringcrypto_internal_PTR_##func) args;   \
++	static _goboringcrypto_internal_PTR_##func _g_internal_##func = 0; \
++	static inline ret _goboringcrypto_internal_##func args    \
++	{                                                \
++		if (unlikely(!_g_internal_##func))                    \
++		{                                            \
++			_g_internal_##func = OPENSSL_DLSYM_CALL(handle, #func); \
++		}                                            \
++		return _g_internal_##func argscall;                   \
++	}
++
++#define DEFINEMACRO(ret, func, args, argscall)    \
++	static inline ret _goboringcrypto_##func args \
++	{                                             \
++		return func argscall;                     \
++	}
++
++
++static void* handle;
++static void*
++_goboringcrypto_DLOPEN_OPENSSL(void)
++{
++	if (handle)
++	{
++		return handle;
++	}
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++	handle = dlopen("libcrypto.so.10", RTLD_NOW | RTLD_GLOBAL);
++#elif OPENSSL_VERSION_NUMBER < 0x30000000L
++	handle = dlopen("libcrypto.so.1.1", RTLD_NOW | RTLD_GLOBAL);
++#else
++	handle = dlopen("libcrypto.so.3", RTLD_NOW | RTLD_GLOBAL);
++#endif
++	return handle;
++}
++
++#include <openssl/opensslv.h>
++#include <openssl/ssl.h>
++
++DEFINEFUNCINTERNAL(int, OPENSSL_init, (void), ())
++
++static unsigned long _goboringcrypto_internal_OPENSSL_VERSION_NUMBER(void) {
++	return OPENSSL_VERSION_NUMBER;
++}
++
++static void
++_goboringcrypto_OPENSSL_setup(void) {
++	_goboringcrypto_internal_OPENSSL_init();
++}
++
++#include <openssl/err.h>
++DEFINEFUNCINTERNAL(void, ERR_print_errors_fp, (FILE* fp), (fp))
++DEFINEFUNCINTERNAL(unsigned long, ERR_get_error, (void), ())
++DEFINEFUNCINTERNAL(unsigned long, ERR_get_error_all,
++		(const char **file, int *line, const char **func, const char **data, int *flags),
++		(file, line, func, data, flags))
++DEFINEFUNCINTERNAL(void, ERR_error_string_n, (unsigned long e, unsigned char *buf, size_t len), (e, buf, len))
++
++#include <openssl/crypto.h>
++
++DEFINEFUNCINTERNAL(int, CRYPTO_num_locks, (void), ())
++static inline int
++_goboringcrypto_CRYPTO_num_locks(void) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++	return _goboringcrypto_internal_CRYPTO_num_locks();
++#else
++	return CRYPTO_num_locks();
++#endif
++}
++DEFINEFUNCINTERNAL(void, CRYPTO_set_id_callback, (unsigned long (*id_function)(void)), (id_function))
++static inline void
++_goboringcrypto_CRYPTO_set_id_callback(unsigned long (*id_function)(void)) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++	_goboringcrypto_internal_CRYPTO_set_id_callback(id_function);
++#else
++	CRYPTO_set_id_callback(id_function);
++#endif
++}
++DEFINEFUNCINTERNAL(void, CRYPTO_set_locking_callback,
++	(void (*locking_function)(int mode, int n, const char *file, int line)), 
++	(locking_function))
++static inline void
++_goboringcrypto_CRYPTO_set_locking_callback(void (*locking_function)(int mode, int n, const char *file, int line)) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++	_goboringcrypto_internal_CRYPTO_set_locking_callback(locking_function);
++#else
++	CRYPTO_set_locking_callback(locking_function);
++#endif
++}
++
++int _goboringcrypto_OPENSSL_thread_setup(void);
++
++#if OPENSSL_VERSION_NUMBER < 0x30000000L
++DEFINEFUNC(int, FIPS_mode, (void), ())
++DEFINEFUNC(int, FIPS_mode_set, (int r), (r))
++#else
++DEFINEFUNC(int, EVP_default_properties_is_fips_enabled, (OSSL_LIB_CTX *libctx), (libctx))
++static inline int _goboringcrypto_FIPS_mode(void) {
++	return _goboringcrypto_EVP_default_properties_is_fips_enabled(NULL);
++}
++#endif
++
++#include <openssl/rand.h>
++
++DEFINEFUNC(int, RAND_set_rand_method, (const RAND_METHOD *rand), (rand))
++DEFINEFUNC(RAND_METHOD*, RAND_get_rand_method, (void), ())
++DEFINEFUNC(int, RAND_bytes, (uint8_t * arg0, size_t arg1), (arg0, arg1))
++
++int _goboringcrypto_stub_openssl_rand(void);
++int _goboringcrypto_restore_openssl_rand(void);
++int fbytes(unsigned char *buf, int num);
++
++
++#include <openssl/obj_mac.h>
++
++enum
++{
++	GO_NID_md5_sha1 = NID_md5_sha1,
++
++	GO_NID_secp224r1 = NID_secp224r1,
++	GO_NID_X9_62_prime256v1 = NID_X9_62_prime256v1,
++	GO_NID_secp384r1 = NID_secp384r1,
++	GO_NID_secp521r1 = NID_secp521r1,
++
++	GO_NID_sha224 = NID_sha224,
++	GO_NID_sha256 = NID_sha256,
++	GO_NID_sha384 = NID_sha384,
++	GO_NID_sha512 = NID_sha512,
++};
++
++#include <openssl/sha.h>
++
++typedef SHA_CTX GO_SHA_CTX;
++
++DEFINEFUNC(int, SHA1_Init, (GO_SHA_CTX * arg0), (arg0))
++DEFINEFUNC(int, SHA1_Update, (GO_SHA_CTX * arg0, const void *arg1, size_t arg2), (arg0, arg1, arg2))
++DEFINEFUNC(int, SHA1_Final, (uint8_t * arg0, GO_SHA_CTX *arg1), (arg0, arg1))
++
++typedef SHA256_CTX GO_SHA256_CTX;
++
++DEFINEFUNC(int, SHA224_Init, (GO_SHA256_CTX * arg0), (arg0))
++DEFINEFUNC(int, SHA224_Update, (GO_SHA256_CTX * arg0, const void *arg1, size_t arg2), (arg0, arg1, arg2))
++DEFINEFUNC(int, SHA224_Final, (uint8_t * arg0, GO_SHA256_CTX *arg1), (arg0, arg1))
++
++DEFINEFUNC(int, SHA256_Init, (GO_SHA256_CTX * arg0), (arg0))
++DEFINEFUNC(int, SHA256_Update, (GO_SHA256_CTX * arg0, const void *arg1, size_t arg2), (arg0, arg1, arg2))
++DEFINEFUNC(int, SHA256_Final, (uint8_t * arg0, GO_SHA256_CTX *arg1), (arg0, arg1))
++
++typedef SHA512_CTX GO_SHA512_CTX;
++DEFINEFUNC(int, SHA384_Init, (GO_SHA512_CTX * arg0), (arg0))
++DEFINEFUNC(int, SHA384_Update, (GO_SHA512_CTX * arg0, const void *arg1, size_t arg2), (arg0, arg1, arg2))
++DEFINEFUNC(int, SHA384_Final, (uint8_t * arg0, GO_SHA512_CTX *arg1), (arg0, arg1))
++
++DEFINEFUNC(int, SHA512_Init, (GO_SHA512_CTX * arg0), (arg0))
++DEFINEFUNC(int, SHA512_Update, (GO_SHA512_CTX * arg0, const void *arg1, size_t arg2), (arg0, arg1, arg2))
++DEFINEFUNC(int, SHA512_Final, (uint8_t * arg0, GO_SHA512_CTX *arg1), (arg0, arg1))
++
++#include <openssl/evp.h>
++
++typedef EVP_MD GO_EVP_MD;
++DEFINEFUNC(const GO_EVP_MD *, EVP_md4, (void), ())
++DEFINEFUNC(const GO_EVP_MD *, EVP_md5, (void), ())
++DEFINEFUNC(const GO_EVP_MD *, EVP_sha1, (void), ())
++DEFINEFUNC(const GO_EVP_MD *, EVP_sha224, (void), ())
++DEFINEFUNC(const GO_EVP_MD *, EVP_sha256, (void), ())
++DEFINEFUNC(const GO_EVP_MD *, EVP_sha384, (void), ())
++DEFINEFUNC(const GO_EVP_MD *, EVP_sha512, (void), ())
++#if OPENSSL_VERSION_NUMBER < 0x30000000L
++DEFINEFUNCINTERNAL(int, EVP_MD_type, (const GO_EVP_MD *arg0), (arg0))
++#else
++DEFINEFUNCINTERNAL(int, EVP_MD_get_type, (const GO_EVP_MD *arg0), (arg0))
++#endif
++DEFINEFUNCINTERNAL(size_t, EVP_MD_size, (const GO_EVP_MD *arg0), (arg0))
++DEFINEFUNCINTERNAL(const GO_EVP_MD*, EVP_md5_sha1, (void), ())
++
++# include <openssl/md5.h>
++DEFINEFUNCINTERNAL(int, MD5_Init, (MD5_CTX *c), (c))
++DEFINEFUNCINTERNAL(int, MD5_Update, (MD5_CTX *c, const void *data, size_t len), (c, data, len))
++DEFINEFUNCINTERNAL(int, MD5_Final, (unsigned char *md, MD5_CTX *c), (md, c))
++
++static inline int
++_goboringcrypto_EVP_MD_type(const GO_EVP_MD *md) {
++#if OPENSSL_VERSION_NUMBER < 0x30000000L
++	return _goboringcrypto_internal_EVP_MD_type(md);
++#else
++	return _goboringcrypto_internal_EVP_MD_get_type(md);
++#endif
++}
++
++const GO_EVP_MD* _goboringcrypto_backport_EVP_md5_sha1(void);
++static inline const GO_EVP_MD*
++_goboringcrypto_EVP_md5_sha1(void) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++	return _goboringcrypto_backport_EVP_md5_sha1();
++#else
++	return _goboringcrypto_internal_EVP_md5_sha1();
++#endif
++}
++
++#include <openssl/hmac.h>
++
++typedef HMAC_CTX GO_HMAC_CTX;
++
++DEFINEFUNC(void, HMAC_CTX_init, (GO_HMAC_CTX * arg0), (arg0))
++DEFINEFUNC(void, HMAC_CTX_cleanup, (GO_HMAC_CTX * arg0), (arg0))
++DEFINEFUNC(int, HMAC_Init_ex,
++		   (GO_HMAC_CTX * arg0, const void *arg1, int arg2, const GO_EVP_MD *arg3, ENGINE *arg4),
++		   (arg0, arg1, arg2, arg3, arg4))
++DEFINEFUNC(int, HMAC_Update, (GO_HMAC_CTX * arg0, const uint8_t *arg1, size_t arg2), (arg0, arg1, arg2))
++DEFINEFUNC(int, HMAC_Final, (GO_HMAC_CTX * arg0, uint8_t *arg1, unsigned int *arg2), (arg0, arg1, arg2))
++DEFINEFUNC(size_t, HMAC_CTX_copy, (GO_HMAC_CTX *dest, GO_HMAC_CTX *src), (dest, src))
++
++DEFINEFUNCINTERNAL(void, HMAC_CTX_free, (GO_HMAC_CTX * arg0), (arg0))
++static inline void
++_goboringcrypto_HMAC_CTX_free(HMAC_CTX *ctx) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++   if (ctx != NULL) {
++       _goboringcrypto_HMAC_CTX_cleanup(ctx);
++       free(ctx);
++   }
++#else
++	_goboringcrypto_internal_HMAC_CTX_free(ctx);
++#endif
++}
++
++DEFINEFUNCINTERNAL(EVP_MD*, HMAC_CTX_get_md, (const GO_HMAC_CTX* ctx), (ctx))
++DEFINEFUNCINTERNAL(size_t, EVP_MD_get_size, (const GO_EVP_MD *arg0), (arg0))
++static inline size_t
++_goboringcrypto_HMAC_size(const GO_HMAC_CTX* arg0) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++	return _goboringcrypto_internal_EVP_MD_size(arg0->md);
++#elif OPENSSL_VERSION_NUMBER >= 0x30000000L
++	const EVP_MD* md;
++	md = _goboringcrypto_internal_HMAC_CTX_get_md(arg0);
++	return _goboringcrypto_internal_EVP_MD_get_size(md);
++#else
++	const EVP_MD* md;
++	md = _goboringcrypto_internal_HMAC_CTX_get_md(arg0);
++	return _goboringcrypto_internal_EVP_MD_size(md);
++#endif
++}
++
++DEFINEFUNCINTERNAL(GO_HMAC_CTX*, HMAC_CTX_new, (void), ())
++static inline GO_HMAC_CTX*
++_goboringcrypto_HMAC_CTX_new(void) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++	GO_HMAC_CTX* ctx = malloc(sizeof(GO_HMAC_CTX));
++	if (ctx != NULL)
++		_goboringcrypto_HMAC_CTX_init(ctx);
++	return ctx;
++#else
++	return _goboringcrypto_internal_HMAC_CTX_new();
++#endif
++}
++
++DEFINEFUNCINTERNAL(void, HMAC_CTX_reset, (GO_HMAC_CTX * arg0), (arg0))
++static inline void
++_goboringcrypto_HMAC_CTX_reset(GO_HMAC_CTX* ctx) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++	_goboringcrypto_HMAC_CTX_cleanup(ctx);
++	_goboringcrypto_HMAC_CTX_init(ctx);
++#else
++	_goboringcrypto_internal_HMAC_CTX_reset(ctx);
++#endif
++}
++
++int _goboringcrypto_HMAC_CTX_copy_ex(GO_HMAC_CTX *dest, const GO_HMAC_CTX *src);
++
++#include <openssl/evp.h>
++#include <openssl/aes.h>
++
++DEFINEFUNC(EVP_CIPHER_CTX *, EVP_CIPHER_CTX_new, (void), ())
++DEFINEFUNC(int, EVP_CIPHER_CTX_set_padding, (EVP_CIPHER_CTX *x, int padding), (x, padding))
++DEFINEFUNC(int, EVP_CipherInit_ex,
++		   (EVP_CIPHER_CTX * ctx, const EVP_CIPHER *type, ENGINE *impl, const unsigned char *key, const unsigned char *iv, int enc),
++		   (ctx, type, impl, key, iv, enc))
++DEFINEFUNC(int, EVP_CipherUpdate,
++		   (EVP_CIPHER_CTX * ctx, unsigned char *out, int *outl, const unsigned char *in, int inl),
++		   (ctx, out, outl, in, inl))
++
++void _goboringcrypto_EVP_AES_ctr128_enc(EVP_CIPHER_CTX *ctx, const uint8_t *in, uint8_t *out, size_t len);
++
++int _goboringcrypto_EVP_AES_encrypt(EVP_CIPHER_CTX *ctx, const uint8_t *in, size_t in_len, uint8_t *out);
++
++enum
++{
++	GO_AES_ENCRYPT = 1,
++	GO_AES_DECRYPT = 0
++};
++void _goboringcrypto_EVP_AES_cbc_encrypt(EVP_CIPHER_CTX *ctx, const uint8_t *arg0, uint8_t *arg1, size_t arg2, const uint8_t *a, const int arg5);
++DEFINEFUNC(void, AES_cbc_encrypt,
++		   (const unsigned char *in, unsigned char *out,
++                     size_t length, const AES_KEY *key,
++                     unsigned char *ivec, const int enc),
++		   (in, out, length, key, ivec, enc))
++
++void EVP_AES_cbc_enc(EVP_CIPHER_CTX *ctx, const uint8_t *in, uint8_t *out, size_t len);
++
++void EVP_AES_cbc_dec(EVP_CIPHER_CTX *ctx, const uint8_t *in, uint8_t *out, size_t len);
++
++typedef ENGINE GO_ENGINE;
++
++#include <openssl/bn.h>
++
++typedef BN_CTX GO_BN_CTX;
++typedef BIGNUM GO_BIGNUM;
++
++DEFINEFUNC(GO_BIGNUM *, BN_new, (void), ())
++DEFINEFUNC(void, BN_free, (GO_BIGNUM * arg0), (arg0))
++DEFINEFUNC(void, BN_clear_free, (GO_BIGNUM * arg0), (arg0))
++DEFINEFUNC(int, BN_set_word, (BIGNUM *a, BN_ULONG w), (a, w))
++DEFINEFUNC(unsigned int, BN_num_bits, (const GO_BIGNUM *arg0), (arg0))
++DEFINEFUNC(int, BN_is_negative, (const GO_BIGNUM *arg0), (arg0))
++DEFINEFUNC(GO_BIGNUM *, BN_bin2bn, (const uint8_t *arg0, size_t arg1, GO_BIGNUM *arg2), (arg0, arg1, arg2))
++DEFINEFUNC(size_t, BN_bn2bin, (const GO_BIGNUM *arg0, uint8_t *arg1), (arg0, arg1))
++
++static inline unsigned int
++_goboringcrypto_BN_num_bytes(const GO_BIGNUM* a) {
++	return ((_goboringcrypto_BN_num_bits(a)+7)/8);
++}
++
++#include <openssl/ec.h>
++
++typedef EC_GROUP GO_EC_GROUP;
++
++DEFINEFUNC(GO_EC_GROUP *, EC_GROUP_new_by_curve_name, (int arg0), (arg0))
++DEFINEFUNC(void, EC_GROUP_free, (GO_EC_GROUP * arg0), (arg0))
++
++typedef EC_POINT GO_EC_POINT;
++
++DEFINEFUNC(GO_EC_POINT *, EC_POINT_new, (const GO_EC_GROUP *arg0), (arg0))
++DEFINEFUNC(void, EC_POINT_free, (GO_EC_POINT * arg0), (arg0))
++DEFINEFUNC(int, EC_POINT_get_affine_coordinates_GFp,
++		   (const GO_EC_GROUP *arg0, const GO_EC_POINT *arg1, GO_BIGNUM *arg2, GO_BIGNUM *arg3, GO_BN_CTX *arg4),
++		   (arg0, arg1, arg2, arg3, arg4))
++DEFINEFUNC(int, EC_POINT_set_affine_coordinates_GFp,
++		   (const GO_EC_GROUP *arg0, GO_EC_POINT *arg1, const GO_BIGNUM *arg2, const GO_BIGNUM *arg3, GO_BN_CTX *arg4),
++		   (arg0, arg1, arg2, arg3, arg4))
++
++typedef EC_KEY GO_EC_KEY;
++
++DEFINEFUNC(GO_EC_KEY *, EC_KEY_new, (void), ())
++DEFINEFUNC(GO_EC_KEY *, EC_KEY_new_by_curve_name, (int arg0), (arg0))
++DEFINEFUNC(void, EC_KEY_free, (GO_EC_KEY * arg0), (arg0))
++DEFINEFUNC(const GO_EC_GROUP *, EC_KEY_get0_group, (const GO_EC_KEY *arg0), (arg0))
++DEFINEFUNC(int, EC_KEY_generate_key, (GO_EC_KEY * arg0), (arg0))
++DEFINEFUNC(int, EC_KEY_set_private_key, (GO_EC_KEY * arg0, const GO_BIGNUM *arg1), (arg0, arg1))
++DEFINEFUNC(int, EC_KEY_set_public_key, (GO_EC_KEY * arg0, const GO_EC_POINT *arg1), (arg0, arg1))
++DEFINEFUNC(const GO_BIGNUM *, EC_KEY_get0_private_key, (const GO_EC_KEY *arg0), (arg0))
++DEFINEFUNC(const GO_EC_POINT *, EC_KEY_get0_public_key, (const GO_EC_KEY *arg0), (arg0))
++
++// TODO: EC_KEY_check_fips?
++
++#include <openssl/ecdsa.h>
++
++typedef ECDSA_SIG GO_ECDSA_SIG;
++
++DEFINEFUNC(GO_ECDSA_SIG *, ECDSA_SIG_new, (void), ())
++DEFINEFUNC(void, ECDSA_SIG_free, (GO_ECDSA_SIG * arg0), (arg0))
++DEFINEFUNC(GO_ECDSA_SIG *, ECDSA_do_sign, (const uint8_t *arg0, size_t arg1, const GO_EC_KEY *arg2), (arg0, arg1, arg2))
++DEFINEFUNC(int, ECDSA_do_verify, (const uint8_t *arg0, size_t arg1, const GO_ECDSA_SIG *arg2, const GO_EC_KEY *arg3), (arg0, arg1, arg2, arg3))
++DEFINEFUNC(size_t, ECDSA_size, (const GO_EC_KEY *arg0), (arg0))
++
++DEFINEFUNCINTERNAL(int, ECDSA_sign, 
++	(int type, const unsigned char *dgst, size_t dgstlen, unsigned char *sig, unsigned int *siglen, EC_KEY *eckey),
++	(type, dgst, dgstlen, sig, siglen, eckey))
++
++DEFINEFUNCINTERNAL(int, ECDSA_verify, 
++	(int type, const unsigned char *dgst, size_t dgstlen, const unsigned char *sig, unsigned int siglen, EC_KEY *eckey),
++	(type, dgst, dgstlen, sig, siglen, eckey))
++
++DEFINEFUNCINTERNAL(EVP_MD_CTX*, EVP_MD_CTX_new, (void), ())
++DEFINEFUNCINTERNAL(EVP_MD_CTX*, EVP_MD_CTX_create, (void), ())
++
++static inline EVP_MD_CTX* _goboringcrypto_EVP_MD_CTX_create(void) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++	return _goboringcrypto_internal_EVP_MD_CTX_create();
++#else
++	return _goboringcrypto_internal_EVP_MD_CTX_new();
++#endif
++}
++
++DEFINEFUNCINTERNAL(int, EVP_PKEY_assign,
++	(EVP_PKEY *pkey, int type, void *eckey),
++	(pkey, type, eckey))
++
++static inline int
++_goboringcrypto_EVP_PKEY_assign_EC_KEY(EVP_PKEY *pkey, GO_EC_KEY *eckey) {
++	return _goboringcrypto_internal_EVP_PKEY_assign(pkey, EVP_PKEY_EC, (char *)(eckey));
++}
++
++static inline int
++_goboringcrypto_EVP_PKEY_assign_RSA(EVP_PKEY *pkey, RSA *rsa) {
++	return _goboringcrypto_internal_EVP_PKEY_assign(pkey, EVP_PKEY_RSA, (char *)(rsa));
++}
++
++DEFINEFUNC(int, EVP_DigestSignInit,
++	(EVP_MD_CTX* ctx, EVP_PKEY_CTX **pctx, const EVP_MD *type, ENGINE *e, const EVP_PKEY *pkey),
++	(ctx, pctx, type, e, pkey))
++
++DEFINEFUNC(int, EVP_DigestUpdate,
++	(EVP_MD_CTX* ctx, const void *d, size_t cnt),
++	(ctx, d, cnt))
++DEFINEFUNC(int, EVP_DigestSignFinal,
++	(EVP_MD_CTX* ctx, unsigned char *sig, unsigned int *siglen),
++	(ctx, sig, siglen))
++
++DEFINEFUNC(int, EVP_DigestVerifyInit,
++	(EVP_MD_CTX* ctx, EVP_PKEY_CTX **pctx, const EVP_MD *type, ENGINE *e, const EVP_PKEY *pkey),
++	(ctx, pctx, type, e, pkey))
++DEFINEFUNC(int, EVP_DigestVerifyFinal,
++	(EVP_MD_CTX* ctx, const uint8_t *sig, unsigned int siglen),
++	(ctx, sig, siglen))
++
++int _goboringcrypto_EVP_sign(EVP_MD* md, EVP_PKEY_CTX *ctx, const uint8_t *msg, size_t msgLen, uint8_t *sig, unsigned int *slen, EVP_PKEY *eckey);
++int _goboringcrypto_EVP_verify(EVP_MD* md, EVP_PKEY_CTX *ctx, const uint8_t *msg, size_t msgLen, const uint8_t *sig, unsigned int slen, EVP_PKEY *key);
++
++DEFINEFUNCINTERNAL(void, EVP_MD_CTX_free, (EVP_MD_CTX *ctx), (ctx))
++DEFINEFUNCINTERNAL(void, EVP_MD_CTX_destroy, (EVP_MD_CTX *ctx), (ctx))
++static inline void _goboringcrypto_EVP_MD_CTX_free(EVP_MD_CTX *ctx) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++	return _goboringcrypto_internal_EVP_MD_CTX_destroy(ctx);
++#else
++	return _goboringcrypto_internal_EVP_MD_CTX_free(ctx);
++#endif
++}
++
++int _goboringcrypto_ECDSA_sign(EVP_MD *md, const uint8_t *arg1, size_t arg2, uint8_t *arg3, unsigned int *arg4, GO_EC_KEY *arg5);
++int _goboringcrypto_ECDSA_verify(EVP_MD *md, const uint8_t *arg1, size_t arg2, const uint8_t *arg3, unsigned int arg4, GO_EC_KEY *arg5);
++
++#include <openssl/rsa.h>
++
++// Note: order of struct fields here is unchecked.
++typedef RSA GO_RSA;
++typedef BN_GENCB GO_BN_GENCB;
++
++int _goboringcrypto_EVP_RSA_sign(EVP_MD* md, const uint8_t *msg, unsigned int msgLen, uint8_t *sig, unsigned int *slen, RSA *rsa);
++int _goboringcrypto_EVP_RSA_verify(EVP_MD* md, const uint8_t *msg, unsigned int msgLen, const uint8_t *sig, unsigned int slen, GO_RSA *rsa);
++
++DEFINEFUNC(GO_RSA *, RSA_new, (void), ())
++DEFINEFUNC(void, RSA_free, (GO_RSA * arg0), (arg0))
++DEFINEFUNC(int, RSA_private_encrypt,
++	(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding),
++	(flen, from, to, rsa, padding))
++DEFINEFUNC(int, RSA_public_decrypt,
++	(int flen, const unsigned char *from, unsigned char *to, RSA *rsa, int padding),
++	(flen, from, to, rsa, padding))
++DEFINEFUNC(int, RSA_sign,
++	(int arg0, const uint8_t *arg1, unsigned int arg2, uint8_t *arg3, unsigned int *arg4, GO_RSA *arg5),
++	(arg0, arg1, arg2, arg3, arg4, arg5))
++DEFINEFUNC(int, RSA_verify,
++	(int arg0, const uint8_t *arg1, unsigned int arg2, const uint8_t *arg3, unsigned int arg4, GO_RSA *arg5),
++	(arg0, arg1, arg2, arg3, arg4, arg5))
++DEFINEFUNC(int, RSA_generate_key_ex,
++	(GO_RSA * arg0, int arg1, GO_BIGNUM *arg2, GO_BN_GENCB *arg3),
++	(arg0, arg1, arg2, arg3))
++
++DEFINEFUNCINTERNAL(int, RSA_set0_factors,
++	(GO_RSA * rsa, GO_BIGNUM *p, GO_BIGNUM *q),
++	(rsa, p, q))
++
++static inline int
++_goboringcrypto_RSA_set0_factors(GO_RSA * r, GO_BIGNUM *p, GO_BIGNUM *q) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++    /* If the fields p and q in r are NULL, the corresponding input
++     * parameters MUST be non-NULL.
++     */
++    if ((r->p == NULL && p == NULL)
++        || (r->q == NULL && q == NULL))
++        return 0;
++
++    if (p != NULL) {
++        _goboringcrypto_BN_clear_free(r->p);
++        r->p = p;
++    }
++    if (q != NULL) {
++        _goboringcrypto_BN_clear_free(r->q);
++        r->q = q;
++    }
++
++    return 1;
++#else
++	return _goboringcrypto_internal_RSA_set0_factors(r, p, q);
++#endif
++}
++
++DEFINEFUNCINTERNAL(int, RSA_set0_crt_params,
++		   (GO_RSA * rsa, GO_BIGNUM *dmp1, GO_BIGNUM *dmp2, GO_BIGNUM *iqmp),
++		   (rsa, dmp1, dmp2, iqmp))
++
++static inline int
++_goboringcrypto_RSA_set0_crt_params(GO_RSA * r, GO_BIGNUM *dmp1, GO_BIGNUM *dmq1, GO_BIGNUM *iqmp) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++    /* If the fields dmp1, dmq1 and iqmp in r are NULL, the corresponding input
++     * parameters MUST be non-NULL.
++     */
++    if ((r->dmp1 == NULL && dmp1 == NULL)
++        || (r->dmq1 == NULL && dmq1 == NULL)
++        || (r->iqmp == NULL && iqmp == NULL))
++        return 0;
++
++    if (dmp1 != NULL) {
++        _goboringcrypto_BN_clear_free(r->dmp1);
++        r->dmp1 = dmp1;
++    }
++    if (dmq1 != NULL) {
++        _goboringcrypto_BN_clear_free(r->dmq1);
++        r->dmq1 = dmq1;
++    }
++    if (iqmp != NULL) {
++        _goboringcrypto_BN_clear_free(r->iqmp);
++        r->iqmp = iqmp;
++    }
++
++    return 1;
++#else
++	return _goboringcrypto_internal_RSA_set0_crt_params(r, dmp1, dmq1, iqmp);
++#endif
++}
++
++DEFINEFUNCINTERNAL(void, RSA_get0_crt_params,
++		   (const GO_RSA *r, const GO_BIGNUM **dmp1, const GO_BIGNUM **dmq1, const GO_BIGNUM **iqmp),
++		   (r, dmp1, dmq1, iqmp))
++static inline void
++_goboringcrypto_RSA_get0_crt_params(const GO_RSA *r, const GO_BIGNUM **dmp1, const GO_BIGNUM **dmq1, const GO_BIGNUM **iqmp) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++    if (dmp1 != NULL)
++        *dmp1 = r->dmp1;
++    if (dmq1 != NULL)
++        *dmq1 = r->dmq1;
++    if (iqmp != NULL)
++        *iqmp = r->iqmp;
++#else
++	_goboringcrypto_internal_RSA_get0_crt_params(r, dmp1, dmq1, iqmp);
++#endif
++}
++
++
++DEFINEFUNCINTERNAL(int, RSA_set0_key,
++		   (GO_RSA * r, GO_BIGNUM *n, GO_BIGNUM *e, GO_BIGNUM *d),
++		   (r, n, e, d))
++static inline int
++_goboringcrypto_RSA_set0_key(GO_RSA * r, GO_BIGNUM *n, GO_BIGNUM *e, GO_BIGNUM *d) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++    /* If the fields n and e in r are NULL, the corresponding input
++     * parameters MUST be non-NULL for n and e.  d may be
++     * left NULL (in case only the public key is used).
++     */
++    if ((r->n == NULL && n == NULL)
++        || (r->e == NULL && e == NULL))
++        return 0;
++
++    if (n != NULL) {
++        _goboringcrypto_BN_free(r->n);
++        r->n = n;
++    }
++    if (e != NULL) {
++        _goboringcrypto_BN_free(r->e);
++        r->e = e;
++    }
++    if (d != NULL) {
++        _goboringcrypto_BN_clear_free(r->d);
++        r->d = d;
++    }
++
++    return 1;
++#else
++	return _goboringcrypto_internal_RSA_set0_key(r, n, e, d);
++#endif
++}
++
++DEFINEFUNCINTERNAL(void, RSA_get0_factors,
++		   (const GO_RSA *rsa, const GO_BIGNUM **p, const GO_BIGNUM **q),
++		   (rsa, p, q))
++static inline void 
++_goboringcrypto_RSA_get0_factors(const GO_RSA *rsa, const GO_BIGNUM **p, const GO_BIGNUM **q) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++	if (p)
++		*p = rsa->p;
++	if (q)
++		*q = rsa->q;
++#else
++	_goboringcrypto_internal_RSA_get0_factors(rsa, p, q);
++#endif
++}
++
++DEFINEFUNCINTERNAL(void, RSA_get0_key,
++		   (const GO_RSA *rsa, const GO_BIGNUM **n, const GO_BIGNUM **e, const GO_BIGNUM **d),
++		   (rsa, n, e, d))
++static inline void 
++_goboringcrypto_RSA_get0_key(const GO_RSA *rsa, const GO_BIGNUM **n, const GO_BIGNUM **e, const GO_BIGNUM **d) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++	if (n)
++		*n = rsa->n;
++	if (e)
++		*e = rsa->e;
++	if (d)
++		*d = rsa->d;
++#else
++	_goboringcrypto_internal_RSA_get0_key(rsa, n, e, d);
++#endif
++}
++
++int _goboringcrypto_RSA_generate_key_fips(GO_RSA *, int, GO_BN_GENCB *);
++enum
++{
++	GO_RSA_PKCS1_PADDING = 1,
++	GO_RSA_NO_PADDING = 3,
++	GO_RSA_PKCS1_OAEP_PADDING = 4,
++	GO_RSA_PKCS1_PSS_PADDING = 6,
++};
++
++int _goboringcrypto_RSA_sign_pss_mgf1(GO_RSA *, unsigned int *out_len, uint8_t *out, unsigned int max_out, const uint8_t *in, unsigned int in_len, GO_EVP_MD *md, const GO_EVP_MD *mgf1_md, int salt_len);
++
++int _goboringcrypto_RSA_verify_pss_mgf1(GO_RSA *, const uint8_t *msg, unsigned int msg_len, GO_EVP_MD *md, const GO_EVP_MD *mgf1_md, int salt_len, const uint8_t *sig, unsigned int sig_len);
++
++DEFINEFUNC(unsigned int, RSA_size, (const GO_RSA *arg0), (arg0))
++DEFINEFUNC(int, RSA_check_key, (const GO_RSA *arg0), (arg0))
++
++DEFINEFUNC(int, EVP_EncryptInit_ex,
++	(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *type, ENGINE *impl, const unsigned char *key, const unsigned char *iv),
++	(ctx, type, impl, key, iv))
++DEFINEFUNC(int, EVP_EncryptUpdate,
++	(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl, const unsigned char *in, int inl),
++	(ctx, out, outl, in, inl))
++DEFINEFUNC(int, EVP_EncryptFinal_ex,
++	(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl),
++	(ctx, out, outl))
++
++DEFINEFUNC(int, EVP_DecryptInit_ex,
++	(EVP_CIPHER_CTX *ctx, const EVP_CIPHER *type, ENGINE *impl, const unsigned char *key, const unsigned char *iv),
++	(ctx, type, impl, key, iv))
++DEFINEFUNC(int, EVP_DecryptUpdate,
++	(EVP_CIPHER_CTX *ctx, unsigned char *out, int *outl, const unsigned char *in, int inl),
++	(ctx, out, outl, in, inl))
++DEFINEFUNC(int, EVP_DecryptFinal_ex,
++	(EVP_CIPHER_CTX *ctx, unsigned char *outm, int *outl),
++	(ctx, outm, outl))
++
++DEFINEFUNC(const EVP_CIPHER*, EVP_aes_128_gcm, (void), ())
++DEFINEFUNC(const EVP_CIPHER*, EVP_aes_128_cbc, (void), ())
++DEFINEFUNC(const EVP_CIPHER*, EVP_aes_128_ctr, (void), ())
++DEFINEFUNC(const EVP_CIPHER*, EVP_aes_128_ecb, (void), ())
++DEFINEFUNC(const EVP_CIPHER*, EVP_aes_192_cbc, (void), ())
++DEFINEFUNC(const EVP_CIPHER*, EVP_aes_192_ctr, (void), ())
++DEFINEFUNC(const EVP_CIPHER*, EVP_aes_192_ecb, (void), ())
++DEFINEFUNC(const EVP_CIPHER*, EVP_aes_192_gcm, (void), ())
++DEFINEFUNC(const EVP_CIPHER*, EVP_aes_256_cbc, (void), ())
++DEFINEFUNC(const EVP_CIPHER*, EVP_aes_256_ctr, (void), ())
++DEFINEFUNC(const EVP_CIPHER*, EVP_aes_256_ecb, (void), ())
++DEFINEFUNC(const EVP_CIPHER*, EVP_aes_256_gcm, (void), ())
++
++DEFINEFUNC(void, EVP_CIPHER_CTX_free, (EVP_CIPHER_CTX* arg0), (arg0))
++DEFINEFUNC(int, EVP_CIPHER_CTX_ctrl, (EVP_CIPHER_CTX *ctx, int type, int arg, void *ptr), (ctx, type, arg, ptr))
++
++int _goboringcrypto_EVP_CIPHER_CTX_seal(
++	uint8_t *out, uint8_t *nonce,
++	uint8_t *aad, size_t aad_len,
++	uint8_t *plaintext, size_t plaintext_len,
++	size_t *ciphertext_len, uint8_t *key, int key_size);
++
++int _goboringcrypto_EVP_CIPHER_CTX_open(
++	uint8_t *ciphertext, int ciphertext_len,
++	uint8_t *aad, int aad_len,
++	uint8_t *tag, uint8_t *key, int key_size,
++	uint8_t *nonce, int nonce_len,
++	uint8_t *plaintext, size_t *plaintext_len);
++
++typedef EVP_PKEY GO_EVP_PKEY;
++
++DEFINEFUNC(GO_EVP_PKEY *, EVP_PKEY_new, (void), ())
++DEFINEFUNC(void, EVP_PKEY_free, (GO_EVP_PKEY * arg0), (arg0))
++DEFINEFUNC(int, EVP_PKEY_set1_RSA, (GO_EVP_PKEY * arg0, GO_RSA *arg1), (arg0, arg1))
++DEFINEFUNC(int, EVP_PKEY_set1_EC_KEY, (GO_EVP_PKEY * arg0, GO_EC_KEY *arg1), (arg0, arg1))
++DEFINEFUNC(int, EVP_PKEY_verify,
++	(EVP_PKEY_CTX *ctx, const unsigned char *sig, unsigned int siglen, const unsigned char *tbs, size_t tbslen),
++	(ctx, sig, siglen, tbs, tbslen))
++
++typedef EVP_PKEY_CTX GO_EVP_PKEY_CTX;
++
++DEFINEFUNC(GO_EVP_PKEY_CTX *, EVP_PKEY_CTX_new, (GO_EVP_PKEY * arg0, ENGINE *arg1), (arg0, arg1))
++DEFINEFUNC(void, EVP_PKEY_CTX_free, (GO_EVP_PKEY_CTX * arg0), (arg0))
++DEFINEFUNC(int, EVP_PKEY_CTX_ctrl,
++		   (EVP_PKEY_CTX * ctx, int keytype, int optype, int cmd, int p1, void *p2),
++		   (ctx, keytype, optype, cmd, p1, p2))
++DEFINEFUNCINTERNAL(int, RSA_pkey_ctx_ctrl,
++		   (EVP_PKEY_CTX *ctx, int optype, int cmd, int p1, void *p2),
++		   (ctx, optype, cmd, p1, p2))
++
++static inline int
++_goboringcrypto_EVP_PKEY_CTX_set_rsa_padding(GO_EVP_PKEY_CTX* ctx, int pad) {
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++	return _goboringcrypto_EVP_PKEY_CTX_ctrl(ctx, EVP_PKEY_RSA, -1, EVP_PKEY_CTRL_RSA_PADDING, pad, NULL);
++#else
++    return _goboringcrypto_internal_RSA_pkey_ctx_ctrl(ctx, -1, EVP_PKEY_CTRL_RSA_PADDING, pad, NULL);
++#endif
++}
++
++#if OPENSSL_VERSION_NUMBER < 0x30000000
++static inline int
++_goboringcrypto_EVP_PKEY_CTX_set0_rsa_oaep_label(GO_EVP_PKEY_CTX *ctx, uint8_t *l, int llen)
++{
++       return _goboringcrypto_EVP_PKEY_CTX_ctrl(ctx, EVP_PKEY_RSA, EVP_PKEY_OP_TYPE_CRYPT, EVP_PKEY_CTRL_RSA_OAEP_LABEL, llen, (void *)l);
++}
++#else
++DEFINEFUNC(int, EVP_PKEY_CTX_set0_rsa_oaep_label,
++		(GO_EVP_PKEY_CTX *ctx, uint8_t *l, int llen),
++		(ctx, l, llen))
++#endif
++
++static inline int
++_goboringcrypto_EVP_PKEY_CTX_set_rsa_oaep_md(GO_EVP_PKEY_CTX *ctx, const GO_EVP_MD *md)
++{
++	return _goboringcrypto_EVP_PKEY_CTX_ctrl(ctx, EVP_PKEY_RSA, EVP_PKEY_OP_TYPE_CRYPT, EVP_PKEY_CTRL_RSA_OAEP_MD, 0, (void *)md);
++}
++
++static inline int
++_goboringcrypto_EVP_PKEY_CTX_set_rsa_pss_saltlen(GO_EVP_PKEY_CTX * arg0, int arg1) {
++	return _goboringcrypto_EVP_PKEY_CTX_ctrl(arg0, EVP_PKEY_RSA, 
++		(EVP_PKEY_OP_SIGN|EVP_PKEY_OP_VERIFY), 
++		EVP_PKEY_CTRL_RSA_PSS_SALTLEN, 
++		arg1, NULL);
++}
++
++static inline int
++_goboringcrypto_EVP_PKEY_CTX_set_signature_md(EVP_PKEY_CTX *ctx, const EVP_MD *md) {
++	return _goboringcrypto_EVP_PKEY_CTX_ctrl(ctx, -1, EVP_PKEY_OP_TYPE_SIG, EVP_PKEY_CTRL_MD, 0, (void *)md);
++}
++
++static inline int
++_goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(GO_EVP_PKEY_CTX * ctx, const GO_EVP_MD *md) {
++	return _goboringcrypto_EVP_PKEY_CTX_ctrl(ctx, EVP_PKEY_RSA,
++                        EVP_PKEY_OP_TYPE_SIG | EVP_PKEY_OP_TYPE_CRYPT,
++                                EVP_PKEY_CTRL_RSA_MGF1_MD, 0, (void *)md);
++}
++
++DEFINEFUNC(int, EVP_PKEY_decrypt,
++		   (GO_EVP_PKEY_CTX * arg0, uint8_t *arg1, unsigned int *arg2, const uint8_t *arg3, unsigned int arg4),
++		   (arg0, arg1, arg2, arg3, arg4))
++DEFINEFUNC(int, EVP_PKEY_encrypt,
++		   (GO_EVP_PKEY_CTX * arg0, uint8_t *arg1, unsigned int *arg2, const uint8_t *arg3, unsigned int arg4),
++		   (arg0, arg1, arg2, arg3, arg4))
++DEFINEFUNC(int, EVP_PKEY_decrypt_init, (GO_EVP_PKEY_CTX * arg0), (arg0))
++DEFINEFUNC(int, EVP_PKEY_encrypt_init, (GO_EVP_PKEY_CTX * arg0), (arg0))
++DEFINEFUNC(int, EVP_PKEY_sign_init, (GO_EVP_PKEY_CTX * arg0), (arg0))
++DEFINEFUNC(int, EVP_PKEY_verify_init, (GO_EVP_PKEY_CTX * arg0), (arg0))
++DEFINEFUNC(int, EVP_PKEY_sign,
++		   (GO_EVP_PKEY_CTX * arg0, uint8_t *arg1, size_t *arg2, const uint8_t *arg3, size_t arg4),
++		   (arg0, arg1, arg2, arg3, arg4))
+diff --git a/src/crypto/internal/boring/hmac.go b/src/vendor/github.com/golang-fips/openssl-fips/openssl/hmac.go
+similarity index 69%
+rename from src/crypto/internal/boring/hmac.go
+rename to src/vendor/github.com/golang-fips/openssl-fips/openssl/hmac.go
+index be0670c05a..6f001777ae 100644
+--- a/src/crypto/internal/boring/hmac.go
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/hmac.go
+@@ -2,12 +2,12 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build linux && amd64 && !android && !cmd_go_bootstrap && !msan
+-// +build linux,amd64,!android,!cmd_go_bootstrap,!msan
++//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
++// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
+ 
+-package boring
++package openssl
+ 
+-// #include "goboringcrypto.h"
++// #include "goopenssl.h"
+ import "C"
+ import (
+ 	"crypto"
+@@ -67,14 +67,25 @@ func NewHMAC(h func() hash.Hash, key []byte) hash.Hash {
+ 		return nil
+ 	}
+ 
+-	// Note: Could hash down long keys here using EVP_Digest.
+-	hkey := make([]byte, len(key))
+-	copy(hkey, key)
++	var hkey []byte
++	if key != nil && len(key) > 0 {
++		// Note: Could hash down long keys here using EVP_Digest.
++		hkey = make([]byte, len(key))
++		copy(hkey, key)
++	} else {
++		// This is supported in BoringSSL/Standard lib and as such
++		// we must support it here. When using HMAC with a null key
++		// HMAC_Init will try and reuse the key from the ctx. This is
++		// not the bahavior previously implemented, so as a workaround
++		// we pass an "empty" key.
++		hkey = make([]byte, C.EVP_MAX_MD_SIZE)
++	}
+ 	hmac := &boringHMAC{
+ 		md:        md,
+ 		size:      ch.Size(),
+ 		blockSize: ch.BlockSize(),
+ 		key:       hkey,
++		ctx:       C._goboringcrypto_HMAC_CTX_new(),
+ 	}
+ 	hmac.Reset()
+ 	return hmac
+@@ -82,8 +93,8 @@ func NewHMAC(h func() hash.Hash, key []byte) hash.Hash {
+ 
+ type boringHMAC struct {
+ 	md          *C.GO_EVP_MD
+-	ctx         C.GO_HMAC_CTX
+-	ctx2        C.GO_HMAC_CTX
++	ctx         *C.GO_HMAC_CTX
++	ctx2        *C.GO_HMAC_CTX
+ 	size        int
+ 	blockSize   int
+ 	key         []byte
+@@ -92,9 +103,7 @@ type boringHMAC struct {
+ }
+ 
+ func (h *boringHMAC) Reset() {
+-	if h.needCleanup {
+-		C._goboringcrypto_HMAC_CTX_cleanup(&h.ctx)
+-	} else {
++	if !h.needCleanup {
+ 		h.needCleanup = true
+ 		// Note: Because of the finalizer, any time h.ctx is passed to cgo,
+ 		// that call must be followed by a call to runtime.KeepAlive(h),
+@@ -102,13 +111,13 @@ func (h *boringHMAC) Reset() {
+ 		// call returns.
+ 		runtime.SetFinalizer(h, (*boringHMAC).finalize)
+ 	}
+-	C._goboringcrypto_HMAC_CTX_init(&h.ctx)
++	C._goboringcrypto_HMAC_CTX_reset(h.ctx)
+ 
+-	if C._goboringcrypto_HMAC_Init(&h.ctx, unsafe.Pointer(base(h.key)), C.int(len(h.key)), h.md) == 0 {
++	if C._goboringcrypto_HMAC_Init_ex(h.ctx, unsafe.Pointer(base(h.key)), C.int(len(h.key)), h.md, nil) == 0 {
+ 		panic("boringcrypto: HMAC_Init failed")
+ 	}
+-	if int(C._goboringcrypto_HMAC_size(&h.ctx)) != h.size {
+-		println("boringcrypto: HMAC size:", C._goboringcrypto_HMAC_size(&h.ctx), "!=", h.size)
++	if int(C._goboringcrypto_HMAC_size(h.ctx)) != h.size {
++		println("boringcrypto: HMAC size:", C._goboringcrypto_HMAC_size(h.ctx), "!=", h.size)
+ 		panic("boringcrypto: HMAC size mismatch")
+ 	}
+ 	runtime.KeepAlive(h) // Next line will keep h alive too; just making doubly sure.
+@@ -116,12 +125,12 @@ func (h *boringHMAC) Reset() {
+ }
+ 
+ func (h *boringHMAC) finalize() {
+-	C._goboringcrypto_HMAC_CTX_cleanup(&h.ctx)
++	C._goboringcrypto_HMAC_CTX_free(h.ctx)
+ }
+ 
+ func (h *boringHMAC) Write(p []byte) (int, error) {
+ 	if len(p) > 0 {
+-		C._goboringcrypto_HMAC_Update(&h.ctx, (*C.uint8_t)(unsafe.Pointer(&p[0])), C.size_t(len(p)))
++		C._goboringcrypto_HMAC_Update(h.ctx, (*C.uint8_t)(unsafe.Pointer(&p[0])), C.size_t(len(p)))
+ 	}
+ 	runtime.KeepAlive(h)
+ 	return len(p), nil
+@@ -144,11 +153,11 @@ func (h *boringHMAC) Sum(in []byte) []byte {
+ 	// that Sum has no effect on the underlying stream.
+ 	// In particular it is OK to Sum, then Write more, then Sum again,
+ 	// and the second Sum acts as if the first didn't happen.
+-	C._goboringcrypto_HMAC_CTX_init(&h.ctx2)
+-	if C._goboringcrypto_HMAC_CTX_copy_ex(&h.ctx2, &h.ctx) == 0 {
++	h.ctx2 = C._goboringcrypto_HMAC_CTX_new()
++	if C._goboringcrypto_HMAC_CTX_copy_ex(h.ctx2, h.ctx) == 0 {
+ 		panic("boringcrypto: HMAC_CTX_copy_ex failed")
+ 	}
+-	C._goboringcrypto_HMAC_Final(&h.ctx2, (*C.uint8_t)(unsafe.Pointer(&h.sum[0])), nil)
+-	C._goboringcrypto_HMAC_CTX_cleanup(&h.ctx2)
++	C._goboringcrypto_HMAC_Final(h.ctx2, (*C.uint8_t)(unsafe.Pointer(&h.sum[0])), nil)
++	C._goboringcrypto_HMAC_CTX_free(h.ctx2)
+ 	return append(in, h.sum...)
+ }
+diff --git a/src/crypto/internal/boring/notboring.go b/src/vendor/github.com/golang-fips/openssl-fips/openssl/notboring.go
+similarity index 87%
+rename from src/crypto/internal/boring/notboring.go
+rename to src/vendor/github.com/golang-fips/openssl-fips/openssl/notboring.go
+index 2e2414c73b..e790e93272 100644
+--- a/src/crypto/internal/boring/notboring.go
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/notboring.go
+@@ -2,10 +2,10 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build !linux || !amd64 || !cgo || android || cmd_go_bootstrap || msan
+-// +build !linux !amd64 !cgo android cmd_go_bootstrap msan
++//go:build !linux || !cgo || android || cmd_go_bootstrap || msan || no_openssl
++// +build !linux !cgo android cmd_go_bootstrap msan no_openssl
+ 
+-package boring
++package openssl
+ 
+ import (
+ 	"crypto"
+@@ -15,7 +15,7 @@ import (
+ 	"math/big"
+ )
+ 
+-const available = false
++var enabled = false
+ 
+ // Unreachable marks code that should be unreachable
+ // when BoringCrypto is in use. It is a no-op without BoringCrypto.
+@@ -30,6 +30,9 @@ func Unreachable() {
+ // when BoringCrypto is in use. It is a no-op without BoringCrypto.
+ func UnreachableExceptTests() {}
+ 
++// This is a noop withotu BoringCrytpo.
++func PanicIfStrictFIPS(v interface{}) {}
++
+ type randReader int
+ 
+ func (randReader) Read(b []byte) (int, error) { panic("boringcrypto: not available") }
+@@ -58,13 +61,13 @@ func NewPrivateKeyECDSA(curve string, X, Y, D *big.Int) (*PrivateKeyECDSA, error
+ func NewPublicKeyECDSA(curve string, X, Y *big.Int) (*PublicKeyECDSA, error) {
+ 	panic("boringcrypto: not available")
+ }
+-func SignECDSA(priv *PrivateKeyECDSA, hash []byte) (r, s *big.Int, err error) {
++func SignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) (r, s *big.Int, err error) {
+ 	panic("boringcrypto: not available")
+ }
+-func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte) ([]byte, error) {
++func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) ([]byte, error) {
+ 	panic("boringcrypto: not available")
+ }
+-func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, r, s *big.Int) bool {
++func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, r, s *big.Int, h crypto.Hash) bool {
+ 	panic("boringcrypto: not available")
+ }
+ 
+@@ -96,13 +99,13 @@ func NewPrivateKeyRSA(N, E, D, P, Q, Dp, Dq, Qinv *big.Int) (*PrivateKeyRSA, err
+ 	panic("boringcrypto: not available")
+ }
+ func NewPublicKeyRSA(N, E *big.Int) (*PublicKeyRSA, error) { panic("boringcrypto: not available") }
+-func SignRSAPKCS1v15(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte) ([]byte, error) {
++func SignRSAPKCS1v15(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte, msgHashed bool) ([]byte, error) {
+ 	panic("boringcrypto: not available")
+ }
+ func SignRSAPSS(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte, saltLen int) ([]byte, error) {
+ 	panic("boringcrypto: not available")
+ }
+-func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte) error {
++func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte, msgHashed bool) error {
+ 	panic("boringcrypto: not available")
+ }
+ func VerifyRSAPSS(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte, saltLen int) error {
+diff --git a/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl.go b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl.go
+new file mode 100644
+index 0000000000..aac8c84d93
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl.go
+@@ -0,0 +1,205 @@
++// Copyright 2017 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
++// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
++
++package openssl
++
++/*
++#cgo LDFLAGS: -ldl
++
++#include "goopenssl.h"
++*/
++import "C"
++import (
++	"errors"
++	"fmt"
++	"math/big"
++	"os"
++	"runtime"
++	"unsafe"
++)
++
++const (
++	fipsOn  = C.int(1)
++	fipsOff = C.int(0)
++)
++
++const (
++	OPENSSL_VERSION_1_1_0 = uint64(C.ulong(0x10100000))
++	OPENSSL_VERSION_3_0_0 = uint64(C.ulong(0x30000000))
++)
++
++// Enabled controls whether FIPS crypto is enabled.
++var enabled = false
++
++// When this variable is true, the go crypto API will panic when a caller
++// tries to use the API in a non-compliant manner.  When this is false, the
++// go crytpo API will allow existing go crypto APIs to be used even
++// if they aren't FIPS compliant.  However, all the unerlying crypto operations
++// will still be done by OpenSSL.
++var strictFIPS = false
++
++func init() {
++	runtime.LockOSThread()
++	defer runtime.UnlockOSThread()
++
++	// Check if we can `dlopen` OpenSSL
++	if C._goboringcrypto_DLOPEN_OPENSSL() == C.NULL {
++		return
++	}
++
++	// Initialize the OpenSSL library.
++	C._goboringcrypto_OPENSSL_setup()
++
++	// Check to see if the system is running in FIPS mode, if so
++	// enable "boring" mode to call into OpenSSL for FIPS compliance.
++	if fipsModeEnabled() {
++		enableBoringFIPSMode()
++	}
++}
++
++func openSSLVersion() uint64 {
++	return uint64(C._goboringcrypto_internal_OPENSSL_VERSION_NUMBER())
++}
++
++func enableBoringFIPSMode() {
++	enabled = true
++
++	if C._goboringcrypto_OPENSSL_thread_setup() != 1 {
++		panic("boringcrypto: OpenSSL thread setup failed")
++	}
++}
++
++// Unreachable marks code that should be unreachable
++// when FIPS mode. It panics only when
++// the system is in FIPS mode.
++func Unreachable() {
++	if Enabled() {
++		panic("openssl: invalid code execution")
++	}
++}
++
++// UnreachableExceptTests marks code that should be unreachable
++// when FIPS mode is active. It panics.
++func UnreachableExceptTests() {
++	name := os.Args[0]
++	if Enabled() && !hasSuffix(name, "_test") && !hasSuffix(name, ".test") {
++		println("openssl: unexpected code execution in", name)
++		panic("openssl: invalid code execution")
++	}
++}
++
++func fipsModeEnabled() bool {
++	// Due to the way providers work in openssl 3, the FIPS methods are not
++	// necessarily going to be available for us to load based on the GOLANG_FIPS
++	// environment variable alone. For now, we must rely on the config to tell
++	// us if the provider is configured and active.
++	fipsConfigured := C._goboringcrypto_FIPS_mode() == fipsOn
++	openSSLVersion := openSSLVersion()
++	if openSSLVersion >= OPENSSL_VERSION_3_0_0 {
++		if !fipsConfigured && os.Getenv("GOLANG_FIPS") == "1" {
++			panic("GOLANG_FIPS=1 specified but OpenSSL FIPS provider is not configured")
++		}
++		return fipsConfigured
++
++	} else {
++		return os.Getenv("GOLANG_FIPS") == "1" || fipsConfigured
++	}
++}
++
++var randstub bool
++
++func RandStubbed() bool {
++	return randstub
++}
++
++func StubOpenSSLRand() {
++	if !randstub {
++		randstub = true
++		C._goboringcrypto_stub_openssl_rand()
++	}
++}
++
++func RestoreOpenSSLRand() {
++	if randstub {
++		randstub = false
++		C._goboringcrypto_restore_openssl_rand()
++	}
++}
++
++func hasSuffix(s, t string) bool {
++	return len(s) > len(t) && s[len(s)-len(t):] == t
++}
++
++func PanicIfStrictFIPS(msg string) {
++	if os.Getenv("GOLANG_STRICT_FIPS") == "1" || strictFIPS {
++		panic(msg)
++	}
++}
++
++func NewOpenSSLError(msg string) error {
++	var e C.ulong
++	message := fmt.Sprintf("\n%v\nopenssl error(s):", msg)
++	if openSSLVersion() >= OPENSSL_VERSION_3_0_0 {
++		for {
++			var buf [256]C.char
++			var file, fnc, data *C.char
++			var line, flags C.int
++			e = C._goboringcrypto_internal_ERR_get_error_all(&file, &line, &fnc, &data, &flags)
++			if e == 0 {
++				break
++			}
++
++			C._goboringcrypto_internal_ERR_error_string_n(e, (*C.uchar)(unsafe.Pointer(&buf[0])), 256)
++			message = fmt.Sprintf(
++				"%v\nfile: %v\nline: %v\nfunction: %v\nflags: %v\nerror string: %s\n",
++				message, C.GoString(file), line, C.GoString(fnc), flags, C.GoString(&(buf[0])))
++		}
++	} else {
++		for {
++			var buf [256]C.char
++			e = C._goboringcrypto_internal_ERR_get_error()
++			C._goboringcrypto_internal_ERR_error_string_n(e, (*C.uchar)(unsafe.Pointer(&buf[0])), 256)
++			if e == 0 {
++				break
++			}
++			message = fmt.Sprintf("%v: %v\n", message, buf)
++		}
++	}
++	return errors.New(message)
++}
++
++type fail string
++
++func (e fail) Error() string { return "boringcrypto: " + string(e) + " failed" }
++
++func bigToBN(x *big.Int) *C.GO_BIGNUM {
++	raw := x.Bytes()
++	return C._goboringcrypto_BN_bin2bn(base(raw), C.size_t(len(raw)), nil)
++}
++
++func bnToBig(bn *C.GO_BIGNUM) *big.Int {
++	raw := make([]byte, C._goboringcrypto_BN_num_bytes(bn))
++	n := C._goboringcrypto_BN_bn2bin(bn, base(raw))
++	return new(big.Int).SetBytes(raw[:n])
++}
++
++func bigToBn(bnp **C.GO_BIGNUM, b *big.Int) bool {
++	if *bnp != nil {
++		C._goboringcrypto_BN_free(*bnp)
++		*bnp = nil
++	}
++	if b == nil {
++		return true
++	}
++	raw := b.Bytes()
++	bn := C._goboringcrypto_BN_bin2bn(base(raw), C.size_t(len(raw)), nil)
++	if bn == nil {
++		return false
++	}
++	*bnp = bn
++	return true
++}
+diff --git a/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_ecdsa_signature.c b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_ecdsa_signature.c
+new file mode 100644
+index 0000000000..2349db1fd9
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_ecdsa_signature.c
+@@ -0,0 +1,46 @@
++// +build linux
++// +build !android
++// +build !no_openssl
++// +build !cmd_go_bootstrap
++// +build !msan
++
++#include "goopenssl.h"
++
++int _goboringcrypto_ECDSA_sign(EVP_MD *md, const uint8_t *msg, size_t msgLen,
++                               uint8_t *sig, unsigned int *slen,
++                               GO_EC_KEY *eckey) {
++  int result;
++  EVP_PKEY *key = _goboringcrypto_EVP_PKEY_new();
++  if (!key) {
++    return 0;
++  }
++  if (!_goboringcrypto_EVP_PKEY_set1_EC_KEY(key, eckey)) {
++    result = 0;
++    goto err;
++  }
++  result = _goboringcrypto_EVP_sign(md, NULL, msg, msgLen, sig, slen, key);
++err:
++  _goboringcrypto_EVP_PKEY_free(key);
++  return result;
++}
++
++int _goboringcrypto_ECDSA_verify(EVP_MD *md, const uint8_t *msg, size_t msgLen,
++                                 const uint8_t *sig, unsigned int slen,
++                                 GO_EC_KEY *eckey) {
++
++  int result;
++  EVP_PKEY *key = _goboringcrypto_EVP_PKEY_new();
++  if (!key) {
++    return 0;
++  }
++  if (!_goboringcrypto_EVP_PKEY_set1_EC_KEY(key, eckey)) {
++    result = 0;
++    goto err;
++  }
++
++  result = _goboringcrypto_EVP_verify(md, NULL, msg, msgLen, sig, slen, key);
++
++err:
++  _goboringcrypto_EVP_PKEY_free(key);
++  return result;
++}
+diff --git a/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_evp.c b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_evp.c
+new file mode 100644
+index 0000000000..bcb83cab31
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_evp.c
+@@ -0,0 +1,68 @@
++// +build linux
++// +build !android
++// +build !no_openssl
++// +build !cmd_go_bootstrap
++// +build !msan
++
++#include "goopenssl.h"
++
++int _goboringcrypto_EVP_sign(EVP_MD *md, EVP_PKEY_CTX *ctx, const uint8_t *msg,
++                             size_t msgLen, uint8_t *sig, unsigned int *slen,
++                             EVP_PKEY *key) {
++  EVP_MD_CTX *mdctx = NULL;
++  int ret = 0;
++
++  if (!(mdctx = _goboringcrypto_EVP_MD_CTX_create()))
++    goto err;
++
++  if (1 != _goboringcrypto_EVP_DigestSignInit(mdctx, &ctx, md, NULL, key))
++    goto err;
++
++  if (1 != _goboringcrypto_EVP_DigestUpdate(mdctx, msg, msgLen))
++    goto err;
++
++  /* Obtain the signature length */
++  if (1 != _goboringcrypto_EVP_DigestSignFinal(mdctx, NULL, slen))
++    goto err;
++  /* Obtain the signature */
++  if (1 != _goboringcrypto_EVP_DigestSignFinal(mdctx, sig, slen))
++    goto err;
++
++  /* Success */
++  ret = 1;
++
++err:
++  if (mdctx)
++    _goboringcrypto_EVP_MD_CTX_free(mdctx);
++
++  return ret;
++}
++
++int _goboringcrypto_EVP_verify(EVP_MD *md, EVP_PKEY_CTX *ctx,
++                               const uint8_t *msg, size_t msgLen,
++                               const uint8_t *sig, unsigned int slen,
++                               EVP_PKEY *key) {
++  EVP_MD_CTX *mdctx = NULL;
++  int ret = 0;
++
++  if (!(mdctx = _goboringcrypto_EVP_MD_CTX_create()))
++    goto err;
++  if (1 != _goboringcrypto_EVP_DigestVerifyInit(mdctx, &ctx, md, NULL, key))
++    goto err;
++
++  if (1 != _goboringcrypto_EVP_DigestUpdate(mdctx, msg, msgLen))
++    goto err;
++
++  if (1 != _goboringcrypto_EVP_DigestVerifyFinal(mdctx, sig, slen)) {
++    goto err;
++  }
++
++  /* Success */
++  ret = 1;
++
++err:
++  if (mdctx)
++    _goboringcrypto_EVP_MD_CTX_free(mdctx);
++
++  return ret;
++}
+diff --git a/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_lock_setup.c b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_lock_setup.c
+new file mode 100644
+index 0000000000..49d40a7486
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_lock_setup.c
+@@ -0,0 +1,49 @@
++// +build linux
++// +build !android
++// +build !no_openssl
++// +build !cmd_go_bootstrap
++// +build !msan
++
++#include "goopenssl.h"
++#include <openssl/err.h>
++#include <pthread.h>
++#include <stdio.h>
++#include <sys/syscall.h>
++#include <sys/types.h>
++
++#define _GNU_SOURCE
++#include <unistd.h>
++
++#define MUTEX_TYPE pthread_mutex_t
++#define MUTEX_SETUP(x) pthread_mutex_init(&(x), NULL)
++#define MUTEX_CLEANUP(x) pthread_mutex_destroy(&(x))
++#define MUTEX_LOCK(x) pthread_mutex_lock(&(x))
++#define MUTEX_UNLOCK(x) pthread_mutex_unlock(&(x))
++#define THREAD_ID pthread_self()
++
++/* This array will store all of the mutexes available to OpenSSL. */
++static MUTEX_TYPE *mutex_buf = NULL;
++
++static void locking_function(int mode, int n, const char *file, int line) {
++  if (mode & CRYPTO_LOCK)
++    MUTEX_LOCK(mutex_buf[n]);
++  else
++    MUTEX_UNLOCK(mutex_buf[n]);
++}
++
++static unsigned long id_function(void) {
++  return ((unsigned long)syscall(__NR_gettid));
++}
++
++int _goboringcrypto_OPENSSL_thread_setup(void) {
++  int i;
++
++  mutex_buf = malloc(_goboringcrypto_CRYPTO_num_locks() * sizeof(MUTEX_TYPE));
++  if (!mutex_buf)
++    return 0;
++  for (i = 0; i < _goboringcrypto_CRYPTO_num_locks(); i++)
++    MUTEX_SETUP(mutex_buf[i]);
++  _goboringcrypto_CRYPTO_set_id_callback(id_function);
++  _goboringcrypto_CRYPTO_set_locking_callback(locking_function);
++  return 1;
++}
+diff --git a/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_aead_gcm.c b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_aead_gcm.c
+new file mode 100644
+index 0000000000..7eb645ef21
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_aead_gcm.c
+@@ -0,0 +1,171 @@
++// This file contains a port of the BoringSSL AEAD interface.
++// +build linux
++// +build !android
++// +build !no_openssl
++// +build !cmd_go_bootstrap
++// +build !msan
++
++#include "goopenssl.h"
++#include <openssl/err.h>
++
++int _goboringcrypto_EVP_CIPHER_CTX_seal(uint8_t *out, uint8_t *iv, uint8_t *aad,
++                                        size_t aad_len, uint8_t *plaintext,
++                                        size_t plaintext_len,
++                                        size_t *ciphertext_len, uint8_t *key,
++                                        int key_size) {
++
++  EVP_CIPHER_CTX *ctx;
++  int len;
++  int ret;
++
++  if (plaintext_len == 0) {
++    plaintext = "";
++  }
++
++  if (aad_len == 0) {
++    aad = "";
++  }
++
++  // Create and initialise the context.
++  if (!(ctx = _goboringcrypto_EVP_CIPHER_CTX_new())) {
++    goto err;
++  }
++
++  switch (key_size) {
++  case 128:
++    if (!_goboringcrypto_EVP_EncryptInit_ex(
++            ctx, _goboringcrypto_EVP_aes_128_gcm(), NULL, NULL, NULL)) {
++      goto err;
++    }
++    break;
++  case 256:
++    if (!_goboringcrypto_EVP_EncryptInit_ex(
++            ctx, _goboringcrypto_EVP_aes_256_gcm(), NULL, NULL, NULL)) {
++      goto err;
++    }
++    break;
++  default:
++    goto err;
++  }
++
++  // Initialize IV.
++  if (!_goboringcrypto_EVP_EncryptInit_ex(ctx, NULL, NULL, key, NULL)) {
++    goto err;
++  }
++  if (!_goboringcrypto_EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IVLEN, 12,
++                                           0)) {
++    goto err;
++  }
++  if (!_goboringcrypto_EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_IV_FIXED, -1,
++                                           iv)) {
++    goto err;
++  }
++  if (!_goboringcrypto_EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_IV_GEN, 0, iv)) {
++    goto err;
++  }
++
++  // Provide AAD data.
++  if (!_goboringcrypto_EVP_EncryptUpdate(ctx, NULL, &len, aad, aad_len)) {
++    goto err;
++  }
++
++  if (!_goboringcrypto_EVP_EncryptUpdate(ctx, out, &len, plaintext,
++                                         plaintext_len)) {
++    goto err;
++  }
++  *ciphertext_len = len;
++
++  if (!_goboringcrypto_EVP_EncryptFinal_ex(ctx, out + len, &len)) {
++    goto err;
++  }
++  *ciphertext_len += len;
++
++  if (!_goboringcrypto_EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_GET_TAG, 16,
++                                           out + (*ciphertext_len))) {
++    goto err;
++  }
++  *ciphertext_len += 16;
++  ret = 1;
++
++err:
++  _goboringcrypto_EVP_CIPHER_CTX_free(ctx);
++
++  if (ret > 0) {
++    return ret;
++  } else {
++    return 0;
++  }
++}
++
++int _goboringcrypto_EVP_CIPHER_CTX_open(uint8_t *ciphertext, int ciphertext_len,
++                                        uint8_t *aad, int aad_len, uint8_t *tag,
++                                        uint8_t *key, int key_size, uint8_t *iv,
++                                        int iv_len, uint8_t *plaintext,
++                                        size_t *plaintext_len) {
++
++  EVP_CIPHER_CTX *ctx;
++  int len;
++  int ret;
++
++  if (aad_len == 0) {
++    aad = "";
++  }
++
++  // Create and initialise the context.
++  if (!(ctx = _goboringcrypto_EVP_CIPHER_CTX_new()))
++    return 0;
++
++  switch (key_size) {
++  case 128:
++    if (!_goboringcrypto_EVP_DecryptInit_ex(
++            ctx, _goboringcrypto_EVP_aes_128_gcm(), NULL, NULL, NULL)) {
++      goto err;
++    }
++    break;
++  case 256:
++    if (!_goboringcrypto_EVP_DecryptInit_ex(
++            ctx, _goboringcrypto_EVP_aes_256_gcm(), NULL, NULL, NULL)) {
++      goto err;
++    }
++    break;
++  }
++
++  // Initialize key and nonce.
++  if (!_goboringcrypto_EVP_DecryptInit_ex(ctx, NULL, NULL, key, iv)) {
++    goto err;
++  }
++
++  // Provide any AAD data.
++  if (!_goboringcrypto_EVP_DecryptUpdate(ctx, NULL, &len, aad, aad_len)) {
++    goto err;
++  }
++
++  // Provide the message to be decrypted, and obtain the plaintext output.
++  if (!_goboringcrypto_EVP_DecryptUpdate(ctx, plaintext, &len, ciphertext,
++                                         ciphertext_len)) {
++    goto err;
++  }
++  *plaintext_len = len;
++
++  // Set expected tag value. Works in OpenSSL 1.0.1d and later.
++  if (!_goboringcrypto_EVP_CIPHER_CTX_ctrl(ctx, EVP_CTRL_GCM_SET_TAG, 16,
++                                           tag)) {
++    goto err;
++  }
++
++  // Finalise the decryption. A positive return value indicates success,
++  // anything else is a failure - the plaintext is not trustworthy.
++  ret = _goboringcrypto_EVP_DecryptFinal_ex(ctx, plaintext + len, &len);
++
++err:
++  _goboringcrypto_EVP_CIPHER_CTX_free(ctx);
++
++  if (ret > 0) {
++    // Success
++    *plaintext_len += len;
++    return ret;
++  } else {
++    // Verify failed
++    return 0;
++  }
++}
+diff --git a/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_ctr128.c b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_ctr128.c
+new file mode 100644
+index 0000000000..df4ebe3297
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_ctr128.c
+@@ -0,0 +1,13 @@
++// +build linux
++// +build !android
++// +build !no_openssl
++// +build !cmd_go_bootstrap
++// +build !msan
++
++#include "goopenssl.h"
++
++void _goboringcrypto_EVP_AES_ctr128_enc(EVP_CIPHER_CTX *ctx, const uint8_t *in,
++                                        uint8_t *out, size_t in_len) {
++  int len;
++  _goboringcrypto_EVP_EncryptUpdate(ctx, out, &len, in, in_len);
++}
+diff --git a/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_evp_md5_sha1.c b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_evp_md5_sha1.c
+new file mode 100644
+index 0000000000..2eedd5b8c6
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_evp_md5_sha1.c
+@@ -0,0 +1,90 @@
++// This file contains a backport of the EVP_md5_sha1 method.
++// +build linux
++// +build !android
++// +build !no_openssl
++// +build !cmd_go_bootstrap
++// +build !msan
++
++// The following is a partial backport of crypto/evp/m_md5_sha1.c,
++// commit cbc8a839959418d8a2c2e3ec6bdf394852c9501e on the
++// OpenSSL_1_1_0-stable branch.  The ctrl function has been removed.
++
++#include "goopenssl.h"
++
++#if OPENSSL_VERSION_NUMBER < 0x10100000L
++// New in OpenSSL 1.1.
++static inline void *
++_goboringcrypto_internal_EVP_MD_CTX_md_data(EVP_MD_CTX *ctx) {
++  return ctx->md_data;
++}
++
++/*
++ * Copyright 2015-2016 The OpenSSL Project Authors. All Rights Reserved.
++ *
++ * Licensed under the OpenSSL license (the "License").  You may not use
++ * this file except in compliance with the License.  You can obtain a copy
++ * in the file LICENSE in the source distribution or at
++ * https://www.openssl.org/source/license.html
++ */
++
++#if !defined(OPENSSL_NO_MD5)
++
++#include <openssl/evp.h>
++#include <openssl/md5.h>
++#include <openssl/objects.h>
++#include <openssl/rsa.h>
++#include <openssl/sha.h>
++#include <openssl/x509.h>
++
++struct md5_sha1_ctx {
++  MD5_CTX md5;
++  SHA_CTX sha1;
++};
++
++static int _goboringcrypto_internal_init(EVP_MD_CTX *ctx) {
++  struct md5_sha1_ctx *mctx = _goboringcrypto_internal_EVP_MD_CTX_md_data(ctx);
++  if (!_goboringcrypto_internal_MD5_Init(&mctx->md5))
++    return 0;
++  return _goboringcrypto_SHA1_Init(&mctx->sha1);
++}
++
++static int _goboringcrypto_internal_update(EVP_MD_CTX *ctx, const void *data,
++                                           size_t count) {
++  struct md5_sha1_ctx *mctx = _goboringcrypto_internal_EVP_MD_CTX_md_data(ctx);
++  if (!_goboringcrypto_internal_MD5_Update(&mctx->md5, data, count))
++    return 0;
++  return _goboringcrypto_SHA1_Update(&mctx->sha1, data, count);
++}
++
++static int _goboringcrypto_internal_final(EVP_MD_CTX *ctx, unsigned char *md) {
++  struct md5_sha1_ctx *mctx = _goboringcrypto_internal_EVP_MD_CTX_md_data(ctx);
++  if (!_goboringcrypto_internal_MD5_Final(md, &mctx->md5))
++    return 0;
++  return _goboringcrypto_SHA1_Final(md + MD5_DIGEST_LENGTH, &mctx->sha1);
++}
++
++// Change: Removed:
++// static int ctrl(EVP_MD_CTX *ctx, int cmd, int mslen, void *ms)
++
++static const EVP_MD md5_sha1_md = {
++    NID_md5_sha1,
++    NID_md5_sha1,
++    MD5_DIGEST_LENGTH + SHA_DIGEST_LENGTH,
++    0,
++    _goboringcrypto_internal_init,
++    _goboringcrypto_internal_update,
++    _goboringcrypto_internal_final,
++    NULL,
++    NULL,
++    EVP_PKEY_NULL_method, // Change: inserted
++    MD5_CBLOCK,
++    sizeof(EVP_MD *) + sizeof(struct md5_sha1_ctx),
++    NULL, // Change: was ctrl
++};
++
++// Change: Apply name mangling.
++const GO_EVP_MD *_goboringcrypto_backport_EVP_md5_sha1(void) {
++  return &md5_sha1_md;
++}
++#endif
++#endif
+diff --git a/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_hmac.c b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_hmac.c
+new file mode 100644
+index 0000000000..362d9e532e
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_hmac.c
+@@ -0,0 +1,16 @@
++// This file contains HMAC portability wrappers.
++// +build linux
++// +build !android
++// +build !no_openssl
++// +build !cmd_go_bootstrap
++// +build !msan
++
++#include "goopenssl.h"
++
++// Not in OpenSSL 1.1.  However, HMAC_CTX_copy expects an initialized
++// target in OpenSSL 1.1.
++int _goboringcrypto_HMAC_CTX_copy_ex(GO_HMAC_CTX *dest,
++                                     const GO_HMAC_CTX *src) {
++  // HMAC_CTX_copy lacks the const qualifier for the second parameter.
++  return _goboringcrypto_HMAC_CTX_copy(dest, (GO_HMAC_CTX *)src);
++}
+diff --git a/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_rsa.c b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_rsa.c
+new file mode 100644
+index 0000000000..adaf972b95
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_rsa.c
+@@ -0,0 +1,219 @@
++// This file contains RSA portability wrappers.
++// +build linux
++// +build !android
++// +build !no_openssl
++// +build !cmd_go_bootstrap
++// +build !msan
++
++#include "goopenssl.h"
++
++// Only in BoringSSL.
++int _goboringcrypto_RSA_generate_key_fips(GO_RSA *rsa, int size,
++                                          GO_BN_GENCB *cb) {
++  // BoringSSL's RSA_generate_key_fips hard-codes e to 65537.
++  BIGNUM *e = _goboringcrypto_BN_new();
++  if (e == NULL)
++    return 0;
++  int ret = _goboringcrypto_BN_set_word(e, RSA_F4) &&
++            _goboringcrypto_RSA_generate_key_ex(rsa, size, e, cb);
++  _goboringcrypto_BN_free(e);
++  return ret;
++}
++
++int _goboringcrypto_RSA_digest_and_sign_pss_mgf1(
++    GO_RSA *rsa, unsigned int *out_len, uint8_t *out, size_t max_out,
++    const uint8_t *in, size_t in_len, EVP_MD *md, const EVP_MD *mgf1_md,
++    int salt_len) {
++  EVP_PKEY_CTX *ctx;
++  unsigned int siglen;
++
++  int ret = 0;
++  EVP_PKEY *key = _goboringcrypto_EVP_PKEY_new();
++  if (!key) {
++    goto err;
++  }
++  if (!_goboringcrypto_EVP_PKEY_set1_RSA(key, rsa))
++    goto err;
++  ctx = _goboringcrypto_EVP_PKEY_CTX_new(key, NULL /* no engine */);
++  if (!ctx)
++    goto err;
++
++  EVP_MD_CTX *mdctx = NULL;
++  if (!(mdctx = _goboringcrypto_EVP_MD_CTX_create()))
++    goto err;
++
++  if (1 != _goboringcrypto_EVP_DigestSignInit(mdctx, &ctx, md, NULL, key))
++    goto err;
++
++  if (_goboringcrypto_EVP_PKEY_sign_init(ctx) <= 0)
++    goto err;
++  if (_goboringcrypto_EVP_PKEY_CTX_set_signature_md(ctx, md) <= 0)
++    goto err;
++  if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_padding(ctx,
++                                                   RSA_PKCS1_PSS_PADDING) <= 0)
++    goto err;
++  if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, salt_len) <= 0)
++    goto err;
++  if (mgf1_md)
++    if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, mgf1_md) <= 0)
++      goto err;
++  if (1 != _goboringcrypto_EVP_DigestUpdate(mdctx, in, in_len))
++    goto err;
++
++  /* Obtain the signature length */
++  if (1 != _goboringcrypto_EVP_DigestSignFinal(mdctx, NULL, out_len))
++    goto err;
++  /* Obtain the signature */
++  if (1 != _goboringcrypto_EVP_DigestSignFinal(mdctx, out, out_len))
++    goto err;
++
++  ret = 1;
++
++err:
++  if (mdctx)
++    _goboringcrypto_EVP_MD_CTX_free(mdctx);
++  if (ctx)
++    _goboringcrypto_EVP_PKEY_CTX_free(ctx);
++  if (key)
++    _goboringcrypto_EVP_PKEY_free(key);
++
++  return ret;
++}
++
++int _goboringcrypto_RSA_sign_pss_mgf1(GO_RSA *rsa, unsigned int *out_len,
++                                      uint8_t *out, unsigned int max_out,
++                                      const uint8_t *in, unsigned int in_len,
++                                      EVP_MD *md, const EVP_MD *mgf1_md,
++                                      int salt_len) {
++  EVP_PKEY_CTX *ctx;
++  EVP_PKEY *pkey;
++  size_t siglen;
++
++  int ret = 0;
++  pkey = _goboringcrypto_EVP_PKEY_new();
++  if (!pkey)
++    goto err;
++
++  if (_goboringcrypto_EVP_PKEY_set1_RSA(pkey, rsa) <= 0)
++    goto err;
++
++  ctx = _goboringcrypto_EVP_PKEY_CTX_new(pkey, NULL /* no engine */);
++  if (!ctx)
++    goto err;
++
++  if (_goboringcrypto_EVP_PKEY_sign_init(ctx) <= 0)
++    goto err;
++  if (_goboringcrypto_EVP_PKEY_CTX_set_signature_md(ctx, md) <= 0)
++    goto err;
++  if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_padding(ctx,
++                                                   RSA_PKCS1_PSS_PADDING) <= 0)
++    goto err;
++  if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, salt_len) <= 0)
++    goto err;
++  if (mgf1_md)
++    if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, mgf1_md) <= 0)
++      goto err;
++  /* Determine buffer length */
++  if (_goboringcrypto_EVP_PKEY_sign(ctx, NULL, &siglen, in, in_len) <= 0)
++    goto err;
++
++  if (max_out < siglen)
++    goto err;
++
++  if (_goboringcrypto_EVP_PKEY_sign(ctx, out, &siglen, in, in_len) <= 0)
++    goto err;
++
++  *out_len = siglen;
++  ret = 1;
++
++err:
++  if (ctx)
++    _goboringcrypto_EVP_PKEY_CTX_free(ctx);
++  if (pkey)
++    _goboringcrypto_EVP_PKEY_free(pkey);
++
++  return ret;
++}
++
++int _goboringcrypto_RSA_verify_pss_mgf1(RSA *rsa, const uint8_t *msg,
++                                        unsigned int msg_len, EVP_MD *md,
++                                        const EVP_MD *mgf1_md, int salt_len,
++                                        const uint8_t *sig,
++                                        unsigned int sig_len) {
++  EVP_PKEY_CTX *ctx;
++  EVP_PKEY *pkey;
++
++  int ret = 0;
++
++  pkey = _goboringcrypto_EVP_PKEY_new();
++  if (!pkey)
++    goto err;
++
++  if (_goboringcrypto_EVP_PKEY_set1_RSA(pkey, rsa) <= 0)
++    goto err;
++
++  ctx = _goboringcrypto_EVP_PKEY_CTX_new(pkey, NULL /* no engine */);
++  if (!ctx)
++    goto err;
++
++  if (_goboringcrypto_EVP_PKEY_verify_init(ctx) <= 0)
++    goto err;
++  if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_padding(ctx,
++                                                   RSA_PKCS1_PSS_PADDING) <= 0)
++    goto err;
++  if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, salt_len) <= 0)
++    goto err;
++  if (_goboringcrypto_EVP_PKEY_CTX_set_signature_md(ctx, md) <= 0)
++    goto err;
++  if (mgf1_md)
++    if (_goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, mgf1_md) <= 0)
++      goto err;
++  if (_goboringcrypto_EVP_PKEY_verify(ctx, sig, sig_len, msg, msg_len) <= 0)
++    goto err;
++
++  ret = 1;
++
++err:
++  if (ctx)
++    _goboringcrypto_EVP_PKEY_CTX_free(ctx);
++  if (pkey)
++    _goboringcrypto_EVP_PKEY_free(pkey);
++
++  return ret;
++}
++
++int _goboringcrypto_EVP_RSA_sign(EVP_MD *md, const uint8_t *msg,
++                                 unsigned int msgLen, uint8_t *sig,
++                                 unsigned int *slen, RSA *rsa) {
++  int result;
++  EVP_PKEY *key = _goboringcrypto_EVP_PKEY_new();
++  if (!key) {
++    return 0;
++  }
++  if (!_goboringcrypto_EVP_PKEY_set1_RSA(key, rsa)) {
++    result = 0;
++    goto err;
++  }
++  result = _goboringcrypto_EVP_sign(md, NULL, msg, msgLen, sig, slen, key);
++err:
++  _goboringcrypto_EVP_PKEY_free(key);
++  return result;
++}
++
++int _goboringcrypto_EVP_RSA_verify(EVP_MD *md, const uint8_t *msg,
++                                   unsigned int msgLen, const uint8_t *sig,
++                                   unsigned int slen, GO_RSA *rsa) {
++  int result;
++  EVP_PKEY *key = _goboringcrypto_EVP_PKEY_new();
++  if (!key) {
++    return 0;
++  }
++  if (!_goboringcrypto_EVP_PKEY_set1_RSA(key, rsa)) {
++    result = 0;
++    goto err;
++  }
++  result = _goboringcrypto_EVP_verify(md, NULL, msg, msgLen, sig, slen, key);
++err:
++  _goboringcrypto_EVP_PKEY_free(key);
++  return result;
++}
+diff --git a/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_stub_rand.c b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_stub_rand.c
+new file mode 100644
+index 0000000000..22bd865a35
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_stub_rand.c
+@@ -0,0 +1,45 @@
++// +build linux
++// +build !android
++// +build !no_openssl
++// +build !cmd_go_bootstrap
++// +build !msan
++
++#include "goopenssl.h"
++#include <openssl/rand.h>
++
++static RAND_METHOD fake_rand;
++static const RAND_METHOD *old_rand;
++
++int _goboringcrypto_stub_openssl_rand(void) {
++  /* save old rand method */
++  if ((old_rand = _goboringcrypto_RAND_get_rand_method()) == NULL)
++    return 0;
++
++  fake_rand.seed = old_rand->seed;
++  fake_rand.cleanup = old_rand->cleanup;
++  fake_rand.add = old_rand->add;
++  fake_rand.status = old_rand->status;
++  /* use own random function */
++  fake_rand.bytes = fbytes;
++  fake_rand.pseudorand = old_rand->bytes;
++  /* set new RAND_METHOD */
++  if (!_goboringcrypto_RAND_set_rand_method(&fake_rand))
++    return 0;
++  return 1;
++}
++
++int _goboringcrypto_restore_openssl_rand(void) {
++  if (!_goboringcrypto_RAND_set_rand_method(old_rand))
++    return 0;
++  else
++    return 1;
++}
++
++int fbytes(unsigned char *buf, int num) {
++  // return old_rand->bytes(buf, num);
++  int i;
++  for (i = 0; i < num; i++) {
++    buf[i] = 1;
++  }
++  return 1;
++}
+diff --git a/src/crypto/internal/boring/rand.go b/src/vendor/github.com/golang-fips/openssl-fips/openssl/rand.go
+similarity index 71%
+rename from src/crypto/internal/boring/rand.go
+rename to src/vendor/github.com/golang-fips/openssl-fips/openssl/rand.go
+index 57937eb3c8..b3668b8823 100644
+--- a/src/crypto/internal/boring/rand.go
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/rand.go
+@@ -2,12 +2,12 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build linux && amd64 && !android && !cmd_go_bootstrap && !msan
+-// +build linux,amd64,!android,!cmd_go_bootstrap,!msan
++//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
++// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
+ 
+-package boring
++package openssl
+ 
+-// #include "goboringcrypto.h"
++// #include "goopenssl.h"
+ import "C"
+ import "unsafe"
+ 
+@@ -17,7 +17,7 @@ func (randReader) Read(b []byte) (int, error) {
+ 	// Note: RAND_bytes should never fail; the return value exists only for historical reasons.
+ 	// We check it even so.
+ 	if len(b) > 0 && C._goboringcrypto_RAND_bytes((*C.uint8_t)(unsafe.Pointer(&b[0])), C.size_t(len(b))) == 0 {
+-		return 0, fail("RAND_bytes")
++		return 0, NewOpenSSLError("RAND_bytes")
+ 	}
+ 	return len(b), nil
+ }
+diff --git a/src/crypto/internal/boring/rsa.go b/src/vendor/github.com/golang-fips/openssl-fips/openssl/rsa.go
+similarity index 63%
+rename from src/crypto/internal/boring/rsa.go
+rename to src/vendor/github.com/golang-fips/openssl-fips/openssl/rsa.go
+index 327dfa0309..6511cb1be9 100644
+--- a/src/crypto/internal/boring/rsa.go
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/rsa.go
+@@ -2,16 +2,15 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build linux && amd64 && !android && !cmd_go_bootstrap && !msan
+-// +build linux,amd64,!android,!cmd_go_bootstrap,!msan
++//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
++// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
+ 
+-package boring
++package openssl
+ 
+-// #include "goboringcrypto.h"
++// #include "goopenssl.h"
+ import "C"
+ import (
+ 	"crypto"
+-	"crypto/subtle"
+ 	"errors"
+ 	"hash"
+ 	"math/big"
+@@ -27,12 +26,12 @@ func GenerateKeyRSA(bits int) (N, E, D, P, Q, Dp, Dq, Qinv *big.Int, err error)
+ 
+ 	key := C._goboringcrypto_RSA_new()
+ 	if key == nil {
+-		return bad(fail("RSA_new"))
++		return bad(NewOpenSSLError("RSA_new failed"))
+ 	}
+ 	defer C._goboringcrypto_RSA_free(key)
+ 
+ 	if C._goboringcrypto_RSA_generate_key_fips(key, C.int(bits), nil) == 0 {
+-		return bad(fail("RSA_generate_key_fips"))
++		return bad(NewOpenSSLError("RSA_generate_key_fips failed"))
+ 	}
+ 
+ 	var n, e, d, p, q, dp, dq, qinv *C.GO_BIGNUM
+@@ -50,12 +49,12 @@ type PublicKeyRSA struct {
+ func NewPublicKeyRSA(N, E *big.Int) (*PublicKeyRSA, error) {
+ 	key := C._goboringcrypto_RSA_new()
+ 	if key == nil {
+-		return nil, fail("RSA_new")
+-	}
+-	if !bigToBn(&key.n, N) ||
+-		!bigToBn(&key.e, E) {
+-		return nil, fail("BN_bin2bn")
++		return nil, NewOpenSSLError("RSA_new failed")
+ 	}
++	var n, e *C.GO_BIGNUM
++	n = bigToBN(N)
++	e = bigToBN(E)
++	C._goboringcrypto_RSA_set0_key(key, n, e, nil)
+ 	k := &PublicKeyRSA{_key: key}
+ 	runtime.SetFinalizer(k, (*PublicKeyRSA).finalize)
+ 	return k, nil
+@@ -81,17 +80,23 @@ type PrivateKeyRSA struct {
+ func NewPrivateKeyRSA(N, E, D, P, Q, Dp, Dq, Qinv *big.Int) (*PrivateKeyRSA, error) {
+ 	key := C._goboringcrypto_RSA_new()
+ 	if key == nil {
+-		return nil, fail("RSA_new")
++		return nil, NewOpenSSLError("RSA_new failed")
+ 	}
+-	if !bigToBn(&key.n, N) ||
+-		!bigToBn(&key.e, E) ||
+-		!bigToBn(&key.d, D) ||
+-		!bigToBn(&key.p, P) ||
+-		!bigToBn(&key.q, Q) ||
+-		!bigToBn(&key.dmp1, Dp) ||
+-		!bigToBn(&key.dmq1, Dq) ||
+-		!bigToBn(&key.iqmp, Qinv) {
+-		return nil, fail("BN_bin2bn")
++	var n, e, d, p, q, dp, dq, qinv *C.GO_BIGNUM
++	n = bigToBN(N)
++	e = bigToBN(E)
++	d = bigToBN(D)
++	C._goboringcrypto_RSA_set0_key(key, n, e, d)
++	if P != nil && Q != nil {
++		p = bigToBN(P)
++		q = bigToBN(Q)
++		C._goboringcrypto_RSA_set0_factors(key, p, q)
++	}
++	if Dp != nil && Dq != nil && Qinv != nil {
++		dp = bigToBN(Dp)
++		dq = bigToBN(Dq)
++		qinv = bigToBN(Qinv)
++		C._goboringcrypto_RSA_set0_crt_params(key, dp, dq, qinv)
+ 	}
+ 	k := &PrivateKeyRSA{_key: key}
+ 	runtime.SetFinalizer(k, (*PrivateKeyRSA).finalize)
+@@ -128,7 +133,7 @@ func setupRSA(withKey func(func(*C.GO_RSA) C.int) C.int,
+ 
+ 	pkey = C._goboringcrypto_EVP_PKEY_new()
+ 	if pkey == nil {
+-		return nil, nil, fail("EVP_PKEY_new")
++		return nil, nil, NewOpenSSLError("EVP_PKEY_new failed")
+ 	}
+ 	if withKey(func(key *C.GO_RSA) C.int {
+ 		return C._goboringcrypto_EVP_PKEY_set1_RSA(pkey, key)
+@@ -137,13 +142,13 @@ func setupRSA(withKey func(func(*C.GO_RSA) C.int) C.int,
+ 	}
+ 	ctx = C._goboringcrypto_EVP_PKEY_CTX_new(pkey, nil)
+ 	if ctx == nil {
+-		return nil, nil, fail("EVP_PKEY_CTX_new")
++		return nil, nil, NewOpenSSLError("EVP_PKEY_CTX_new failed")
+ 	}
+ 	if init(ctx) == 0 {
+-		return nil, nil, fail("EVP_PKEY_operation_init")
++		return nil, nil, NewOpenSSLError("EVP_PKEY_operation_init failed")
+ 	}
+ 	if C._goboringcrypto_EVP_PKEY_CTX_set_rsa_padding(ctx, padding) == 0 {
+-		return nil, nil, fail("EVP_PKEY_CTX_set_rsa_padding")
++		return nil, nil, NewOpenSSLError("EVP_PKEY_CTX_set_rsa_padding failed")
+ 	}
+ 	if padding == C.GO_RSA_PKCS1_OAEP_PADDING {
+ 		md := hashToMD(h)
+@@ -151,22 +156,33 @@ func setupRSA(withKey func(func(*C.GO_RSA) C.int) C.int,
+ 			return nil, nil, errors.New("crypto/rsa: unsupported hash function")
+ 		}
+ 		if C._goboringcrypto_EVP_PKEY_CTX_set_rsa_oaep_md(ctx, md) == 0 {
+-			return nil, nil, fail("EVP_PKEY_set_rsa_oaep_md")
++			return nil, nil, NewOpenSSLError("EVP_PKEY_set_rsa_oaep_md failed")
+ 		}
+ 		// ctx takes ownership of label, so malloc a copy for BoringCrypto to free.
+-		clabel := (*C.uint8_t)(C._goboringcrypto_OPENSSL_malloc(C.size_t(len(label))))
+-		if clabel == nil {
+-			return nil, nil, fail("OPENSSL_malloc")
++		var clabel *C.uint8_t
++		clabel = nil
++		// OpenSSL 1.1.1 does not take ownership of the label if the length is zero.
++		// Depending on the malloc implementation, if clabel is allocated with malloc(0),
++		// metadata for the size-zero allocation is never cleaned up, which is a memory leak.
++		// As such, we must only allocate clabel if the label is of non zero length.
++		if (len(label) > 0) || (openSSLVersion() > OPENSSL_VERSION_3_0_0) {
++			clabel = (*C.uint8_t)(C.malloc(C.size_t(len(label))))
++			if clabel == nil {
++				return nil, nil, fail("OPENSSL_malloc")
++			}
++			copy((*[1 << 30]byte)(unsafe.Pointer(clabel))[:len(label)], label)
+ 		}
+-		copy((*[1 << 30]byte)(unsafe.Pointer(clabel))[:len(label)], label)
+-		if C._goboringcrypto_EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, clabel, C.size_t(len(label))) == 0 {
+-			return nil, nil, fail("EVP_PKEY_CTX_set0_rsa_oaep_label")
++		if C._goboringcrypto_EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, clabel, C.int(len(label))) != 1 {
++			if clabel != nil {
++				C.free(unsafe.Pointer(clabel))
++			}
++			return nil, nil, NewOpenSSLError("EVP_PKEY_CTX_set0_rsa_oaep_label failed")
+ 		}
+ 	}
+ 	if padding == C.GO_RSA_PKCS1_PSS_PADDING {
+ 		if saltLen != 0 {
+ 			if C._goboringcrypto_EVP_PKEY_CTX_set_rsa_pss_saltlen(ctx, C.int(saltLen)) == 0 {
+-				return nil, nil, fail("EVP_PKEY_set_rsa_pss_saltlen")
++				return nil, nil, NewOpenSSLError("EVP_PKEY_set_rsa_pss_saltlen failed")
+ 			}
+ 		}
+ 		md := cryptoHashToMD(ch)
+@@ -174,7 +190,7 @@ func setupRSA(withKey func(func(*C.GO_RSA) C.int) C.int,
+ 			return nil, nil, errors.New("crypto/rsa: unsupported hash function")
+ 		}
+ 		if C._goboringcrypto_EVP_PKEY_CTX_set_rsa_mgf1_md(ctx, md) == 0 {
+-			return nil, nil, fail("EVP_PKEY_set_rsa_mgf1_md")
++			return nil, nil, NewOpenSSLError("EVP_PKEY_set_rsa_mgf1_md failed")
+ 		}
+ 	}
+ 
+@@ -184,7 +200,7 @@ func setupRSA(withKey func(func(*C.GO_RSA) C.int) C.int,
+ func cryptRSA(withKey func(func(*C.GO_RSA) C.int) C.int,
+ 	padding C.int, h hash.Hash, label []byte, saltLen int, ch crypto.Hash,
+ 	init func(*C.GO_EVP_PKEY_CTX) C.int,
+-	crypt func(*C.GO_EVP_PKEY_CTX, *C.uint8_t, *C.size_t, *C.uint8_t, C.size_t) C.int,
++	crypt func(*C.GO_EVP_PKEY_CTX, *C.uint8_t, *C.uint, *C.uint8_t, C.uint) C.int,
+ 	in []byte) ([]byte, error) {
+ 
+ 	pkey, ctx, err := setupRSA(withKey, padding, h, label, saltLen, ch, init)
+@@ -194,13 +210,13 @@ func cryptRSA(withKey func(func(*C.GO_RSA) C.int) C.int,
+ 	defer C._goboringcrypto_EVP_PKEY_free(pkey)
+ 	defer C._goboringcrypto_EVP_PKEY_CTX_free(ctx)
+ 
+-	var outLen C.size_t
+-	if crypt(ctx, nil, &outLen, base(in), C.size_t(len(in))) == 0 {
+-		return nil, fail("EVP_PKEY_decrypt/encrypt")
++	var outLen C.uint
++	if crypt(ctx, nil, &outLen, base(in), C.uint(len(in))) == 0 {
++		return nil, NewOpenSSLError("EVP_PKEY_decrypt/encrypt failed")
+ 	}
+ 	out := make([]byte, outLen)
+-	if crypt(ctx, base(out), &outLen, base(in), C.size_t(len(in))) == 0 {
+-		return nil, fail("EVP_PKEY_decrypt/encrypt")
++	if crypt(ctx, base(out), &outLen, base(in), C.uint(len(in))) <= 0 {
++		return nil, NewOpenSSLError("EVP_PKEY_decrypt/encrypt failed")
+ 	}
+ 	return out[:outLen], nil
+ }
+@@ -235,7 +251,7 @@ func decryptInit(ctx *C.GO_EVP_PKEY_CTX) C.int {
+ 	return C._goboringcrypto_EVP_PKEY_decrypt_init(ctx)
+ }
+ 
+-func decrypt(ctx *C.GO_EVP_PKEY_CTX, out *C.uint8_t, outLen *C.size_t, in *C.uint8_t, inLen C.size_t) C.int {
++func decrypt(ctx *C.GO_EVP_PKEY_CTX, out *C.uint8_t, outLen *C.uint, in *C.uint8_t, inLen C.uint) C.int {
+ 	return C._goboringcrypto_EVP_PKEY_decrypt(ctx, out, outLen, in, inLen)
+ }
+ 
+@@ -243,7 +259,7 @@ func encryptInit(ctx *C.GO_EVP_PKEY_CTX) C.int {
+ 	return C._goboringcrypto_EVP_PKEY_encrypt_init(ctx)
+ }
+ 
+-func encrypt(ctx *C.GO_EVP_PKEY_CTX, out *C.uint8_t, outLen *C.size_t, in *C.uint8_t, inLen C.size_t) C.int {
++func encrypt(ctx *C.GO_EVP_PKEY_CTX, out *C.uint8_t, outLen *C.uint, in *C.uint8_t, inLen C.uint) C.int {
+ 	return C._goboringcrypto_EVP_PKEY_encrypt(ctx, out, outLen, in, inLen)
+ }
+ 
+@@ -256,11 +272,11 @@ func SignRSAPSS(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte, saltLen int)
+ 		saltLen = -1
+ 	}
+ 	var out []byte
+-	var outLen C.size_t
++	var outLen C.uint
+ 	if priv.withKey(func(key *C.GO_RSA) C.int {
+ 		out = make([]byte, C._goboringcrypto_RSA_size(key))
+-		return C._goboringcrypto_RSA_sign_pss_mgf1(key, &outLen, base(out), C.size_t(len(out)),
+-			base(hashed), C.size_t(len(hashed)), md, nil, C.int(saltLen))
++		return C._goboringcrypto_RSA_sign_pss_mgf1(key, &outLen, base(out), C.uint(len(out)),
++			base(hashed), C.uint(len(hashed)), md, nil, C.int(saltLen))
+ 	}) == 0 {
+ 		return nil, fail("RSA_sign_pss_mgf1")
+ 	}
+@@ -277,72 +293,75 @@ func VerifyRSAPSS(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte, saltLen
+ 		saltLen = -2 // auto-recover
+ 	}
+ 	if pub.withKey(func(key *C.GO_RSA) C.int {
+-		return C._goboringcrypto_RSA_verify_pss_mgf1(key, base(hashed), C.size_t(len(hashed)),
+-			md, nil, C.int(saltLen), base(sig), C.size_t(len(sig)))
++		return C._goboringcrypto_RSA_verify_pss_mgf1(key, base(hashed), C.uint(len(hashed)),
++			md, nil, C.int(saltLen), base(sig), C.uint(len(sig)))
+ 	}) == 0 {
+ 		return fail("RSA_verify_pss_mgf1")
+ 	}
+ 	return nil
+ }
+ 
+-func SignRSAPKCS1v15(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte) ([]byte, error) {
+-	if h == 0 {
+-		// No hashing.
+-		var out []byte
+-		var outLen C.size_t
++func SignRSAPKCS1v15(priv *PrivateKeyRSA, h crypto.Hash, msg []byte, msgIsHashed bool) ([]byte, error) {
++	md := cryptoHashToMD(h)
++	if md == nil {
++		return nil, errors.New("crypto/rsa: unsupported hash function: " + strconv.Itoa(int(h)))
++	}
++
++	var out []byte
++	var outLen C.uint
++
++	if msgIsHashed {
++		PanicIfStrictFIPS("You must provide a raw unhashed message for PKCS1v15 signing and use HashSignPKCS1v15 instead of SignPKCS1v15")
++		nid := C._goboringcrypto_EVP_MD_type(md)
+ 		if priv.withKey(func(key *C.GO_RSA) C.int {
+ 			out = make([]byte, C._goboringcrypto_RSA_size(key))
+-			return C._goboringcrypto_RSA_sign_raw(key, &outLen, base(out), C.size_t(len(out)),
+-				base(hashed), C.size_t(len(hashed)), C.GO_RSA_PKCS1_PADDING)
++			return C._goboringcrypto_RSA_sign(nid, base(msg), C.uint(len(msg)), base(out), &outLen, key)
+ 		}) == 0 {
+-			return nil, fail("RSA_sign_raw")
++			return nil, NewOpenSSLError("RSA_sign")
+ 		}
++		runtime.KeepAlive(priv)
+ 		return out[:outLen], nil
+ 	}
+ 
+-	md := cryptoHashToMD(h)
+-	if md == nil {
+-		return nil, errors.New("crypto/rsa: unsupported hash function: " + strconv.Itoa(int(h)))
+-	}
+-	nid := C._goboringcrypto_EVP_MD_type(md)
+-	var out []byte
+-	var outLen C.uint
+ 	if priv.withKey(func(key *C.GO_RSA) C.int {
+-		out = make([]byte, C._goboringcrypto_RSA_size(key))
+-		return C._goboringcrypto_RSA_sign(nid, base(hashed), C.uint(len(hashed)),
+-			base(out), &outLen, key)
++		return C._goboringcrypto_EVP_RSA_sign(md, base(msg), C.uint(len(msg)), base(out), &outLen, key)
+ 	}) == 0 {
+-		return nil, fail("RSA_sign")
++		return nil, NewOpenSSLError("RSA_sign")
+ 	}
+ 	return out[:outLen], nil
+ }
+ 
+-func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte) error {
+-	if h == 0 {
+-		var out []byte
+-		var outLen C.size_t
++func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, msg, sig []byte, msgIsHashed bool) error {
++	md := cryptoHashToMD(h)
++	if md == nil {
++		return errors.New("crypto/rsa: unsupported hash function")
++	}
++
++	if pub.withKey(func(key *C.GO_RSA) C.int {
++		size := int(C._goboringcrypto_RSA_size(key))
++		if len(sig) < size {
++			return 0
++		}
++		return 1
++	}) == 0 {
++		return errors.New("crypto/rsa: verification error")
++	}
++
++	if msgIsHashed {
++		PanicIfStrictFIPS("You must provide a raw unhashed message for PKCS1v15 verification and use HashVerifyPKCS1v15 instead of VerifyPKCS1v15")
++		nid := C._goboringcrypto_EVP_MD_type(md)
+ 		if pub.withKey(func(key *C.GO_RSA) C.int {
+-			out = make([]byte, C._goboringcrypto_RSA_size(key))
+-			return C._goboringcrypto_RSA_verify_raw(key, &outLen, base(out),
+-				C.size_t(len(out)), base(sig), C.size_t(len(sig)), C.GO_RSA_PKCS1_PADDING)
++			return C._goboringcrypto_RSA_verify(nid, base(msg), C.uint(len(msg)), base(sig), C.uint(len(sig)), key)
+ 		}) == 0 {
+-			return fail("RSA_verify")
+-		}
+-		if subtle.ConstantTimeCompare(hashed, out[:outLen]) != 1 {
+-			return fail("RSA_verify")
++			return NewOpenSSLError("RSA_verify failed")
+ 		}
+ 		return nil
+ 	}
+-	md := cryptoHashToMD(h)
+-	if md == nil {
+-		return errors.New("crypto/rsa: unsupported hash function")
+-	}
+-	nid := C._goboringcrypto_EVP_MD_type(md)
++
+ 	if pub.withKey(func(key *C.GO_RSA) C.int {
+-		return C._goboringcrypto_RSA_verify(nid, base(hashed), C.size_t(len(hashed)),
+-			base(sig), C.size_t(len(sig)), key)
++		return C._goboringcrypto_EVP_RSA_verify(md, base(msg), C.uint(len(msg)), base(sig), C.uint(len(sig)), key)
+ 	}) == 0 {
+-		return fail("RSA_verify")
++		return NewOpenSSLError("RSA_verify failed")
+ 	}
+ 	return nil
+ }
+diff --git a/src/crypto/internal/boring/sha.go b/src/vendor/github.com/golang-fips/openssl-fips/openssl/sha.go
+similarity index 98%
+rename from src/crypto/internal/boring/sha.go
+rename to src/vendor/github.com/golang-fips/openssl-fips/openssl/sha.go
+index 4672119df1..21b421866b 100644
+--- a/src/crypto/internal/boring/sha.go
++++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/sha.go
+@@ -2,12 +2,12 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build linux && amd64 && !android && !cmd_go_bootstrap && !msan
+-// +build linux,amd64,!android,!cmd_go_bootstrap,!msan
++//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
++// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
+ 
+-package boring
++package openssl
+ 
+-// #include "goboringcrypto.h"
++// #include "goopenssl.h"
+ import "C"
+ import (
+ 	"errors"
+diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
+index 3a975cde9e..2b9e398823 100644
+--- a/src/vendor/modules.txt
++++ b/src/vendor/modules.txt
+@@ -1,3 +1,6 @@
++# github.com/golang-fips/openssl-fips v0.0.0-20220505153334-362f46022010
++## explicit; go 1.18
++github.com/golang-fips/openssl-fips/openssl
+ # golang.org/x/crypto v0.0.0-20211215153901-e495a2d5b3d3
+ ## explicit; go 1.17
+ golang.org/x/crypto/chacha20
