@@ -1,0 +1,506 @@
+diff --git a/src/crypto/cipher/gcm_test.go b/src/crypto/cipher/gcm_test.go
+index 0d53e471f9..0dc7cfa79b 100644
+--- a/src/crypto/cipher/gcm_test.go
++++ b/src/crypto/cipher/gcm_test.go
+@@ -16,6 +16,8 @@ import (
+ 	"testing"
+ )
+ 
++import boring "crypto/internal/backend"
++
+ var aesGCMTests = []struct {
+ 	key, nonce, plaintext, ad, result string
+ }{
+@@ -241,8 +243,18 @@ func TestAESGCM(t *testing.T) {
+ 
+ 		var aesgcm cipher.AEAD
+ 		switch {
++		// Handle non-standard key sizes
++		case len(key)*8 != 128 && len(key)*8 != 256 && boring.Enabled():
++			aesgcm, err = cipher.NewGCM(aes)
++			if err == nil {
++				t.Fatal("expected an error when using a non-standard key size")
++			}
++			continue
+ 		// Handle non-standard tag sizes
+ 		case tagSize != 16:
++			if boring.Enabled() {
++				continue // we don't support non-standard tag sizes in FIPS mode
++			}
+ 			aesgcm, err = cipher.NewGCMWithTagSize(aes, tagSize)
+ 			if err != nil {
+ 				t.Fatal(err)
+@@ -250,6 +262,9 @@ func TestAESGCM(t *testing.T) {
+ 
+ 		// Handle 0 nonce size (expect error and continue)
+ 		case len(nonce) == 0:
++			if boring.Enabled() {
++				continue // we don't support non-standard nonce sizes in FIPS mode
++			}
+ 			aesgcm, err = cipher.NewGCMWithNonceSize(aes, 0)
+ 			if err == nil {
+ 				t.Fatal("expected error for zero nonce size")
+@@ -258,8 +273,11 @@ func TestAESGCM(t *testing.T) {
+ 
+ 		// Handle non-standard nonce sizes
+ 		case len(nonce) != 12:
++			if boring.Enabled() {
++				continue // we don't support non-standard nonce sizes in FIPS mode
++			}
+ 			aesgcm, err = cipher.NewGCMWithNonceSize(aes, len(nonce))
+-			if err != nil {
++			if err != nil && !boring.Enabled() {
+ 				t.Fatal(err)
+ 			}
+ 
+@@ -357,6 +375,9 @@ func TestTagFailureOverwrite(t *testing.T) {
+ }
+ 
+ func TestGCMCounterWrap(t *testing.T) {
++	if boring.Enabled() {
++		t.Skip("test uses non-standard nonce size and is not supported in FIPS mode")
++	}
+ 	// Test that the last 32-bits of the counter wrap correctly.
+ 	tests := []struct {
+ 		nonce, tag string
+@@ -409,6 +430,9 @@ func wrap(b cipher.Block) cipher.Block {
+ }
+ 
+ func TestGCMAsm(t *testing.T) {
++	if boring.Enabled() {
++		t.Skip("skipping test in boring mode as it uses non-standard key sizes and is not supported in FIPS mode")
++	}
+ 	// Create a new pair of AEADs, one using the assembly implementation
+ 	// and one using the generic Go implementation.
+ 	newAESGCM := func(key []byte) (asm, generic cipher.AEAD, err error) {
+diff --git a/src/crypto/ecdsa/ecdsa_test.go b/src/crypto/ecdsa/ecdsa_test.go
+index c8390b2cc9..b36e4a9f1b 100644
+--- a/src/crypto/ecdsa/ecdsa_test.go
++++ b/src/crypto/ecdsa/ecdsa_test.go
+@@ -21,6 +21,8 @@ import (
+ 	"testing"
+ )
+ 
++import boring "crypto/internal/backend"
++
+ func testAllCurves(t *testing.T, f func(*testing.T, elliptic.Curve)) {
+ 	tests := []struct {
+ 		name  string
+@@ -35,6 +37,9 @@ func testAllCurves(t *testing.T, f func(*testing.T, elliptic.Curve)) {
+ 		tests = tests[:1]
+ 	}
+ 	for _, test := range tests {
++		if boring.Enabled() && test.name == "P224" {
++			t.Skip("p224 not supported in FIPS mode")
++		}
+ 		curve := test.curve
+ 		t.Run(test.name, func(t *testing.T) {
+ 			t.Parallel()
+@@ -223,6 +228,9 @@ func TestVectors(t *testing.T) {
+ 
+ 			switch curve {
+ 			case "P-224":
++				if boring.Enabled() { // P-224 not supported in RHEL OpenSSL.
++					continue
++				}
+ 				pub.Curve = elliptic.P224()
+ 			case "P-256":
+ 				pub.Curve = elliptic.P256()
+diff --git a/src/crypto/ecdsa/equal_test.go b/src/crypto/ecdsa/equal_test.go
+index 53ac8504c2..d5ad45dfe4 100644
+--- a/src/crypto/ecdsa/equal_test.go
++++ b/src/crypto/ecdsa/equal_test.go
+@@ -13,6 +13,8 @@ import (
+ 	"testing"
+ )
+ 
++import boring "crypto/internal/backend"
++
+ func testEqual(t *testing.T, c elliptic.Curve) {
+ 	private, _ := ecdsa.GenerateKey(c, rand.Reader)
+ 	public := &private.PublicKey
+@@ -65,9 +67,11 @@ func testEqual(t *testing.T, c elliptic.Curve) {
+ }
+ 
+ func TestEqual(t *testing.T) {
+-	t.Run("P224", func(t *testing.T) { testEqual(t, elliptic.P224()) })
+-	if testing.Short() {
+-		return
++	if !boring.Enabled() {
++		t.Run("P224", func(t *testing.T) { testEqual(t, elliptic.P224()) })
++		if testing.Short() {
++			return
++		}
+ 	}
+ 	t.Run("P256", func(t *testing.T) { testEqual(t, elliptic.P256()) })
+ 	t.Run("P384", func(t *testing.T) { testEqual(t, elliptic.P384()) })
+diff --git a/src/crypto/rsa/pkcs1v15_test.go b/src/crypto/rsa/pkcs1v15_test.go
+index c5d825b42a..e65596f778 100644
+--- a/src/crypto/rsa/pkcs1v15_test.go
++++ b/src/crypto/rsa/pkcs1v15_test.go
+@@ -18,6 +18,8 @@ import (
+ 	"testing/quick"
+ )
+ 
++import boring "crypto/internal/backend"
++
+ func decodeBase64(in string) []byte {
+ 	out := make([]byte, base64.StdEncoding.DecodedLen(len(in)))
+ 	n, err := base64.StdEncoding.Decode(out, []byte(in))
+@@ -234,6 +236,9 @@ func TestOverlongMessagePKCS1v15(t *testing.T) {
+ }
+ 
+ func TestUnpaddedSignature(t *testing.T) {
++	if boring.Enabled() {
++		t.Skip("skipping in boring mode due to unsupported hash")
++	}
+ 	msg := []byte("Thu Dec 19 18:06:16 EST 2013\n")
+ 	// This base64 value was generated with:
+ 	// % echo Thu Dec 19 18:06:16 EST 2013 > /tmp/msg
+diff --git a/src/crypto/tls/boring.go b/src/crypto/tls/boring.go
+index dabc67423d..9ce4277abe 100644
+--- a/src/crypto/tls/boring.go
++++ b/src/crypto/tls/boring.go
+@@ -12,6 +12,10 @@ import (
+ 	"crypto/x509"
+ )
+ 
++func init() {
++	fipstls.Force()
++}
++
+ // needFIPS returns fipstls.Required(); it avoids a new import in common.go.
+ func needFIPS() bool {
+ 	return fipstls.Required()
+@@ -91,7 +95,7 @@ func isBoringCertificate(c *x509.Certificate) bool {
+ 	default:
+ 		return false
+ 	case *rsa.PublicKey:
+-		if size := k.N.BitLen(); size != 2048 && size != 3072 {
++		if size := k.N.BitLen(); size < 2048 || (size%512) != 0 {
+ 			return false
+ 		}
+ 	case *ecdsa.PublicKey:
+diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
+index 8dd477a021..fc2d2c1a8d 100644
+--- a/src/crypto/tls/boring_test.go
++++ b/src/crypto/tls/boring_test.go
+@@ -22,10 +22,12 @@ import (
+ 	"time"
+ )
+ 
++import boring "crypto/internal/backend"
++
+ func TestBoringServerProtocolVersion(t *testing.T) {
+ 	test := func(name string, v uint16, msg string) {
+ 		t.Run(name, func(t *testing.T) {
+-			serverConfig := testConfig.Clone()
++			serverConfig := testConfigTemplate()
+ 			serverConfig.MinVersion = VersionSSL30
+ 			clientHello := &clientHelloMsg{
+ 				vers:               v,
+@@ -38,13 +40,15 @@ func TestBoringServerProtocolVersion(t *testing.T) {
+ 		})
+ 	}
+ 
+-	test("VersionTLS10", VersionTLS10, "")
+-	test("VersionTLS11", VersionTLS11, "")
+-	test("VersionTLS12", VersionTLS12, "")
+-	test("VersionTLS13", VersionTLS13, "")
++	if !boring.Enabled() {
++		test("VersionTLS10", VersionTLS10, "")
++		test("VersionTLS11", VersionTLS11, "")
++		test("VersionTLS12", VersionTLS12, "")
++		test("VersionTLS13", VersionTLS13, "")
+ 
+-	fipstls.Force()
+-	defer fipstls.Abandon()
++		fipstls.Force()
++		defer fipstls.Abandon()
++	}
+ 	test("VersionSSL30", VersionSSL30, "client offered only unsupported versions")
+ 	test("VersionTLS10", VersionTLS10, "client offered only unsupported versions")
+ 	test("VersionTLS11", VersionTLS11, "client offered only unsupported versions")
+@@ -105,7 +109,7 @@ func isBoringSignatureScheme(alg SignatureScheme) bool {
+ }
+ 
+ func TestBoringServerCipherSuites(t *testing.T) {
+-	serverConfig := testConfig.Clone()
++	serverConfig := testConfigTemplate()
+ 	serverConfig.CipherSuites = allCipherSuites()
+ 	serverConfig.Certificates = make([]Certificate, 1)
+ 
+@@ -128,7 +132,9 @@ func TestBoringServerCipherSuites(t *testing.T) {
+ 				supportedPoints:    []uint8{pointFormatUncompressed},
+ 			}
+ 
+-			testClientHello(t, serverConfig, clientHello)
++			if !boring.Enabled() {
++				testClientHello(t, serverConfig, clientHello)
++			}
+ 			t.Run("fipstls", func(t *testing.T) {
+ 				fipstls.Force()
+ 				defer fipstls.Abandon()
+@@ -143,7 +149,7 @@ func TestBoringServerCipherSuites(t *testing.T) {
+ }
+ 
+ func TestBoringServerCurves(t *testing.T) {
+-	serverConfig := testConfig.Clone()
++	serverConfig := testConfigTemplate()
+ 	serverConfig.Certificates = make([]Certificate, 1)
+ 	serverConfig.Certificates[0].Certificate = [][]byte{testECDSACertificate}
+ 	serverConfig.Certificates[0].PrivateKey = testECDSAPrivateKey
+@@ -151,6 +157,10 @@ func TestBoringServerCurves(t *testing.T) {
+ 
+ 	for _, curveid := range defaultCurvePreferences {
+ 		t.Run(fmt.Sprintf("curve=%d", curveid), func(t *testing.T) {
++			// In our version we always enable FIPS TLS. We must abondon it here so that
++			// the test can run as intended, and then re-enable it after all the tests have run.
++			fipstls.Abandon()
++			defer fipstls.Force()
+ 			clientHello := &clientHelloMsg{
+ 				vers:               VersionTLS12,
+ 				random:             make([]byte, 32),
+@@ -198,7 +208,7 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
+ 
+ 	for _, sigHash := range defaultSupportedSignatureAlgorithms {
+ 		t.Run(fmt.Sprintf("%#x", sigHash), func(t *testing.T) {
+-			serverConfig := testConfig.Clone()
++			serverConfig := testConfigTemplate()
+ 			serverConfig.Certificates = make([]Certificate, 1)
+ 
+ 			testingOnlyForceClientHelloSignatureAlgorithms = []SignatureScheme{sigHash}
+@@ -257,7 +267,7 @@ func TestBoringClientHello(t *testing.T) {
+ 	defer c.Close()
+ 	defer s.Close()
+ 
+-	clientConfig := testConfig.Clone()
++	clientConfig := testConfigTemplate()
+ 	// All sorts of traps for the client to avoid.
+ 	clientConfig.MinVersion = VersionSSL30
+ 	clientConfig.MaxVersion = VersionTLS13
+@@ -309,10 +319,10 @@ func TestBoringCertAlgs(t *testing.T) {
+ 	// Set up some roots, intermediate CAs, and leaf certs with various algorithms.
+ 	// X_Y is X signed by Y.
+ 	R1 := boringCert(t, "R1", boringRSAKey(t, 2048), nil, boringCertCA|boringCertFIPSOK)
+-	R2 := boringCert(t, "R2", boringRSAKey(t, 4096), nil, boringCertCA)
++	R2 := boringCert(t, "R2", boringRSAKey(t, 4096), nil, boringCertCA|boringCertFIPSOK)
+ 
+ 	M1_R1 := boringCert(t, "M1_R1", boringECDSAKey(t, elliptic.P256()), R1, boringCertCA|boringCertFIPSOK)
+-	M2_R1 := boringCert(t, "M2_R1", boringECDSAKey(t, elliptic.P224()), R1, boringCertCA)
++	var M2_R1 *boringCertificate
+ 
+ 	I_R1 := boringCert(t, "I_R1", boringRSAKey(t, 3072), R1, boringCertCA|boringCertFIPSOK)
+ 	I_R2 := boringCert(t, "I_R2", I_R1.key, R2, boringCertCA|boringCertFIPSOK)
+@@ -320,7 +330,8 @@ func TestBoringCertAlgs(t *testing.T) {
+ 	I_M2 := boringCert(t, "I_M2", I_R1.key, M2_R1, boringCertCA|boringCertFIPSOK)
+ 
+ 	L1_I := boringCert(t, "L1_I", boringECDSAKey(t, elliptic.P384()), I_R1, boringCertLeaf|boringCertFIPSOK)
+-	L2_I := boringCert(t, "L2_I", boringRSAKey(t, 1024), I_R1, boringCertLeaf)
++	L2_I := boringCert(t, "L2_I", boringRSAKey(t, 2048), I_R1, boringCertLeaf|boringCertFIPSOK)
++	_ = boringCert(t, "L3_I", boringECDSAKey(t, elliptic.P521()), I_R1, boringCertLeaf|boringCertFIPSOK)
+ 
+ 	// boringCert checked that isBoringCertificate matches the caller's boringCertFIPSOK bit.
+ 	// If not, no point in building bigger end-to-end tests.
+@@ -330,12 +341,12 @@ func TestBoringCertAlgs(t *testing.T) {
+ 
+ 	// client verifying server cert
+ 	testServerCert := func(t *testing.T, desc string, pool *x509.CertPool, key interface{}, list [][]byte, ok bool) {
+-		clientConfig := testConfig.Clone()
++		clientConfig := testConfigTemplate()
+ 		clientConfig.RootCAs = pool
+ 		clientConfig.InsecureSkipVerify = false
+ 		clientConfig.ServerName = "example.com"
+ 
+-		serverConfig := testConfig.Clone()
++		serverConfig := testConfigTemplate()
+ 		serverConfig.Certificates = []Certificate{{Certificate: list, PrivateKey: key}}
+ 		serverConfig.BuildNameToCertificate()
+ 
+@@ -358,11 +369,11 @@ func TestBoringCertAlgs(t *testing.T) {
+ 
+ 	// server verifying client cert
+ 	testClientCert := func(t *testing.T, desc string, pool *x509.CertPool, key interface{}, list [][]byte, ok bool) {
+-		clientConfig := testConfig.Clone()
++		clientConfig := testConfigTemplate()
+ 		clientConfig.ServerName = "example.com"
+ 		clientConfig.Certificates = []Certificate{{Certificate: list, PrivateKey: key}}
+ 
+-		serverConfig := testConfig.Clone()
++		serverConfig := testConfigTemplate()
+ 		serverConfig.ClientCAs = pool
+ 		serverConfig.ClientAuth = RequireAndVerifyClientCert
+ 
+@@ -387,11 +398,12 @@ func TestBoringCertAlgs(t *testing.T) {
+ 	// exhaustive test with computed answers.
+ 	r1pool := x509.NewCertPool()
+ 	r1pool.AddCert(R1.cert)
+-	testServerCert(t, "basic", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, true)
+-	testClientCert(t, "basic (client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, true)
++	shouldPass := true
++	testClientCert(t, "basic (client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, shouldPass)
++	testClientCert(t, "basic (client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, shouldPass)
+ 	fipstls.Force()
+-	testServerCert(t, "basic (fips)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
+-	testClientCert(t, "basic (fips, client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
++	testServerCert(t, "basic (fips)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, true)
++	testClientCert(t, "basic (fips, client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, true)
+ 	fipstls.Abandon()
+ 
+ 	if t.Failed() {
+@@ -430,7 +442,6 @@ func TestBoringCertAlgs(t *testing.T) {
+ 			addList(i&4, I_M1)
+ 			addList(i&8, I_M2)
+ 			addList(i&16, M1_R1)
+-			addList(i&32, M2_R1)
+ 
+ 			for r := 1; r <= 3; r++ {
+ 				pool := x509.NewCertPool()
+@@ -452,6 +463,10 @@ func TestBoringCertAlgs(t *testing.T) {
+ 				addRoot(r&1, R1)
+ 				addRoot(r&2, R2)
+ 				rootName = rootName[1:] // strip leading comma
++				// openssl 3 FIPS provider fails these now without fipstls.Force()
++				if boring.Enabled() {
++					shouldVerify = shouldVerifyFIPS
++				}
+ 				testServerCert(t, listName+"->"+rootName[1:], pool, leaf.key, list, shouldVerify)
+ 				testClientCert(t, listName+"->"+rootName[1:]+"(client cert)", pool, leaf.key, list, shouldVerify)
+ 				fipstls.Force()
+@@ -571,6 +586,15 @@ var (
+ 	testRSA2048PrivateKey  *rsa.PrivateKey
+ )
+ 
++func testConfigTemplate() *Config {
++	config := testConfig.Clone()
++	if boring.Enabled() {
++		config.Certificates[0].Certificate = [][]byte{testRSA2048Certificate}
++		config.Certificates[0].PrivateKey = testRSA2048PrivateKey
++	}
++	return config
++}
++
+ func init() {
+ 	block, _ := pem.Decode([]byte(`
+ -----BEGIN CERTIFICATE-----
+diff --git a/src/crypto/tls/handshake_server_test.go b/src/crypto/tls/handshake_server_test.go
+index 6d2c405626..05da785a6f 100644
+--- a/src/crypto/tls/handshake_server_test.go
++++ b/src/crypto/tls/handshake_server_test.go
+@@ -26,6 +26,8 @@ import (
+ 	"golang.org/x/crypto/curve25519"
+ )
+ 
++import boring "crypto/internal/backend"
++
+ func testClientHello(t *testing.T, serverConfig *Config, m handshakeMessage) {
+ 	testClientHelloFailure(t, serverConfig, m, "")
+ }
+@@ -88,7 +90,7 @@ func TestRejectBadProtocolVersion(t *testing.T) {
+ 
+ func TestNoSuiteOverlap(t *testing.T) {
+ 	clientHello := &clientHelloMsg{
+-		vers:               VersionTLS10,
++		vers:               VersionTLS12,
+ 		random:             make([]byte, 32),
+ 		cipherSuites:       []uint16{0xff00},
+ 		compressionMethods: []uint8{compressionNone},
+@@ -98,7 +100,7 @@ func TestNoSuiteOverlap(t *testing.T) {
+ 
+ func TestNoCompressionOverlap(t *testing.T) {
+ 	clientHello := &clientHelloMsg{
+-		vers:               VersionTLS10,
++		vers:               VersionTLS12,
+ 		random:             make([]byte, 32),
+ 		cipherSuites:       []uint16{TLS_RSA_WITH_RC4_128_SHA},
+ 		compressionMethods: []uint8{0xff},
+@@ -108,7 +110,7 @@ func TestNoCompressionOverlap(t *testing.T) {
+ 
+ func TestNoRC4ByDefault(t *testing.T) {
+ 	clientHello := &clientHelloMsg{
+-		vers:               VersionTLS10,
++		vers:               VersionTLS12,
+ 		random:             make([]byte, 32),
+ 		cipherSuites:       []uint16{TLS_RSA_WITH_RC4_128_SHA},
+ 		compressionMethods: []uint8{compressionNone},
+@@ -132,7 +134,7 @@ func TestDontSelectECDSAWithRSAKey(t *testing.T) {
+ 	// Test that, even when both sides support an ECDSA cipher suite, it
+ 	// won't be selected if the server's private key doesn't support it.
+ 	clientHello := &clientHelloMsg{
+-		vers:               VersionTLS10,
++		vers:               VersionTLS12,
+ 		random:             make([]byte, 32),
+ 		cipherSuites:       []uint16{TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA},
+ 		compressionMethods: []uint8{compressionNone},
+@@ -158,7 +160,7 @@ func TestDontSelectRSAWithECDSAKey(t *testing.T) {
+ 	// Test that, even when both sides support an RSA cipher suite, it
+ 	// won't be selected if the server's private key doesn't support it.
+ 	clientHello := &clientHelloMsg{
+-		vers:               VersionTLS10,
++		vers:               VersionTLS12,
+ 		random:             make([]byte, 32),
+ 		cipherSuites:       []uint16{TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA},
+ 		compressionMethods: []uint8{compressionNone},
+@@ -475,6 +477,9 @@ func testSCTHandshake(t *testing.T, version uint16) {
+ }
+ 
+ func TestCrossVersionResume(t *testing.T) {
++	if boring.Enabled() {
++		t.Skip("skip cross version resume test in FIPS mode")
++	}
+ 	t.Run("TLSv12", func(t *testing.T) { testCrossVersionResume(t, VersionTLS12) })
+ 	t.Run("TLSv13", func(t *testing.T) { testCrossVersionResume(t, VersionTLS13) })
+ }
+@@ -772,10 +777,16 @@ func runServerTestForVersion(t *testing.T, template *serverTest, version, option
+ }
+ 
+ func runServerTestTLS10(t *testing.T, template *serverTest) {
++	if boring.Enabled() {
++		t.Skip("boring enabled, TLS < 1.2 not supported")
++	}
+ 	runServerTestForVersion(t, template, "TLSv10", "-tls1")
+ }
+ 
+ func runServerTestTLS11(t *testing.T, template *serverTest) {
++	if boring.Enabled() {
++		t.Skip("boring enabled, TLS < 1.2 not supported")
++	}
+ 	runServerTestForVersion(t, template, "TLSv11", "-tls1_1")
+ }
+ 
+@@ -1048,7 +1059,7 @@ func TestHandshakeServerSNIGetCertificateError(t *testing.T) {
+ 	}
+ 
+ 	clientHello := &clientHelloMsg{
+-		vers:               VersionTLS10,
++		vers:               VersionTLS12,
+ 		random:             make([]byte, 32),
+ 		cipherSuites:       []uint16{TLS_RSA_WITH_RC4_128_SHA},
+ 		compressionMethods: []uint8{compressionNone},
+@@ -1069,7 +1080,7 @@ func TestHandshakeServerEmptyCertificates(t *testing.T) {
+ 	serverConfig.Certificates = nil
+ 
+ 	clientHello := &clientHelloMsg{
+-		vers:               VersionTLS10,
++		vers:               VersionTLS12,
+ 		random:             make([]byte, 32),
+ 		cipherSuites:       []uint16{TLS_RSA_WITH_RC4_128_SHA},
+ 		compressionMethods: []uint8{compressionNone},
+@@ -1081,7 +1092,7 @@ func TestHandshakeServerEmptyCertificates(t *testing.T) {
+ 	serverConfig.GetCertificate = nil
+ 
+ 	clientHello = &clientHelloMsg{
+-		vers:               VersionTLS10,
++		vers:               VersionTLS12,
+ 		random:             make([]byte, 32),
+ 		cipherSuites:       []uint16{TLS_RSA_WITH_RC4_128_SHA},
+ 		compressionMethods: []uint8{compressionNone},
+@@ -1428,7 +1439,7 @@ func TestSNIGivenOnFailure(t *testing.T) {
+ 	const expectedServerName = "test.testing"
+ 
+ 	clientHello := &clientHelloMsg{
+-		vers:               VersionTLS10,
++		vers:               VersionTLS12,
+ 		random:             make([]byte, 32),
+ 		cipherSuites:       []uint16{TLS_RSA_WITH_RC4_128_SHA},
+ 		compressionMethods: []uint8{compressionNone},
