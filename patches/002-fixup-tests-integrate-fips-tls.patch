@@ -158,21 +158,25 @@ index c5d825b42a..e65596f778 100644
  	// This base64 value was generated with:
  	// % echo Thu Dec 19 18:06:16 EST 2013 > /tmp/msg
 diff --git a/src/crypto/tls/boring.go b/src/crypto/tls/boring.go
-index dabc67423d..9ce4277abe 100644
+index dabc67423d..4dfd431613 100644
 --- a/src/crypto/tls/boring.go
 +++ b/src/crypto/tls/boring.go
-@@ -12,6 +12,10 @@ import (
+@@ -12,6 +12,14 @@ import (
  	"crypto/x509"
  )
  
++import boring "crypto/internal/backend"
++
 +func init() {
-+	fipstls.Force()
++	if boring.Enabled() {
++		fipstls.Force()
++	}
 +}
 +
  // needFIPS returns fipstls.Required(); it avoids a new import in common.go.
  func needFIPS() bool {
  	return fipstls.Required()
-@@ -91,7 +95,7 @@ func isBoringCertificate(c *x509.Certificate) bool {
+@@ -91,7 +99,7 @@ func isBoringCertificate(c *x509.Certificate) bool {
  	default:
  		return false
  	case *rsa.PublicKey:
