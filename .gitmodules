@@ -1,0 +1,4 @@
+[submodule "go"]
+	path = go
+	url = https://github.com/golang/go
+	branch = dev.boringcrypto.go1.17
