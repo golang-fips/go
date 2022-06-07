@@ -1,0 +1,363 @@
+diff --git a/src/cmd/go/testdata/script/gopath_std_vendor.txt b/src/cmd/go/testdata/script/gopath_std_vendor.txt
+index a0a41a50de..208aa7008a 100644
+--- a/src/cmd/go/testdata/script/gopath_std_vendor.txt
++++ b/src/cmd/go/testdata/script/gopath_std_vendor.txt
+@@ -21,11 +21,11 @@ go build .
+ 
+ go list -deps -f '{{.ImportPath}} {{.Dir}}' .
+ stdout $GOPATH[/\\]src[/\\]vendor[/\\]golang.org[/\\]x[/\\]net[/\\]http2[/\\]hpack
+-! stdout $GOROOT[/\\]src[/\\]vendor
++! stdout $GOROOT[/\\]src[/\\]vendor[/\\]golang.org[/\\]x[/\\]net[/\\]http2[/\\]hpack
+ 
+ go list -test -deps -f '{{.ImportPath}} {{.Dir}}' .
+ stdout $GOPATH[/\\]src[/\\]vendor[/\\]golang.org[/\\]x[/\\]net[/\\]http2[/\\]hpack
+-! stdout $GOROOT[/\\]src[/\\]vendor
++! stdout $GOROOT[/\\]src[/\\]vendor[/\\]golang.org[/\\]x[/\\]net[/\\]http2[/\\]hpack
+ 
+ -- issue16333/issue16333.go --
+ package vendoring17
+diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
+index ed8ddcb307..f8d29618d9 100644
+--- a/src/go/build/deps_test.go
++++ b/src/go/build/deps_test.go
+@@ -31,7 +31,7 @@ import (
+ //
+ // The general syntax of a rule is:
+ //
+-//		a, b < c, d;
++//	a, b < c, d;
+ //
+ // which means c and d come after a and b in the partial order
+ // (that is, c and d can import a and b),
+@@ -39,12 +39,12 @@ import (
+ //
+ // The rules can chain together, as in:
+ //
+-//		e < f, g < h;
++//	e < f, g < h;
+ //
+ // which is equivalent to
+ //
+-//		e < f, g;
+-//		f, g < h;
++//	e < f, g;
++//	f, g < h;
+ //
+ // Except for the special bottom element "NONE", each name
+ // must appear exactly once on the right-hand side of a rule.
+@@ -56,7 +56,7 @@ import (
+ //
+ // Negative assertions double-check the partial order:
+ //
+-//		i !< j
++//	i !< j
+ //
+ // means that it must NOT be the case that i < j.
+ // Negative assertions may appear anywhere in the rules,
+@@ -66,7 +66,6 @@ import (
+ //
+ // All-caps names are pseudo-names for specific points
+ // in the dependency lattice.
+-//
+ var depsRules = `
+ 	# No dependencies allowed for any of these packages.
+ 	NONE
+@@ -416,7 +415,13 @@ var depsRules = `
+ 	< crypto/ed25519/internal/edwards25519
+ 	< crypto/cipher
+ 	< encoding/asn1
+-	< crypto/internal/boring
++	< CRYPTO;
++	
++	CRYPTO < crypto/internal/boring;
++	
++	CRYPTO
++	< github.com/golang-fips/openssl-fips/openssl
++	< crypto/internal/backend
+ 	< crypto/aes, crypto/des, crypto/hmac, crypto/md5, crypto/rc4,
+ 	  crypto/sha1, crypto/sha256, crypto/sha512
+ 	< crypto/rand
+@@ -446,7 +451,7 @@ var depsRules = `
+ 	crypto/internal/boring/sig, crypto/internal/boring/fipstls
+ 	< crypto/tls/fipsonly;
+ 
+-	crypto/internal/boring
++	crypto/internal/backend
+ 	< crypto/boring;
+ 
+ 	# crypto-aware packages
+@@ -646,7 +651,7 @@ var buildIgnore = []byte("\n//go:build ignore")
+ 
+ func findImports(pkg string) ([]string, error) {
+ 	vpkg := pkg
+-	if strings.HasPrefix(pkg, "golang.org") {
++	if strings.HasPrefix(pkg, "golang.org") || strings.HasPrefix(pkg, "github.com") {
+ 		vpkg = "vendor/" + pkg
+ 	}
+ 	dir := filepath.Join(Default.GOROOT, "src", vpkg)
+diff --git a/src/crypto/tls/boring.go b/src/crypto/tls/boring.go
+index dabc67423d..4dfd431613 100644
+--- a/src/crypto/tls/boring.go
++++ b/src/crypto/tls/boring.go
+@@ -12,6 +12,14 @@ import (
+ 	"crypto/x509"
+ )
+ 
++import boring "crypto/internal/backend"
++
++func init() {
++	if boring.Enabled() {
++		fipstls.Force()
++	}
++}
++
+ // needFIPS returns fipstls.Required(); it avoids a new import in common.go.
+ func needFIPS() bool {
+ 	return fipstls.Required()
+@@ -91,7 +99,7 @@ func isBoringCertificate(c *x509.Certificate) bool {
+ 	default:
+ 		return false
+ 	case *rsa.PublicKey:
+-		if size := k.N.BitLen(); size != 2048 && size != 3072 {
++		if size := k.N.BitLen(); size < 2048 || (size%512) != 0 {
+ 			return false
+ 		}
+ 	case *ecdsa.PublicKey:
+diff --git a/src/crypto/internal/backend/dummy.s b/src/crypto/internal/backend/dummy.s
+new file mode 100644
+index 0000000000..e69de29bb2
+diff --git a/src/runtime/runtime_boring.go b/src/runtime/runtime_boring.go
+index 5a98b20253..dc25cdcfd5 100644
+--- a/src/runtime/runtime_boring.go
++++ b/src/runtime/runtime_boring.go
+@@ -17,3 +17,8 @@ func boring_runtime_arg0() string {
+ 
+ //go:linkname fipstls_runtime_arg0 crypto/internal/boring/fipstls.runtime_arg0
+ func fipstls_runtime_arg0() string { return boring_runtime_arg0() }
++
++//go:linkname crypto_backend_runtime_arg0 crypto/internal/backend.runtime_arg0
++func crypto_backend_runtime_arg0() string {
++	return boring_runtime_arg0()
++}
+\ No newline at end of file
+diff --git a/src/cmd/link/internal/ld/lib.go b/src/cmd/link/internal/ld/lib.go
+index 5b82dc287d..eaaa5e8d6d 100644
+--- a/src/cmd/link/internal/ld/lib.go
++++ b/src/cmd/link/internal/ld/lib.go
+@@ -1015,7 +1015,7 @@ var hostobj []Hostobj
+ // These packages can use internal linking mode.
+ // Others trigger external mode.
+ var internalpkg = []string{
+-	"crypto/internal/boring",
++	"vendor/github.com/golang-fips/openssl-fips/openssl",
+ 	"crypto/x509",
+ 	"net",
+ 	"os/user",
+diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
+new file mode 100644
+index 0000000000..6273b1ec6d
+--- /dev/null
++++ b/src/crypto/internal/backend/nobackend.go
+@@ -0,0 +1,112 @@
++// Copyright 2017 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build !linux || !cgo || android || cmd_go_bootstrap || msan || gocrypt
++// +build !linux !cgo android cmd_go_bootstrap msan gocrypt
++
++package backend
++
++import (
++	"crypto"
++	"crypto/cipher"
++	"crypto/internal/boring/sig"
++	"hash"
++	"math/big"
++)
++
++func Enabled() bool { return false }
++
++// Unreachable marks code that should be unreachable
++// when OpenSSLCrypto is in use. It is a no-op without OpenSSLCrypto.
++func Unreachable() {
++	// Code that's unreachable when using OpenSSLCrypto
++	// is exactly the code we want to detect for reporting
++	// standard Go crypto.
++	sig.StandardCrypto()
++}
++
++// UnreachableExceptTests marks code that should be unreachable
++// when OpenSSLCrypto is in use. It is a no-op without OpenSSLCrypto.
++func UnreachableExceptTests() {}
++
++type randReader int
++
++func (randReader) Read(b []byte) (int, error) { panic("opensslcrypto: not available") }
++
++const RandReader = randReader(0)
++
++func NewSHA1() hash.Hash   { panic("opensslcrypto: not available") }
++func NewSHA224() hash.Hash { panic("opensslcrypto: not available") }
++func NewSHA256() hash.Hash { panic("opensslcrypto: not available") }
++func NewSHA384() hash.Hash { panic("opensslcrypto: not available") }
++func NewSHA512() hash.Hash { panic("opensslcrypto: not available") }
++
++func NewHMAC(h func() hash.Hash, key []byte) hash.Hash { panic("opensslcrypto: not available") }
++
++func NewAESCipher(key []byte) (cipher.Block, error) { panic("opensslcrypto: not available") }
++
++type PublicKeyECDSA struct{ _ int }
++type PrivateKeyECDSA struct{ _ int }
++
++func GenerateKeyECDSA(curve string) (X, Y, D *big.Int, err error) {
++	panic("opensslcrypto: not available")
++}
++func NewPrivateKeyECDSA(curve string, X, Y, D *big.Int) (*PrivateKeyECDSA, error) {
++	panic("opensslcrypto: not available")
++}
++func NewPublicKeyECDSA(curve string, X, Y *big.Int) (*PublicKeyECDSA, error) {
++	panic("opensslcrypto: not available")
++}
++func SignECDSA(priv *PrivateKeyECDSA, hash []byte) (r, s *big.Int, err error) {
++	panic("opensslcrypto: not available")
++}
++func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, r, s *big.Int) bool {
++	panic("opensslcrypto: not available")
++}
++
++type PublicKeyRSA struct{ _ int }
++type PrivateKeyRSA struct{ _ int }
++
++func DecryptRSAOAEP(h hash.Hash, priv *PrivateKeyRSA, ciphertext, label []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func DecryptRSAPKCS1(priv *PrivateKeyRSA, ciphertext []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func DecryptRSANoPadding(priv *PrivateKeyRSA, ciphertext []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func EncryptRSAOAEP(h hash.Hash, pub *PublicKeyRSA, msg, label []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func EncryptRSAPKCS1(pub *PublicKeyRSA, msg []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func EncryptRSANoPadding(pub *PublicKeyRSA, msg []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func GenerateKeyRSA(bits int) (N, E, D, P, Q, Dp, Dq, Qinv *big.Int, err error) {
++	panic("opensslcrypto: not available")
++}
++func NewPrivateKeyRSA(N, E, D, P, Q, Dp, Dq, Qinv *big.Int) (*PrivateKeyRSA, error) {
++	panic("opensslcrypto: not available")
++}
++func NewPublicKeyRSA(N, E *big.Int) (*PublicKeyRSA, error) {
++	panic("opensslcrypto: not available")
++}
++func SignRSAPKCS1v15(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func SignRSAPSS(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte, saltLen int) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte) error {
++	panic("opensslcrypto: not available")
++}
++func VerifyRSAPSS(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte, saltLen int) error {
++	panic("opensslcrypto: not available")
++}
+diff --git a/src/crypto/internal/backend/openssl.go b/src/crypto/internal/backend/openssl.go
+new file mode 100644
+index 0000000000..c5360fb8dc
+--- /dev/null
++++ b/src/crypto/internal/backend/openssl.go
+@@ -0,0 +1,84 @@
++// Copyright 2017 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build linux && !android && !gocrypt && !cmd_go_bootstrap && !msan
++// +build linux,!android,!gocrypt,!cmd_go_bootstrap,!msan
++
++// Package openssl provides access to OpenSSLCrypto implementation functions.
++// Check the variable Enabled to find out whether OpenSSLCrypto is available.
++// If OpenSSLCrypto is not available, the functions in this package all panic.
++package backend
++
++import (
++	"github.com/golang-fips/openssl-fips/openssl"
++)
++
++// Enabled controls whether FIPS crypto is enabled.
++var Enabled = openssl.Enabled
++
++// Unreachable marks code that should be unreachable
++// when OpenSSLCrypto is in use. It panics only when
++// the system is in FIPS mode.
++func Unreachable() {
++	if Enabled() {
++		panic("opensslcrypto: invalid code execution")
++	}
++}
++
++// Provided by runtime.crypto_backend_runtime_arg0 to avoid os import.
++func runtime_arg0() string
++
++func hasSuffix(s, t string) bool {
++	return len(s) > len(t) && s[len(s)-len(t):] == t
++}
++
++// UnreachableExceptTests marks code that should be unreachable
++// when OpenSSLCrypto is in use. It panics.
++func UnreachableExceptTests() {
++	name := runtime_arg0()
++	// If OpenSSLCrypto ran on Windows we'd need to allow _test.exe and .test.exe as well.
++	if Enabled() && !hasSuffix(name, "_test") && !hasSuffix(name, ".test") {
++		println("opensslcrypto: unexpected code execution in", name)
++		panic("opensslcrypto: invalid code execution")
++	}
++}
++
++const RandReader = openssl.RandReader
++
++var NewSHA1 = openssl.NewSHA1
++var NewSHA224 = openssl.NewSHA224
++var NewSHA256 = openssl.NewSHA256
++var NewSHA384 = openssl.NewSHA384
++var NewSHA512 = openssl.NewSHA512
++
++var NewHMAC = openssl.NewHMAC
++
++var NewAESCipher = openssl.NewAESCipher
++
++type PublicKeyECDSA = openssl.PublicKeyECDSA
++type PrivateKeyECDSA = openssl.PrivateKeyECDSA
++
++var GenerateKeyECDSA = openssl.GenerateKeyECDSA
++var NewPrivateKeyECDSA = openssl.NewPrivateKeyECDSA
++var NewPublicKeyECDSA = openssl.NewPublicKeyECDSA
++var SignECDSA = openssl.SignECDSA
++var SignMarshalECDSA = openssl.SignMarshalECDSA
++var VerifyECDSA = openssl.VerifyECDSA
++
++type PublicKeyRSA = openssl.PublicKeyRSA
++type PrivateKeyRSA = openssl.PrivateKeyRSA
++
++var DecryptRSAOAEP = openssl.DecryptRSAOAEP
++var DecryptRSAPKCS1 = openssl.DecryptRSAPKCS1
++var DecryptRSANoPadding = openssl.DecryptRSANoPadding
++var EncryptRSAOAEP = openssl.EncryptRSAOAEP
++var EncryptRSAPKCS1 = openssl.EncryptRSAPKCS1
++var EncryptRSANoPadding = openssl.EncryptRSANoPadding
++var GenerateKeyRSA = openssl.GenerateKeyRSA
++var NewPrivateKeyRSA = openssl.NewPrivateKeyRSA
++var NewPublicKeyRSA = openssl.NewPublicKeyRSA
++var SignRSAPKCS1v15 = openssl.SignRSAPKCS1v15
++var SignRSAPSS = openssl.SignRSAPSS
++var VerifyRSAPKCS1v15 = openssl.VerifyRSAPKCS1v15
++var VerifyRSAPSS = openssl.VerifyRSAPSS
