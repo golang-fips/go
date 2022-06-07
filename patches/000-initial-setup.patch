@@ -106,7 +106,7 @@ index dabc67423d..4dfd431613 100644
 +import boring "crypto/internal/backend"
 +
 +func init() {
-+	if boring.Enabled() {
++	if boring.Enabled {
 +		fipstls.Force()
 +	}
 +}
