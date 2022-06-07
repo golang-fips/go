@@ -32,3 +32,13 @@ Main differences from the upstream BoringCrypto fork are:
 
 The `main` branch contains only a license file and this README. The FIPS patches are stored on versioned branches
 which follow the naming convention: `go1.x-openssl-fips`.
+
+### New branch setup
+
+There is a script called `scripts/setup-initial-patch.sh` which will apply the initial patch and then generate a new one which
+will finalize the OpenSSL FIPS backend support. When setting up a new branch just run the script and supply the name of the upstream Go
+branch you would like to check out in the git submodule like so:
+
+```
+$ ./scripts/setup-initial-patch.sh dev.boringcrypto.go1.x
+```
