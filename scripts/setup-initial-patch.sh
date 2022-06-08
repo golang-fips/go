@@ -16,7 +16,7 @@ trap cleanup EXIT
 BRANCH=${1}
 
 if [ -z "${BRANCH}" ]; then
-    echo "You must supply a branch for the Go submodile (for example dev.boringcrypto.go1.18)"
+    echo "You must supply a branch for the Go submodule (for example dev.boringcrypto.go1.18)"
     exit 1
 fi
 
