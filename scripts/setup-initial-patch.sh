@@ -48,6 +48,17 @@ sed -i -e "s/boring.VerifyECDSA(b, hash, r, s)/boring.VerifyECDSA(b, hash, r, s,
 sed -i -e "s/boring\.Enabled/boring\.Enabled()/g" ${GO_SOURCES}
 sed -i -e "s/\"crypto\/internal\/boring\"/boring \"crypto\/internal\/backend\"/g" ${GO_SOURCES}
 sed -i -e "s/const boringEnabled/var boringEnabled/g" ${GO_SOURCES}
+sed -i -e "s/testConfig.Clone()/testConfigTemplate()/g" src/crypto/tls/boring_test.go
+cat << EOF > src/crypto/tls/boring_test.go
+func testConfigTemplate() *Config {
+	config := testConfig.Clone()
+	if boring.Enabled() {
+		config.Certificates[0].Certificate = [][]byte{testRSA2048Certificate}
+		config.Certificates[0].PrivateKey = testRSA2048PrivateKey
+	}
+	return config
+}
+EOF
 
 # Remove the crypto/internal/boring code as we're replacing it with the openssl backend code.
 rm src/crypto/internal/boring/*.*
