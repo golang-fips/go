@@ -49,7 +49,7 @@ sed -i -e "s/boring\.Enabled/boring\.Enabled()/g" ${GO_SOURCES}
 sed -i -e "s/\"crypto\/internal\/boring\"/boring \"crypto\/internal\/backend\"/g" ${GO_SOURCES}
 sed -i -e "s/const boringEnabled/var boringEnabled/g" ${GO_SOURCES}
 sed -i -e "s/testConfig\.Clone()/testConfigTemplate()/g" src/crypto/tls/boring_test.go
-cat << EOF > src/crypto/tls/boring_test.go
+cat << EOF >> src/crypto/tls/boring_test.go
 func testConfigTemplate() *Config {
 	config := testConfig.Clone()
 	if boring.Enabled() {
