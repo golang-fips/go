@@ -30,7 +30,7 @@ ORIGINAL_GIT_SHA=$(git rev-parse HEAD)
 
 # Apply the initial patch. This patch is basic and shouldn't accrue many
 # conflicts over time so it should be safe to apply.
-git apply ../patches/000-initial-setup.patch
+git apply ../patches/00*.patch
 # Add the initial changes to the index so the later diff ignores them.
 git add .
 git commit -m phase1
@@ -75,7 +75,7 @@ go mod vendor
 
 # Generate the final patch.
 git add .
-git diff --cached --binary > ../../patches/001-initial-openssl-for-fips.patch
+git diff --cached --binary > ../../patches/0100-initial-openssl-for-fips.patch
 
 # Clean things up again after we've generated the patch.
 git reset --hard ${ORIGINAL_GIT_SHA}
