@@ -30,7 +30,7 @@ ORIGINAL_GIT_SHA=$(git rev-parse HEAD)
 
 # Apply the initial patch. This patch is basic and shouldn't accrue many
 # conflicts over time so it should be safe to apply.
-git apply ../patches/000-initial-setup.patch
+git apply ../patches/00*.patch
 # Add the initial changes to the index so the later diff ignores them.
 git add .
 git commit -m phase1
@@ -65,14 +65,17 @@ rm src/crypto/internal/boring/*.*
 rm src/crypto/boring/boring_test.go
 
 # Add new openssl backend to module and vendor it.
-echo "require github.com/golang-fips/openssl-fips v0.0.0-20220505153334-362f46022010" >> src/go.mod
+cat <<EOF >> src/go.mod
+require github.com/golang-fips/openssl-fips v0.0.0-20220505153334-362f46022010
+replace github.com/golang-fips/openssl-fips v0.0.0-20220505153334-362f46022010 => github.com/ueno/openssl-fips v0.0.0-20220713010216-deb23a04aeab
+EOF
 cd src
 go mod tidy
 go mod vendor
 
 # Generate the final patch.
 git add .
-git diff --cached --binary > ../../patches/001-initial-openssl-for-fips.patch
+git diff --cached --binary > ../../patches/0100-initial-openssl-for-fips.patch
 
 # Clean things up again after we've generated the patch.
 git reset --hard ${ORIGINAL_GIT_SHA}

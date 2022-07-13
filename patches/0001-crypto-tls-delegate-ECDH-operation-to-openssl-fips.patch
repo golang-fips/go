@@ -1,0 +1,136 @@
+From 60005e96de9cc60d14a3920d9fafb3c82397e18b Mon Sep 17 00:00:00 2001
+From: Daiki Ueno <dueno@redhat.com>
+Date: Wed, 13 Jul 2022 13:07:39 +0900
+Subject: [PATCH] crypto/tls: delegate ECDH operation to openssl-fips
+
+Signed-off-by: Daiki Ueno <dueno@redhat.com>
+---
+ src/crypto/internal/backend/nobackend.go | 16 ++++++++
+ src/crypto/internal/backend/openssl.go   |  8 ++++
+ src/crypto/tls/key_schedule.go           | 49 ++++++++++++++++++------
+ 3 files changed, 61 insertions(+), 12 deletions(-)
+
+diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
+index 6273b1ec6d..2ecbf30c51 100644
+--- a/src/crypto/internal/backend/nobackend.go
++++ b/src/crypto/internal/backend/nobackend.go
+@@ -68,6 +68,22 @@ func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, r, s *big.Int) bool {
+ 	panic("opensslcrypto: not available")
+ }
+ 
++type PublicKeyECDH struct{ _ int }
++type PrivateKeyECDH struct{ _ int }
++
++func GenerateKeyECDH(curve string) (X, Y, D *big.Int, err error) {
++	panic("opensslcrypto: not available")
++}
++func NewPrivateKeyECDH(curve string, X, Y, D *big.Int) (*PrivateKeyECDSA, error) {
++	panic("opensslcrypto: not available")
++}
++func NewPublicKeyECDH(curve string, X, Y *big.Int) (*PublicKeyECDSA, error) {
++	panic("opensslcrypto: not available")
++}
++func SharedKeyECDH(priv *PrivateKeyECDSA, peerPublicKey []byte) ([]byte, error) {
++	panic("opensslcrypto: not available")
++}
++
+ type PublicKeyRSA struct{ _ int }
+ type PrivateKeyRSA struct{ _ int }
+ 
+diff --git a/src/crypto/internal/backend/openssl.go b/src/crypto/internal/backend/openssl.go
+index c5360fb8dc..96fb5988a5 100644
+--- a/src/crypto/internal/backend/openssl.go
++++ b/src/crypto/internal/backend/openssl.go
+@@ -66,6 +66,14 @@ var SignECDSA = openssl.SignECDSA
+ var SignMarshalECDSA = openssl.SignMarshalECDSA
+ var VerifyECDSA = openssl.VerifyECDSA
+ 
++type PublicKeyECDH = openssl.PublicKeyECDH
++type PrivateKeyECDH = openssl.PrivateKeyECDH
++
++var GenerateKeyECDH = openssl.GenerateKeyECDH
++var NewPrivateKeyECDH = openssl.NewPrivateKeyECDH
++var NewPublicKeyECDH = openssl.NewPublicKeyECDH
++var SharedKeyECDH = openssl.SharedKeyECDH
++
+ type PublicKeyRSA = openssl.PublicKeyRSA
+ type PrivateKeyRSA = openssl.PrivateKeyRSA
+ 
+diff --git a/src/crypto/tls/key_schedule.go b/src/crypto/tls/key_schedule.go
+index 314016979a..c4e732fb28 100644
+--- a/src/crypto/tls/key_schedule.go
++++ b/src/crypto/tls/key_schedule.go
+@@ -17,6 +17,8 @@ import (
+ 	"golang.org/x/crypto/hkdf"
+ )
+ 
++import boring "crypto/internal/backend"
++
+ // This file contains the functions necessary to compute the TLS 1.3 key
+ // schedule. See RFC 8446, Section 7.
+ 
+@@ -129,9 +131,18 @@ func generateECDHEParameters(rand io.Reader, curveID CurveID) (ecdheParameters,
+ 
+ 	p := &nistParameters{curveID: curveID}
+ 	var err error
+-	p.privateKey, p.x, p.y, err = elliptic.GenerateKey(curve, rand)
+-	if err != nil {
+-		return nil, err
++	if boring.Enabled {
++		var d *big.Int
++		p.x, p.y, d, err = boring.GenerateKeyECDH(curve.Params().Name)
++		if err != nil {
++			return nil, err
++		}
++		p.privateKey = d.Bytes()
++	} else {
++		p.privateKey, p.x, p.y, err = elliptic.GenerateKey(curve, rand)
++		if err != nil {
++			return nil, err
++		}
+ 	}
+ 	return p, nil
+ }
+@@ -165,16 +176,30 @@ func (p *nistParameters) PublicKey() []byte {
+ }
+ 
+ func (p *nistParameters) SharedKey(peerPublicKey []byte) []byte {
+-	curve, _ := curveForCurveID(p.curveID)
+-	// Unmarshal also checks whether the given point is on the curve.
+-	x, y := elliptic.Unmarshal(curve, peerPublicKey)
+-	if x == nil {
+-		return nil
+-	}
++	if boring.Enabled {
++		curve, _ := curveForCurveID(p.curveID)
++		k := new(big.Int).SetBytes(p.privateKey)
++		priv, err := boring.NewPrivateKeyECDH(curve.Params().Name, p.x, p.y, k)
++		if err != nil {
++			return nil
++		}
++		sharedKey, err := boring.SharedKeyECDH(priv, peerPublicKey)
++		if err != nil {
++			return nil
++		}
++		return sharedKey
++	} else {
++		curve, _ := curveForCurveID(p.curveID)
++		// Unmarshal also checks whether the given point is on the curve.
++		x, y := elliptic.Unmarshal(curve, peerPublicKey)
++		if x == nil {
++			return nil
++		}
+ 
+-	xShared, _ := curve.ScalarMult(x, y, p.privateKey)
+-	sharedKey := make([]byte, (curve.Params().BitSize+7)/8)
+-	return xShared.FillBytes(sharedKey)
++		xShared, _ := curve.ScalarMult(x, y, p.privateKey)
++		sharedKey := make([]byte, (curve.Params().BitSize+7)/8)
++		return xShared.FillBytes(sharedKey)
++	}
+ }
+ 
+ type x25519Parameters struct {
+-- 
+2.36.1
+
