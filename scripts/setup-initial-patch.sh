@@ -65,7 +65,10 @@ rm src/crypto/internal/boring/*.*
 rm src/crypto/boring/boring_test.go
 
 # Add new openssl backend to module and vendor it.
-echo "require github.com/golang-fips/openssl-fips v0.0.0-20220505153334-362f46022010" >> src/go.mod
+cat <<EOF >> src/go.mod
+require github.com/golang-fips/openssl-fips v0.0.0-20220505153334-362f46022010
+replace github.com/golang-fips/openssl-fips v0.0.0-20220505153334-362f46022010 => github.com/ueno/openssl-fips v0.0.0-20220713010216-deb23a04aeab
+EOF
 cd src
 go mod tidy
 go mod vendor
