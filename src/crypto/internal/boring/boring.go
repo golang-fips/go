@@ -151,31 +151,19 @@ func PanicIfStrictFIPS(msg string) {
 func NewOpenSSLError(msg string) error {
 	var e C.ulong
 	message := fmt.Sprintf("\n%v\nopenssl error(s):", msg)
-	if openSSLVersion() >= OPENSSL_VERSION_3_0_0 {
-		for {
-			var buf [256]C.char
-			var file, fnc, data *C.char
-			var line, flags C.int
-			e = C._goboringcrypto_internal_ERR_get_error_all(&file, &line, &fnc, &data, &flags)
-			if e == 0 {
-				break
-			}
+	for {
+		var buf [256]C.char
+		var file, fnc, data *C.char
+		var line, flags C.int
+		e = C._goboringcrypto_internal_ERR_get_error_all(&file, &line, &fnc, &data, &flags)
+		if e == 0 {
+			break
+		}
 
-			C._goboringcrypto_internal_ERR_error_string_n(e,(*C.uchar)(unsafe.Pointer (&buf[0])), 256)
-			message = fmt.Sprintf(
-				"%v\nfile: %v\nline: %v\nfunction: %v\nflags: %v\nerror string: %s\n",
-				message,C.GoString(file), line, C.GoString(fnc), flags, C.GoString(&(buf[0])))
-		}
-	} else {
-		for {
-			var buf [256]C.char
-			e = C._goboringcrypto_internal_ERR_get_error()
-			C._goboringcrypto_internal_ERR_error_string_n(e,(*C.uchar)(unsafe.Pointer (&buf[0])), 256)
-			if e == 0 {
-				break
-			}
-			message = fmt.Sprintf("%v: %v\n", message, buf)
-		}
+		C._goboringcrypto_internal_ERR_error_string_n(e, (*C.uchar)(unsafe.Pointer(&buf[0])), C.size_t(len(buf)))
+		message = fmt.Sprintf(
+			"%v\nfile: %v\nline: %v\nfunction: %v\nflags: %v\nerror string: %s\n",
+			message, C.GoString(file), line, C.GoString(fnc), flags, C.GoString(&(buf[0])))
 	}
 	return errors.New(message)
 }
