@@ -3,6 +3,8 @@ name: "Test Go"
 on:
   issue_comment:
     types: [created]
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
+permissions: read-all
 
 jobs:
   ack:
