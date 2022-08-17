@@ -276,7 +276,7 @@ new file mode 100644
 index 0000000000..c5360fb8dc
 --- /dev/null
 +++ b/src/crypto/internal/backend/openssl.go
-@@ -0,0 +1,84 @@
+@@ -0,0 +1,86 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
