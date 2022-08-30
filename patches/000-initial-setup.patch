@@ -284,7 +284,7 @@ index 0000000000..c0800df578
 +	"math/big"
 +	"unsafe"
 +
-
++	"github.com/golang-fips/openssl-fips/openssl/v2"
 +)
 +
 +func Enc(b *big.Int) openssl.BigInt {
