@@ -24,4 +24,4 @@ ORIGINAL_GIT_SHA=$(git rev-parse HEAD)
 "${ROOT}"/scripts/create-secondary-patch.sh
 
 # Clean things up again after we've generated the patch.
-git reset --hard ${ORIGINAL_GIT_SHA}
+git reset --hard "${ORIGINAL_GIT_SHA}"
