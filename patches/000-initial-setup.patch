@@ -175,7 +175,7 @@ index 0000000000..c5360fb8dc
 +package backend
 +
 +import (
-+	"github.com/golang-fips/openssl-fips/openssl/v2"
++	"github.com/golang-fips/openssl-fips/v2/openssl"
 +)
 +
 +// Enabled controls whether FIPS crypto is enabled.
@@ -284,7 +284,7 @@ index 0000000000..c0800df578
 +	"math/big"
 +	"unsafe"
 +
-+	"github.com/golang-fips/openssl-fips/openssl/v2"
++	"github.com/golang-fips/openssl-fips/v2/openssl"
 +)
 +
 +func Enc(b *big.Int) openssl.BigInt {
