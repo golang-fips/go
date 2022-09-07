@@ -1,3 +1,51 @@
+diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
+index 141fdb9fbd..ae8002703c 100644
+--- a/src/go/build/deps_test.go
++++ b/src/go/build/deps_test.go
+@@ -414,19 +414,23 @@ var depsRules = `
+ 	< crypto/internal/edwards25519
+ 	< crypto/cipher;
+ 
+-	crypto/cipher,
++	fmt, crypto/cipher,
+ 	crypto/internal/boring/bcache
+ 	< crypto/internal/boring
++	< github.com/golang-fips/openssl-fips/v2/openssl
++	< crypto/internal/backend
+ 	< crypto/boring
+ 	< crypto/aes, crypto/des, crypto/hmac, crypto/md5, crypto/rc4,
+ 	  crypto/sha1, crypto/sha256, crypto/sha512
+ 	< CRYPTO;
+ 
+-	CGO, fmt, net !< CRYPTO;
++	CGO, net !< CRYPTO;
+ 
+ 	# CRYPTO-MATH is core bignum-based crypto - no cgo, net; fmt now ok.
+ 	CRYPTO, FMT, math/big, embed
++	< github.com/golang-fips/openssl-fips/v2/openssl/bbig
+ 	< crypto/internal/boring/bbig
++	< crypto/internal/backend/bbig
+ 	< crypto/internal/randutil
+ 	< crypto/rand
+ 	< crypto/ed25519
+@@ -644,7 +648,7 @@ var buildIgnore = []byte("\n//go:build ignore")
+ 
+ func findImports(pkg string) ([]string, error) {
+ 	vpkg := pkg
+-	if strings.HasPrefix(pkg, "golang.org") {
++	if strings.HasPrefix(pkg, "golang.org") || strings.HasPrefix(pkg, "github.com") {
+ 		vpkg = "vendor/" + pkg
+ 	}
+ 	dir := filepath.Join(Default.GOROOT, "src", vpkg)
+@@ -654,7 +658,7 @@ func findImports(pkg string) ([]string, error) {
+ 	}
+ 	var imports []string
+ 	var haveImport = map[string]bool{}
+-	if pkg == "crypto/internal/boring" {
++	if pkg == "crypto/internal/boring" || pkg == "github.com/golang-fips/openssl-fips/v2/openssl" {
+ 		haveImport["C"] = true // kludge: prevent C from appearing in crypto/internal/boring imports
+ 	}
+ 	fset := token.NewFileSet()
 diff --git a/src/cmd/go/testdata/script/gopath_std_vendor.txt b/src/cmd/go/testdata/script/gopath_std_vendor.txt
 index a0a41a50de..208aa7008a 100644
 --- a/src/cmd/go/testdata/script/gopath_std_vendor.txt
@@ -35,126 +83,147 @@ index 5a98b20253..dc25cdcfd5 100644
 \ No newline at end of file
 diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
 new file mode 100644
-index 0000000000..6273b1ec6d
+index 0000000000..e5a9823141
 --- /dev/null
 +++ b/src/crypto/internal/backend/nobackend.go
-@@ -0,0 +1,117 @@
+@@ -0,0 +1,138 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
 +
-+//go:build !linux || !cgo || android || cmd_go_bootstrap || msan || gocrypt
-+// +build !linux !cgo android cmd_go_bootstrap msan gocrypt
++//go:build !linux || !cgo || android || cmd_go_bootstrap || msan || no_openssl
++// +build !linux !cgo android cmd_go_bootstrap msan no_openssl
 +
-+package backend
++package openssl
 +
 +import (
 +	"crypto"
 +	"crypto/cipher"
 +	"crypto/internal/boring/sig"
 +	"hash"
-+	"math/big"
 +)
 +
-+func Enabled() bool { return false }
++var enabled = false
++
++// A BigInt is the raw words from a BigInt.
++// This definition allows us to avoid importing math/big.
++// Conversion between BigInt and *big.Int is in crypto/internal/boring/bbig.
++type BigInt []uint
 +
 +// Unreachable marks code that should be unreachable
-+// when OpenSSLCrypto is in use. It is a no-op without OpenSSLCrypto.
++// when BoringCrypto is in use. It is a no-op without BoringCrypto.
 +func Unreachable() {
-+	// Code that's unreachable when using OpenSSLCrypto
++	// Code that's unreachable when using BoringCrypto
 +	// is exactly the code we want to detect for reporting
 +	// standard Go crypto.
 +	sig.StandardCrypto()
 +}
 +
 +// UnreachableExceptTests marks code that should be unreachable
-+// when OpenSSLCrypto is in use. It is a no-op without OpenSSLCrypto.
++// when BoringCrypto is in use. It is a no-op without BoringCrypto.
 +func UnreachableExceptTests() {}
++
++func ExecutingTest() bool { return false }
++
++// This is a noop withotu BoringCrytpo.
++func PanicIfStrictFIPS(v interface{}) {}
 +
 +type randReader int
 +
-+func (randReader) Read(b []byte) (int, error) { panic("opensslcrypto: not available") }
++func (randReader) Read(b []byte) (int, error) { panic("boringcrypto: not available") }
 +
 +const RandReader = randReader(0)
 +
-+func NewSHA1() hash.Hash   { panic("opensslcrypto: not available") }
-+func NewSHA224() hash.Hash { panic("opensslcrypto: not available") }
-+func NewSHA256() hash.Hash { panic("opensslcrypto: not available") }
-+func NewSHA384() hash.Hash { panic("opensslcrypto: not available") }
-+func NewSHA512() hash.Hash { panic("opensslcrypto: not available") }
-+func SHA1(_ []byte) [32]byte { panic("opensslcrypto: not available") }
-+func SHA512(_ []byte) [28]byte { panic("opensslcrypto: not available") }
-+func SHA384(_ []byte) [28]byte { panic("opensslcrypto: not available") }
-+func SHA256(_ []byte) [32]byte { panic("opensslcrypto: not available") }
-+func SHA224(_ []byte) [28]byte { panic("opensslcrypto: not available") }
++func Enabled() bool   { return false }
++func NewSHA1() hash.Hash   { panic("boringcrypto: not available") }
++func NewSHA224() hash.Hash { panic("boringcrypto: not available") }
++func NewSHA256() hash.Hash { panic("boringcrypto: not available") }
++func NewSHA384() hash.Hash { panic("boringcrypto: not available") }
++func NewSHA512() hash.Hash { panic("boringcrypto: not available") }
++func SHA224(_ []byte) [28]byte { panic("boringcrypto: not available") }
++func SHA256(_ []byte) [32]byte { panic("boringcrypto: not available") }
 +
-+func NewHMAC(h func() hash.Hash, key []byte) hash.Hash { panic("opensslcrypto: not available") }
++func NewHMAC(h func() hash.Hash, key []byte) hash.Hash { panic("boringcrypto: not available") }
 +
-+func NewAESCipher(key []byte) (cipher.Block, error) { panic("opensslcrypto: not available") }
++func NewAESCipher(key []byte) (cipher.Block, error) { panic("boringcrypto: not available") }
 +
 +type PublicKeyECDSA struct{ _ int }
 +type PrivateKeyECDSA struct{ _ int }
 +
-+func GenerateKeyECDSA(curve string) (X, Y, D *big.Int, err error) {
-+	panic("opensslcrypto: not available")
++func GenerateKeyECDSA(curve string) (X, Y, D BigInt, err error) {
++	panic("boringcrypto: not available")
 +}
-+func NewPrivateKeyECDSA(curve string, X, Y, D *big.Int) (*PrivateKeyECDSA, error) {
-+	panic("opensslcrypto: not available")
++func NewPrivateKeyECDSA(curve string, X, Y, D BigInt) (*PrivateKeyECDSA, error) {
++	panic("boringcrypto: not available")
 +}
-+func NewPublicKeyECDSA(curve string, X, Y *big.Int) (*PublicKeyECDSA, error) {
-+	panic("opensslcrypto: not available")
++func NewPublicKeyECDSA(curve string, X, Y BigInt) (*PublicKeyECDSA, error) {
++	panic("boringcrypto: not available")
 +}
-+func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte) ([]byte, error) {
-+	panic("opensslcrypto: not available")
++func SignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) (r, s BigInt, err error) {
++	panic("boringcrypto: not available")
 +}
-+func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, r, s *big.Int) bool {
-+	panic("opensslcrypto: not available")
++func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) ([]byte, error) {
++	panic("boringcrypto: not available")
++}
++func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, r, s BigInt, h crypto.Hash) bool {
++	panic("boringcrypto: not available")
++}
++
++type PublicKeyECDH struct{ _ int }
++type PrivateKeyECDH struct{ _ int }
++
++func GenerateKeyECDH(curve string) (X, Y, D BigInt, err error) {
++	panic("boringcrypto: not available")
++}
++func NewPrivateKeyECDH(curve string, X, Y, D BigInt) (*PrivateKeyECDH, error) {
++	panic("boringcrypto: not available")
++}
++func NewPublicKeyECDH(curve string, X, Y BigInt) (*PublicKeyECDH, error) {
++	panic("boringcrypto: not available")
++}
++func SharedKeyECDH(priv *PrivateKeyECDH, peerPublicKey []byte) ([]byte, error) {
++	panic("boringcrypto: not available")
 +}
 +
 +type PublicKeyRSA struct{ _ int }
 +type PrivateKeyRSA struct{ _ int }
 +
 +func DecryptRSAOAEP(h hash.Hash, priv *PrivateKeyRSA, ciphertext, label []byte) ([]byte, error) {
-+	panic("opensslcrypto: not available")
++	panic("boringcrypto: not available")
 +}
 +func DecryptRSAPKCS1(priv *PrivateKeyRSA, ciphertext []byte) ([]byte, error) {
-+	panic("opensslcrypto: not available")
++	panic("boringcrypto: not available")
 +}
 +func DecryptRSANoPadding(priv *PrivateKeyRSA, ciphertext []byte) ([]byte, error) {
-+	panic("opensslcrypto: not available")
++	panic("boringcrypto: not available")
 +}
 +func EncryptRSAOAEP(h hash.Hash, pub *PublicKeyRSA, msg, label []byte) ([]byte, error) {
-+	panic("opensslcrypto: not available")
++	panic("boringcrypto: not available")
 +}
 +func EncryptRSAPKCS1(pub *PublicKeyRSA, msg []byte) ([]byte, error) {
-+	panic("opensslcrypto: not available")
++	panic("boringcrypto: not available")
 +}
 +func EncryptRSANoPadding(pub *PublicKeyRSA, msg []byte) ([]byte, error) {
-+	panic("opensslcrypto: not available")
++	panic("boringcrypto: not available")
 +}
-+func GenerateKeyRSA(bits int) (N, E, D, P, Q, Dp, Dq, Qinv *big.Int, err error) {
-+	panic("opensslcrypto: not available")
++func GenerateKeyRSA(bits int) (N, E, D, P, Q, Dp, Dq, Qinv BigInt, err error) {
++	panic("boringcrypto: not available")
 +}
-+func NewPrivateKeyRSA(N, E, D, P, Q, Dp, Dq, Qinv *big.Int) (*PrivateKeyRSA, error) {
-+	panic("opensslcrypto: not available")
++func NewPrivateKeyRSA(N, E, D, P, Q, Dp, Dq, Qinv BigInt) (*PrivateKeyRSA, error) {
++	panic("boringcrypto: not available")
 +}
-+func NewPublicKeyRSA(N, E *big.Int) (*PublicKeyRSA, error) {
-+	panic("opensslcrypto: not available")
-+}
-+func SignRSAPKCS1v15(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte) ([]byte, error) {
-+	panic("opensslcrypto: not available")
++func NewPublicKeyRSA(N, E BigInt) (*PublicKeyRSA, error) { panic("boringcrypto: not available") }
++func SignRSAPKCS1v15(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte, msgHashed bool) ([]byte, error) {
++	panic("boringcrypto: not available")
 +}
 +func SignRSAPSS(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte, saltLen int) ([]byte, error) {
-+	panic("opensslcrypto: not available")
++	panic("boringcrypto: not available")
 +}
-+func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte) error {
-+	panic("opensslcrypto: not available")
++func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte, msgHashed bool) error {
++	panic("boringcrypto: not available")
 +}
 +func VerifyRSAPSS(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte, saltLen int) error {
-+	panic("opensslcrypto: not available")
-+}
-+func NewGCMTLS(c cipher.Block) (cipher.AEAD, error) {
-+	panic("opensslcrypto: not available")
++	panic("boringcrypto: not available")
 +}
 diff --git a/src/crypto/internal/backend/openssl.go b/src/crypto/internal/backend/openssl.go
 new file mode 100644
@@ -262,7 +331,7 @@ index b6eb488a4d..3fb1fa5110 100644
  }
  
  func TestAlertFlushing(t *testing.T) {
-+	t.Skip("unsupported in FIPS mode, different error returned")
++       t.Skip("unsupported in FIPS mode, different error returned")
  	c, s := localPipe(t)
  	done := make(chan bool)
 
