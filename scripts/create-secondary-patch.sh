@@ -2,6 +2,12 @@
 
 set -ex
 
+if test $# -ne 0; then
+    OPENSSL_FIPS_VERSION="${1}"
+fi
+
+: ${OPENSSL_FIPS_VERSION=362f460220104417e99fc8d59f0f9a6ba4514bd1}
+
 # Apply some manual substitutions with sed. These changes will likely introduce
 # merge conflicts if this was a patch, so we do them here instead and generate a patch
 # after.
@@ -32,8 +38,8 @@ rm src/crypto/internal/boring/*.*
 rm src/crypto/boring/boring_test.go
 
 # Add new openssl backend to module and vendor it.
-echo "require github.com/golang-fips/openssl-fips v0.0.0-20220505153334-362f46022010" >> src/go.mod
 cd src
+go get -d "github.com/golang-fips/openssl-fips@${OPENSSL_FIPS_VERSION}"
 go mod tidy
 go mod vendor
 
