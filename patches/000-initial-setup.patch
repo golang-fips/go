@@ -16,130 +16,6 @@ index a0a41a50de..208aa7008a 100644
  
  -- issue16333/issue16333.go --
  package vendoring17
-diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
-index ed8ddcb307..f8d29618d9 100644
---- a/src/go/build/deps_test.go
-+++ b/src/go/build/deps_test.go
-@@ -31,7 +31,7 @@ import (
- //
- // The general syntax of a rule is:
- //
--//		a, b < c, d;
-+//	a, b < c, d;
- //
- // which means c and d come after a and b in the partial order
- // (that is, c and d can import a and b),
-@@ -39,12 +39,12 @@ import (
- //
- // The rules can chain together, as in:
- //
--//		e < f, g < h;
-+//	e < f, g < h;
- //
- // which is equivalent to
- //
--//		e < f, g;
--//		f, g < h;
-+//	e < f, g;
-+//	f, g < h;
- //
- // Except for the special bottom element "NONE", each name
- // must appear exactly once on the right-hand side of a rule.
-@@ -56,7 +56,7 @@ import (
- //
- // Negative assertions double-check the partial order:
- //
--//		i !< j
-+//	i !< j
- //
- // means that it must NOT be the case that i < j.
- // Negative assertions may appear anywhere in the rules,
-@@ -66,7 +66,6 @@ import (
- //
- // All-caps names are pseudo-names for specific points
- // in the dependency lattice.
--//
- var depsRules = `
- 	# No dependencies allowed for any of these packages.
- 	NONE
-@@ -416,7 +415,13 @@ var depsRules = `
- 	< crypto/ed25519/internal/edwards25519
- 	< crypto/cipher
- 	< encoding/asn1
--	< crypto/internal/boring
-+	< CRYPTO;
-+	
-+	CRYPTO < crypto/internal/boring;
-+	
-+	CRYPTO
-+	< github.com/golang-fips/openssl-fips/openssl
-+	< crypto/internal/backend
- 	< crypto/aes, crypto/des, crypto/hmac, crypto/md5, crypto/rc4,
- 	  crypto/sha1, crypto/sha256, crypto/sha512
- 	< crypto/rand
-@@ -446,7 +451,7 @@ var depsRules = `
- 	crypto/internal/boring/sig, crypto/internal/boring/fipstls
- 	< crypto/tls/fipsonly;
- 
--	crypto/internal/boring
-+	crypto/internal/backend
- 	< crypto/boring;
- 
- 	# crypto-aware packages
-@@ -646,7 +651,7 @@ var buildIgnore = []byte("\n//go:build ignore")
- 
- func findImports(pkg string) ([]string, error) {
- 	vpkg := pkg
--	if strings.HasPrefix(pkg, "golang.org") {
-+	if strings.HasPrefix(pkg, "golang.org") || strings.HasPrefix(pkg, "github.com") {
- 		vpkg = "vendor/" + pkg
- 	}
- 	dir := filepath.Join(Default.GOROOT, "src", vpkg)
-diff --git a/src/crypto/tls/boring.go b/src/crypto/tls/boring.go
-index dabc67423d..4dfd431613 100644
---- a/src/crypto/tls/boring.go
-+++ b/src/crypto/tls/boring.go
-@@ -12,6 +12,14 @@ import (
- 	"crypto/x509"
- )
- 
-+import boring "crypto/internal/backend"
-+
-+func init() {
-+	if boring.Enabled && !boring.ExecutingTest() {
-+		fipstls.Force()
-+	}
-+}
-+
- // needFIPS returns fipstls.Required(); it avoids a new import in common.go.
- func needFIPS() bool {
- 	return fipstls.Required()
-@@ -91,7 +99,7 @@ func isBoringCertificate(c *x509.Certificate) bool {
- 	default:
- 		return false
- 	case *rsa.PublicKey:
--		if size := k.N.BitLen(); size != 2048 && size != 3072 {
-+		if size := k.N.BitLen(); size < 2048 || (size%512) != 0 {
- 			return false
- 		}
- 	case *ecdsa.PublicKey:
-diff --git a/src/crypto/internal/backend/dummy.s b/src/crypto/internal/backend/dummy.s
-new file mode 100644
-index 0000000000..e69de29bb2
-diff --git a/src/runtime/runtime_boring.go b/src/runtime/runtime_boring.go
-index 5a98b20253..dc25cdcfd5 100644
---- a/src/runtime/runtime_boring.go
-+++ b/src/runtime/runtime_boring.go
-@@ -17,3 +17,8 @@ func boring_runtime_arg0() string {
- 
- //go:linkname fipstls_runtime_arg0 crypto/internal/boring/fipstls.runtime_arg0
- func fipstls_runtime_arg0() string { return boring_runtime_arg0() }
-+
-+//go:linkname crypto_backend_runtime_arg0 crypto/internal/backend.runtime_arg0
-+func crypto_backend_runtime_arg0() string {
-+	return boring_runtime_arg0()
-+}
-\ No newline at end of file
 diff --git a/src/cmd/link/internal/ld/lib.go b/src/cmd/link/internal/ld/lib.go
 index 5b82dc287d..eaaa5e8d6d 100644
 --- a/src/cmd/link/internal/ld/lib.go
@@ -153,12 +29,15 @@ index 5b82dc287d..eaaa5e8d6d 100644
  	"crypto/x509",
  	"net",
  	"os/user",
+diff --git a/src/crypto/internal/backend/dummy.s b/src/crypto/internal/backend/dummy.s
+new file mode 100644
+index 0000000000..e69de29bb2
 diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
 new file mode 100644
-index 0000000000..6273b1ec6d
+index 0000000000..78e05e2fef
 --- /dev/null
 +++ b/src/crypto/internal/backend/nobackend.go
-@@ -0,0 +1,112 @@
+@@ -0,0 +1,120 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -271,12 +150,20 @@ index 0000000000..6273b1ec6d
 +func VerifyRSAPSS(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte, saltLen int) error {
 +	panic("opensslcrypto: not available")
 +}
++
++func ExtractHKDF(h func() hash.Hash, secret, salt []byte) []byte {
++	panic("opensslcrypto: not available")
++}
++
++func ExpandHKDF(h func() hash.Hash, pseudorandomKey, info []byte) io.Reader {
++	panic("opensslcrypto: not available")
++}
 diff --git a/src/crypto/internal/backend/openssl.go b/src/crypto/internal/backend/openssl.go
 new file mode 100644
-index 0000000000..c5360fb8dc
+index 0000000000..8bd1bf3c6a
 --- /dev/null
 +++ b/src/crypto/internal/backend/openssl.go
-@@ -0,0 +1,86 @@
+@@ -0,0 +1,89 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -363,8 +250,39 @@ index 0000000000..c5360fb8dc
 +var SignRSAPSS = openssl.SignRSAPSS
 +var VerifyRSAPKCS1v15 = openssl.VerifyRSAPKCS1v15
 +var VerifyRSAPSS = openssl.VerifyRSAPSS
++
++var ExtractHKDF = openssl.ExtractHKDF
++var ExpandHKDF = openssl.ExpandHKDF
+diff --git a/src/crypto/tls/boring.go b/src/crypto/tls/boring.go
+index dabc67423d..c29fa125c3 100644
+--- a/src/crypto/tls/boring.go
++++ b/src/crypto/tls/boring.go
+@@ -12,6 +12,14 @@ import (
+ 	"crypto/x509"
+ )
+ 
++import boring "crypto/internal/backend"
++
++func init() {
++	if boring.Enabled && !boring.ExecutingTest() {
++		fipstls.Force()
++	}
++}
++
+ // needFIPS returns fipstls.Required(); it avoids a new import in common.go.
+ func needFIPS() bool {
+ 	return fipstls.Required()
+@@ -91,7 +99,7 @@ func isBoringCertificate(c *x509.Certificate) bool {
+ 	default:
+ 		return false
+ 	case *rsa.PublicKey:
+-		if size := k.N.BitLen(); size != 2048 && size != 3072 {
++		if size := k.N.BitLen(); size < 2048 || (size%512) != 0 {
+ 			return false
+ 		}
+ 	case *ecdsa.PublicKey:
 diff --git a/src/crypto/tls/handshake_client_test.go b/src/crypto/tls/handshake_client_test.go
-index b6eb488a4d..3fb1fa5110 100644
+index 0950bb0ac4..9a76903b41 100644
 --- a/src/crypto/tls/handshake_client_test.go
 +++ b/src/crypto/tls/handshake_client_test.go
 @@ -2135,6 +2135,7 @@ func testBuffering(t *testing.T, version uint16) {
@@ -374,4 +292,143 @@ index b6eb488a4d..3fb1fa5110 100644
 +	t.Skip("unsupported in FIPS mode, different error returned")
  	c, s := localPipe(t)
  	done := make(chan bool)
-
+ 
+diff --git a/src/crypto/tls/key_schedule.go b/src/crypto/tls/key_schedule.go
+index 314016979a..b7b23dd385 100644
+--- a/src/crypto/tls/key_schedule.go
++++ b/src/crypto/tls/key_schedule.go
+@@ -17,6 +17,8 @@ import (
+ 	"golang.org/x/crypto/hkdf"
+ )
+ 
++import boring "crypto/internal/backend"
++
+ // This file contains the functions necessary to compute the TLS 1.3 key
+ // schedule. See RFC 8446, Section 7.
+ 
+@@ -43,9 +45,16 @@ func (c *cipherSuiteTLS13) expandLabel(secret []byte, label string, context []by
+ 		b.AddBytes(context)
+ 	})
+ 	out := make([]byte, length)
+-	n, err := hkdf.Expand(c.hash.New, secret, hkdfLabel.BytesOrPanic()).Read(out)
+-	if err != nil || n != length {
+-		panic("tls: HKDF-Expand-Label invocation failed unexpectedly")
++	if boring.Enabled {
++		n, err := boring.ExpandHKDF(c.hash.New, secret, hkdfLabel.BytesOrPanic()).Read(out)
++		if err != nil || n != length {
++			panic("tls: HKDF-Expand-Label invocation failed unexpectedly")
++		}
++	} else {
++		n, err := hkdf.Expand(c.hash.New, secret, hkdfLabel.BytesOrPanic()).Read(out)
++		if err != nil || n != length {
++			panic("tls: HKDF-Expand-Label invocation failed unexpectedly")
++		}
+ 	}
+ 	return out
+ }
+@@ -63,7 +72,11 @@ func (c *cipherSuiteTLS13) extract(newSecret, currentSecret []byte) []byte {
+ 	if newSecret == nil {
+ 		newSecret = make([]byte, c.hash.Size())
+ 	}
+-	return hkdf.Extract(c.hash.New, newSecret, currentSecret)
++	if boring.Enabled {
++		return boring.ExtractHKDF(c.hash.New, newSecret, currentSecret)
++	} else {
++		return hkdf.Extract(c.hash.New, newSecret, currentSecret)
++	}
+ }
+ 
+ // nextTrafficSecret generates the next traffic secret, given the current one,
+diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
+index ed8ddcb307..f8d29618d9 100644
+--- a/src/go/build/deps_test.go
++++ b/src/go/build/deps_test.go
+@@ -31,7 +31,7 @@ import (
+ //
+ // The general syntax of a rule is:
+ //
+-//		a, b < c, d;
++//	a, b < c, d;
+ //
+ // which means c and d come after a and b in the partial order
+ // (that is, c and d can import a and b),
+@@ -39,12 +39,12 @@ import (
+ //
+ // The rules can chain together, as in:
+ //
+-//		e < f, g < h;
++//	e < f, g < h;
+ //
+ // which is equivalent to
+ //
+-//		e < f, g;
+-//		f, g < h;
++//	e < f, g;
++//	f, g < h;
+ //
+ // Except for the special bottom element "NONE", each name
+ // must appear exactly once on the right-hand side of a rule.
+@@ -56,7 +56,7 @@ import (
+ //
+ // Negative assertions double-check the partial order:
+ //
+-//		i !< j
++//	i !< j
+ //
+ // means that it must NOT be the case that i < j.
+ // Negative assertions may appear anywhere in the rules,
+@@ -66,7 +66,6 @@ import (
+ //
+ // All-caps names are pseudo-names for specific points
+ // in the dependency lattice.
+-//
+ var depsRules = `
+ 	# No dependencies allowed for any of these packages.
+ 	NONE
+@@ -416,7 +415,13 @@ var depsRules = `
+ 	< crypto/ed25519/internal/edwards25519
+ 	< crypto/cipher
+ 	< encoding/asn1
+-	< crypto/internal/boring
++	< CRYPTO;
++	
++	CRYPTO < crypto/internal/boring;
++	
++	CRYPTO
++	< github.com/golang-fips/openssl-fips/openssl
++	< crypto/internal/backend
+ 	< crypto/aes, crypto/des, crypto/hmac, crypto/md5, crypto/rc4,
+ 	  crypto/sha1, crypto/sha256, crypto/sha512
+ 	< crypto/rand
+@@ -446,7 +451,7 @@ var depsRules = `
+ 	crypto/internal/boring/sig, crypto/internal/boring/fipstls
+ 	< crypto/tls/fipsonly;
+ 
+-	crypto/internal/boring
++	crypto/internal/backend
+ 	< crypto/boring;
+ 
+ 	# crypto-aware packages
+@@ -646,7 +651,7 @@ var buildIgnore = []byte("\n//go:build ignore")
+ 
+ func findImports(pkg string) ([]string, error) {
+ 	vpkg := pkg
+-	if strings.HasPrefix(pkg, "golang.org") {
++	if strings.HasPrefix(pkg, "golang.org") || strings.HasPrefix(pkg, "github.com") {
+ 		vpkg = "vendor/" + pkg
+ 	}
+ 	dir := filepath.Join(Default.GOROOT, "src", vpkg)
+diff --git a/src/runtime/runtime_boring.go b/src/runtime/runtime_boring.go
+index 5a98b20253..dc25cdcfd5 100644
+--- a/src/runtime/runtime_boring.go
++++ b/src/runtime/runtime_boring.go
+@@ -17,3 +17,8 @@ func boring_runtime_arg0() string {
+ 
+ //go:linkname fipstls_runtime_arg0 crypto/internal/boring/fipstls.runtime_arg0
+ func fipstls_runtime_arg0() string { return boring_runtime_arg0() }
++
++//go:linkname crypto_backend_runtime_arg0 crypto/internal/backend.runtime_arg0
++func crypto_backend_runtime_arg0() string {
++	return boring_runtime_arg0()
++}
+\ No newline at end of file
