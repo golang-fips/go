@@ -10,7 +10,7 @@ index 141fdb9fbd..ae8002703c 100644
 +	fmt, crypto/cipher,
  	crypto/internal/boring/bcache
  	< crypto/internal/boring
-+	< github.com/golang-fips/openssl-fips/v2/openssl
++	< github.com/golang-fips/openssl-fips/openssl
 +	< crypto/internal/backend
  	< crypto/boring
  	< crypto/aes, crypto/des, crypto/hmac, crypto/md5, crypto/rc4,
@@ -22,7 +22,7 @@ index 141fdb9fbd..ae8002703c 100644
  
  	# CRYPTO-MATH is core bignum-based crypto - no cgo, net; fmt now ok.
  	CRYPTO, FMT, math/big, embed
-+	< github.com/golang-fips/openssl-fips/v2/openssl/bbig
++	< github.com/golang-fips/openssl-fips/openssl/bbig
  	< crypto/internal/boring/bbig
 +	< crypto/internal/backend/bbig
  	< crypto/internal/randutil
@@ -42,7 +42,7 @@ index 141fdb9fbd..ae8002703c 100644
  	var imports []string
  	var haveImport = map[string]bool{}
 -	if pkg == "crypto/internal/boring" {
-+	if pkg == "crypto/internal/boring" || pkg == "github.com/golang-fips/openssl-fips/v2/openssl" {
++	if pkg == "crypto/internal/boring" || pkg == "github.com/golang-fips/openssl-fips/openssl" {
  		haveImport["C"] = true // kludge: prevent C from appearing in crypto/internal/boring imports
  	}
  	fset := token.NewFileSet()
@@ -244,7 +244,7 @@ index 0000000000..c5360fb8dc
 +package backend
 +
 +import (
-+	"github.com/golang-fips/openssl-fips/v2/openssl"
++	"github.com/golang-fips/openssl-fips/openssl"
 +)
 +
 +// Enabled controls whether FIPS crypto is enabled.
@@ -353,7 +353,7 @@ index 0000000000..c0800df578
 +	"math/big"
 +	"unsafe"
 +
-+	"github.com/golang-fips/openssl-fips/v2/openssl"
++	"github.com/golang-fips/openssl-fips/openssl"
 +)
 +
 +func Enc(b *big.Int) openssl.BigInt {
