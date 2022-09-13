@@ -94,7 +94,7 @@ index 0000000000..e5a9823141
 +//go:build !linux || !cgo || android || cmd_go_bootstrap || msan || no_openssl
 +// +build !linux !cgo android cmd_go_bootstrap msan no_openssl
 +
-+package openssl
++package backend
 +
 +import (
 +	"crypto"
@@ -383,8 +383,9 @@ diff --git a/src/crypto/tls/boring.go b/src/crypto/tls/boring.go
 index 1827f76458..e436c50e22 100644
 --- a/src/crypto/tls/boring.go
 +++ b/src/crypto/tls/boring.go
-@@ -10,6 +10,12 @@ import (
+@@ -10,6 +11,13 @@ import (
  	"crypto/internal/boring/fipstls"
++	boring "crypto/internal/backend"
  )
 
 +func init() {
