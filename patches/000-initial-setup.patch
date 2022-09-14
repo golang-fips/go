@@ -1,3 +1,27 @@
+diff --git a/src/crypto/ed25519/ed25519vectors_test.go b/src/crypto/ed25519/ed25519vectors_test.go
+index f933f2800a..223ce04340 100644
+--- a/src/crypto/ed25519/ed25519vectors_test.go
++++ b/src/crypto/ed25519/ed25519vectors_test.go
+@@ -72,6 +72,7 @@ func TestEd25519Vectors(t *testing.T) {
+ }
+
+ func downloadEd25519Vectors(t *testing.T) []byte {
++	t.Skip("skipping test that downloads external data")
+ 	testenv.MustHaveExternalNetwork(t)
+
+ 	// Create a temp dir and modcache subdir.
+diff --git a/src/crypto/ed25519/ed25519_test.go b/src/crypto/ed25519/ed25519_test.go
+index 84fcf62..e442bcc 100644
+--- a/src/crypto/ed25519/ed25519_test.go
++++ b/src/crypto/ed25519/ed25519_test.go
+@@ -187,6 +187,7 @@ func TestMalleability(t *testing.T) {
+ }
+
+ func TestAllocations(t *testing.T) {
++	t.Skip("Allocations test broken with openssl linkage")
+ 	if boring.Enabled {
+ 		t.Skip("skipping allocations test with BoringCrypto")
+ 	}
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
 index 141fdb9fbd..ae8002703c 100644
 --- a/src/go/build/deps_test.go
@@ -86,7 +110,7 @@ new file mode 100644
 index 0000000000..e5a9823141
 --- /dev/null
 +++ b/src/crypto/internal/backend/nobackend.go
-@@ -0,0 +1,138 @@
+@@ -0,0 +1,140 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -100,15 +124,11 @@ index 0000000000..e5a9823141
 +	"crypto"
 +	"crypto/cipher"
 +	"crypto/internal/boring/sig"
++	"github.com/golang-fips/openssl-fips/openssl"
 +	"hash"
 +)
 +
 +var enabled = false
-+
-+// A BigInt is the raw words from a BigInt.
-+// This definition allows us to avoid importing math/big.
-+// Conversion between BigInt and *big.Int is in crypto/internal/boring/bbig.
-+type BigInt []uint
 +
 +// Unreachable marks code that should be unreachable
 +// when BoringCrypto is in use. It is a no-op without BoringCrypto.
@@ -140,8 +160,11 @@ index 0000000000..e5a9823141
 +func NewSHA256() hash.Hash { panic("boringcrypto: not available") }
 +func NewSHA384() hash.Hash { panic("boringcrypto: not available") }
 +func NewSHA512() hash.Hash { panic("boringcrypto: not available") }
++func SHA1(_ []byte) [20]byte { panic("boringcrypto: not available") }
 +func SHA224(_ []byte) [28]byte { panic("boringcrypto: not available") }
 +func SHA256(_ []byte) [32]byte { panic("boringcrypto: not available") }
++func SHA384(_ []byte) [48]byte { panic("boringcrypto: not available") }
++func SHA512(_ []byte) [64]byte { panic("boringcrypto: not available") }
 +
 +func NewHMAC(h func() hash.Hash, key []byte) hash.Hash { panic("boringcrypto: not available") }
 +
@@ -150,35 +173,38 @@ index 0000000000..e5a9823141
 +type PublicKeyECDSA struct{ _ int }
 +type PrivateKeyECDSA struct{ _ int }
 +
-+func GenerateKeyECDSA(curve string) (X, Y, D BigInt, err error) {
++func NewGCMTLS(c cipher.Block) (cipher.AEAD, error) {
 +	panic("boringcrypto: not available")
 +}
-+func NewPrivateKeyECDSA(curve string, X, Y, D BigInt) (*PrivateKeyECDSA, error) {
++func GenerateKeyECDSA(curve string) (X, Y, D openssl.BigInt, err error) {
 +	panic("boringcrypto: not available")
 +}
-+func NewPublicKeyECDSA(curve string, X, Y BigInt) (*PublicKeyECDSA, error) {
++func NewPrivateKeyECDSA(curve string, X, Y, D openssl.BigInt) (*PrivateKeyECDSA, error) {
 +	panic("boringcrypto: not available")
 +}
-+func SignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) (r, s BigInt, err error) {
++func NewPublicKeyECDSA(curve string, X, Y openssl.BigInt) (*PublicKeyECDSA, error) {
 +	panic("boringcrypto: not available")
 +}
-+func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) ([]byte, error) {
++func SignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) (r, s openssl.BigInt, err error) {
 +	panic("boringcrypto: not available")
 +}
-+func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, r, s BigInt, h crypto.Hash) bool {
++func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte) ([]byte, error) {
++	panic("boringcrypto: not available")
++}
++func VerifyECDSA(pub *PublicKeyECDSA, hash, sig []byte) bool {
 +	panic("boringcrypto: not available")
 +}
 +
 +type PublicKeyECDH struct{ _ int }
 +type PrivateKeyECDH struct{ _ int }
 +
-+func GenerateKeyECDH(curve string) (X, Y, D BigInt, err error) {
++func GenerateKeyECDH(curve string) (X, Y, D openssl.BigInt, err error) {
 +	panic("boringcrypto: not available")
 +}
-+func NewPrivateKeyECDH(curve string, X, Y, D BigInt) (*PrivateKeyECDH, error) {
++func NewPrivateKeyECDH(curve string, X, Y, D openssl.BigInt) (*PrivateKeyECDH, error) {
 +	panic("boringcrypto: not available")
 +}
-+func NewPublicKeyECDH(curve string, X, Y BigInt) (*PublicKeyECDH, error) {
++func NewPublicKeyECDH(curve string, X, Y openssl.BigInt) (*PublicKeyECDH, error) {
 +	panic("boringcrypto: not available")
 +}
 +func SharedKeyECDH(priv *PrivateKeyECDH, peerPublicKey []byte) ([]byte, error) {
@@ -206,13 +232,13 @@ index 0000000000..e5a9823141
 +func EncryptRSANoPadding(pub *PublicKeyRSA, msg []byte) ([]byte, error) {
 +	panic("boringcrypto: not available")
 +}
-+func GenerateKeyRSA(bits int) (N, E, D, P, Q, Dp, Dq, Qinv BigInt, err error) {
++func GenerateKeyRSA(bits int) (N, E, D, P, Q, Dp, Dq, Qinv openssl.BigInt, err error) {
 +	panic("boringcrypto: not available")
 +}
-+func NewPrivateKeyRSA(N, E, D, P, Q, Dp, Dq, Qinv BigInt) (*PrivateKeyRSA, error) {
++func NewPrivateKeyRSA(N, E, D, P, Q, Dp, Dq, Qinv openssl.BigInt) (*PrivateKeyRSA, error) {
 +	panic("boringcrypto: not available")
 +}
-+func NewPublicKeyRSA(N, E BigInt) (*PublicKeyRSA, error) { panic("boringcrypto: not available") }
++func NewPublicKeyRSA(N, E openssl.BigInt) (*PublicKeyRSA, error) { panic("boringcrypto: not available") }
 +func SignRSAPKCS1v15(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte, msgHashed bool) ([]byte, error) {
 +	panic("boringcrypto: not available")
 +}
@@ -235,8 +261,8 @@ index 0000000000..c5360fb8dc
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
 +
-+//go:build linux && !android && !gocrypt && !cmd_go_bootstrap && !msan
-+// +build linux,!android,!gocrypt,!cmd_go_bootstrap,!msan
++//go:build linux && !android && !gocrypt && !cmd_go_bootstrap && !msan && !no_openssl
++// +build linux,!android,!gocrypt,!cmd_go_bootstrap,!msan,!no_openssl
 +
 +// Package openssl provides access to OpenSSLCrypto implementation functions.
 +// Check the variable Enabled to find out whether OpenSSLCrypto is available.

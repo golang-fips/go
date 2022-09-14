@@ -15,6 +15,9 @@ sed -i -e "s/const boringEnabled/var boringEnabled/g" ${GO_SOURCES}
 sed -i -e "s/\!boringcrypto/no_openssl/g" ${GO_SOURCES}
 sed -i -e "s/boringcrypto/!no_openssl/g" ${GO_SOURCES}
 sed -i -e "s/boringcrypto/!no_openssl/g" src/crypto/internal/boring/fipstls/*.*
+sed -i -e "s/boringcrypto/!no_openssl/g" src/cmd/api/*.*
+# revert this back to fix the api test
+sed -i -e "s/\!no_openssl/boringcrypto/g" src/crypto/boring/boring.go
 
 # Remove the crypto/internal/boring code as we're replacing it with the openssl backend code.
 rm -rf src/crypto/internal/boring/*.go
