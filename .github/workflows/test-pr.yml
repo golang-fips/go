@@ -1,0 +1,83 @@
+name: "Test Go"
+
+on:
+  issue_comment:
+    types: [created]
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
+permissions: read-all
+
+jobs:
+  ack:
+    name: "Check if the comment is valid"
+    runs-on: ubuntu-latest
+    if: |
+      github.event.issue.pull_request
+      && contains(github.event.comment.body, '/test')
+      && contains(fromJson('["OWNER", "MEMBER"]'), github.event.comment.author_association)    
+    outputs:
+      architectures: ${{ steps.set-compose.outputs.architectures }}
+      composes: ${{ steps.set-compose.outputs.composes }}
+    steps:
+      - name: "Set the targets"
+        id: set-compose
+        shell: python
+        env:
+          COMMENT: ${{ github.event.comment.body }}
+        run: |
+          import os
+          import re
+          import argparse
+
+          class ParseCompose(argparse.Action):
+              def __call__(self, parser, namespace, values, option_string=None):
+                  setattr(namespace, self.dest, list())
+                  for v in values:
+                      getattr(namespace, self.dest).append(composes[v])
+                      
+
+          composes = {
+              'rhel7': 'RHEL-7-LatestUpdated',
+              'rhel8': 'RHEL-8-Released',
+              'rhel9': 'RHEL-9.0.0-Nightly'
+          }
+
+          architectures=['x86_64', 'ppc64le', 's390x', 'aarch64']
+
+          parser = argparse.ArgumentParser(prog="ack")
+
+          parser.add_argument('-o', '--os', choices=composes, nargs='+', action=ParseCompose, default=list(composes.values()))
+          parser.add_argument('-a', '--arch', choices=architectures, nargs='+', default=architectures)
+
+
+          try:
+              comment = re.search('/test (.*)', os.environ['COMMENT']).group(1)
+          except:
+              comment = ""
+
+          options = parser.parse_intermixed_args(comment.split())
+
+          print("::set-output name=architectures::{}".format(options.arch))
+          print("::set-output name=composes::{}".format(options.os))
+
+  test:
+    name: "Schedule tests"
+    runs-on: ubuntu-latest
+    needs: ack
+    strategy:
+      matrix:
+        arch: ${{fromJson(needs.ack.outputs.architectures)}}
+        compose: ${{fromJson(needs.ack.outputs.composes)}}
+    steps:
+      - name: Schedule test on Testing Farm
+        uses: sclorg/testing-farm-as-github-action@v1
+        with:
+          api_key: ${{ secrets.TF_API_KEY }}
+          git_url: https://github.com/golang-fips/release.git
+          git_ref: main
+          compose: ${{ matrix.compose }}
+          arch: ${{ matrix.arch }}
+          variables: "REPO_URL=$GITHUB_SERVER_URL/$GITHUB_REPOSITORY;REPO_NAME=$GITHUB_REPOSITORY;PR_NUMBER=${{ github.event.issue.number }}"
+          tf_scope: private
+          pull_request_status_name: "${{ matrix.compose }} - ${{ matrix.arch }}"
+          update_pull_request_status: true
+          create_issue_comment: false
