@@ -4,7 +4,20 @@ on:
   issue_comment:
     types: [created]
 # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
-permissions: read-all
+permissions:
+  actions: none
+  checks: read
+  contents: none
+  deployments: none
+  id-token: none
+  issues: read
+  discussions: read
+  packages: none
+  pages: none
+  pull-requests: read
+  repository-projects: none
+  security-events: none
+  statuses: none
 
 jobs:
   ack:
