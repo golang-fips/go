@@ -243,7 +243,7 @@ index 0000000000..98066f55fc
 +}
 diff --git a/src/crypto/internal/backend/openssl.go b/src/crypto/internal/backend/openssl.go
 new file mode 100644
-index 0000000000..ec562b535d
+index 0000000000..7dc24420a0
 --- /dev/null
 +++ b/src/crypto/internal/backend/openssl.go
 @@ -0,0 +1,103 @@
@@ -251,8 +251,8 @@ index 0000000000..ec562b535d
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
 +
-+//go:build linux && !android && !gocrypt && !cmd_go_bootstrap && !msan && !no_openssl
-+// +build linux,!android,!gocrypt,!cmd_go_bootstrap,!msan,!no_openssl
++//go:build linux && cgo && !android && !gocrypt && !cmd_go_bootstrap && !msan && !no_openssl
++// +build linux,cgo,!android,!gocrypt,!cmd_go_bootstrap,!msan,!no_openssl
 +
 +// Package openssl provides access to OpenSSLCrypto implementation functions.
 +// Check the variable Enabled to find out whether OpenSSLCrypto is available.
