@@ -354,7 +354,6 @@ index 0000000000..98066f55fc
 +	panic("boringcrypto: not available")
 +}
 +func HashVerifyECDSA(pub *PublicKeyECDSA, msg []byte, r, s openssl.BigInt, h crypto.Hash) bool {
->>>>>>> 5a2d8d378a (Add HashSign/HashVerify)
 +	panic("boringcrypto: not available")
 +}
 +func HashSignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) ([]byte, error) {
@@ -366,7 +365,6 @@ index 0000000000..7dc24420a0
 --- /dev/null
 +++ b/src/crypto/internal/backend/openssl.go
 @@ -0,0 +1,106 @@
->>>>>>> 5a2d8d378a (Add HashSign/HashVerify)
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
