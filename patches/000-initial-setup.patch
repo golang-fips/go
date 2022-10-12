@@ -1,3 +1,105 @@
+diff --git a/src/crypto/ecdsa/ecdsa_hashsignverify.go b/src/crypto/ecdsa/ecdsa_hashsignverify.go
+new file mode 100644
+index 0000000000..54db9ae178
+--- /dev/null
++++ b/src/crypto/ecdsa/ecdsa_hashsignverify.go
+@@ -0,0 +1,48 @@
++package ecdsa
++
++import (
++	"crypto"
++	"crypto/internal/boring"
++	"crypto/internal/randutil"
++	"io"
++)
++
++type ecdsaSignature struct {
++   R boring.BigInt
++   S boring.BigInt
++}
++func HashSign(rand io.Reader, priv *PrivateKey, msg []byte, h crypto.Hash) ([]byte, error) {
++	randutil.MaybeReadByte(rand)
++
++	if boring.Enabled {
++		b, err := boringPrivateKey(priv)
++		if err != nil {
++			return nil, err
++		}
++		return boring.HashSignECDSA(b, msg, h)
++	}
++	boring.UnreachableExceptTests()
++
++	hash := h.New()
++	hash.Write(msg)
++	d := hash.Sum(nil)
++
++	return SignASN1(rand, priv, d)
++}
++
++func HashVerify(pub *PublicKey, msg, sig []byte, h crypto.Hash) bool {
++	if boring.Enabled {
++		bpk, err := boringPublicKey(pub)
++		if err != nil {
++			return false
++		}
++		return boring.HashVerifyECDSA(bpk, msg, sig, h)
++	}
++	boring.UnreachableExceptTests()
++
++	hash := h.New()
++	hash.Write(msg)
++	d := hash.Sum(nil)
++
++	return VerifyASN1(pub, d, sig)
++}
+diff --git a/src/crypto/ecdsa/ecdsa_hashsignverify_test.go b/src/crypto/ecdsa/ecdsa_hashsignverify_test.go
+new file mode 100644
+index 0000000000..8f95e8af1f
+--- /dev/null
++++ b/src/crypto/ecdsa/ecdsa_hashsignverify_test.go
+@@ -0,0 +1,42 @@
++package ecdsa
++
++import (
++	"crypto"
++	"crypto/internal/boring"
++	"crypto/elliptic"
++	"crypto/rand"
++	"testing"
++)
++
++func testHashSignAndHashVerify(t *testing.T, c elliptic.Curve, tag string) {
++	priv, err := GenerateKey(c, rand.Reader)
++	if priv == nil {
++		t.Fatal(err)
++	}
++
++	msg := []byte("testing")
++	h := crypto.SHA256
++	sig, err := HashSign(rand.Reader, priv, msg, h)
++	if err != nil {
++		t.Errorf("%s: error signing: %s", tag, err)
++		return
++	}
++
++	if !HashVerify(&priv.PublicKey, msg, sig, h) {
++		t.Errorf("%s: Verify failed", tag)
++	}
++
++	msg[0] ^= 0xff
++	if HashVerify(&priv.PublicKey, msg, sig, h) {
++		t.Errorf("%s: Verify should not have succeeded", tag)
++	}
++}
++func TestHashSignAndHashVerify(t *testing.T) {
++	testHashSignAndHashVerify(t, elliptic.P256(), "p256")
++
++	if testing.Short() && !boring.Enabled {
++		return
++	}
++	testHashSignAndHashVerify(t, elliptic.P384(), "p384")
++	testHashSignAndHashVerify(t, elliptic.P521(), "p521")
++}
 diff --git a/src/cmd/go/testdata/script/gopath_std_vendor.txt b/src/cmd/go/testdata/script/gopath_std_vendor.txt
 index a0a41a50de..208aa7008a 100644
 --- a/src/cmd/go/testdata/script/gopath_std_vendor.txt
@@ -92,7 +194,7 @@ new file mode 100644
 index 0000000000..98066f55fc
 --- /dev/null
 +++ b/src/crypto/internal/backend/nobackend.go
-@@ -0,0 +1,148 @@
+@@ -0,0 +1,154 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -241,12 +343,18 @@ index 0000000000..98066f55fc
 +func ExpandHKDF(h func() hash.Hash, pseudorandomKey, info []byte) (io.Reader, error) {
 +	panic("boringcrypto: not available")
 +}
++func HashVerifyECDSA(pub *PublicKeyECDSA, msg []byte, r, s openssl.BigInt, h crypto.Hash) bool {
++	panic("boringcrypto: not available")
++}
++func HashSignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) ([]byte, error) {
++	panic("boringcrypto: not available")
++}
 diff --git a/src/crypto/internal/backend/openssl.go b/src/crypto/internal/backend/openssl.go
 new file mode 100644
 index 0000000000..7dc24420a0
 --- /dev/null
 +++ b/src/crypto/internal/backend/openssl.go
-@@ -0,0 +1,103 @@
+@@ -0,0 +1,106 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -296,6 +404,7 @@ index 0000000000..7dc24420a0
 +var ExecutingTest = openssl.ExecutingTest
 +
 +const RandReader = openssl.RandReader
++type BigInt = openssl.BigInt
 +
 +var NewGCMTLS = openssl.NewGCMTLS
 +var NewSHA1 = openssl.NewSHA1
@@ -322,6 +431,8 @@ index 0000000000..7dc24420a0
 +var NewPublicKeyECDSA = openssl.NewPublicKeyECDSA
 +var SignMarshalECDSA = openssl.SignMarshalECDSA
 +var VerifyECDSA = openssl.VerifyECDSA
++var HashVerifyECDSA = openssl.HashVerifyECDSA
++var HashSignECDSA = openssl.HashSignECDSA
 +
 +type PublicKeyECDH = openssl.PublicKeyECDH
 +type PrivateKeyECDH = openssl.PrivateKeyECDH
