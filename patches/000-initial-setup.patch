@@ -343,7 +343,7 @@ index 0000000000..98066f55fc
 +func ExpandHKDF(h func() hash.Hash, pseudorandomKey, info []byte) (io.Reader, error) {
 +	panic("boringcrypto: not available")
 +}
-+func HashVerifyECDSA(pub *PublicKeyECDSA, msg []byte, r, s openssl.BigInt, h crypto.Hash) bool {
++func HashVerifyECDSA(pub *PublicKeyECDSA, msg, sig []byte, h crypto.Hash) bool {
 +	panic("boringcrypto: not available")
 +}
 +func HashSignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) ([]byte, error) {
