@@ -1,9 +1,19 @@
+diff --git a/api/go1.19.txt b/api/go1.19.txt
+index 523f752d70..e9f2f7d173 100644
+--- a/api/go1.19.txt
++++ b/api/go1.19.txt
+@@ -290,3 +290,5 @@ pkg sync/atomic, type Uint64 struct #50860
+ pkg sync/atomic, type Uintptr struct #50860
+ pkg time, method (Duration) Abs() Duration #51414
+ pkg time, method (Time) ZoneBounds() (Time, Time) #50062
++pkg crypto/ecdsa, func HashSign(io.Reader, *PrivateKey, []uint8, crypto.Hash) ([]uint8, error) #000000
++pkg crypto/ecdsa, func HashVerify(*PublicKey, []uint8, []uint8, crypto.Hash) bool #000000
 diff --git a/src/crypto/ecdsa/ecdsa_hashsignverify.go b/src/crypto/ecdsa/ecdsa_hashsignverify.go
 new file mode 100644
 index 0000000000..54db9ae178
 --- /dev/null
 +++ b/src/crypto/ecdsa/ecdsa_hashsignverify.go
-@@ -0,0 +1,48 @@
+@@ -0,0 +1,44 @@
 +package ecdsa
 +
 +import (
@@ -13,10 +23,6 @@ index 0000000000..54db9ae178
 +	"io"
 +)
 +
-+type ecdsaSignature struct {
-+   R boring.BigInt
-+   S boring.BigInt
-+}
 +func HashSign(rand io.Reader, priv *PrivateKey, msg []byte, h crypto.Hash) ([]byte, error) {
 +	randutil.MaybeReadByte(rand)
 +
@@ -354,7 +360,7 @@ new file mode 100644
 index 0000000000..7dc24420a0
 --- /dev/null
 +++ b/src/crypto/internal/backend/openssl.go
-@@ -0,0 +1,106 @@
+@@ -0,0 +1,105 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -404,7 +410,6 @@ index 0000000000..7dc24420a0
 +var ExecutingTest = openssl.ExecutingTest
 +
 +const RandReader = openssl.RandReader
-+type BigInt = openssl.BigInt
 +
 +var NewGCMTLS = openssl.NewGCMTLS
 +var NewSHA1 = openssl.NewSHA1
