@@ -550,7 +550,7 @@ index 9a1fa3104b..f7c64dba42 100644
  	hasGCMAsmAMD64 = cpu.X86.HasAES && cpu.X86.HasPCLMULQDQ
  	hasGCMAsmARM64 = cpu.ARM64.HasAES && cpu.ARM64.HasPMULL
 diff --git a/src/crypto/tls/handshake_client.go b/src/crypto/tls/handshake_client.go
-index e61e3eb540..4a689ba358 100644
+index e61e3eb540..9aa231ede0 100644
 --- a/src/crypto/tls/handshake_client.go
 +++ b/src/crypto/tls/handshake_client.go
 @@ -10,6 +10,7 @@ import (
@@ -566,7 +566,7 @@ index e61e3eb540..4a689ba358 100644
  	var params ecdheParameters
  	if hello.supportedVersions[0] == VersionTLS13 {
 -		if hasAESGCMHardwareSupport {
-+		if boring.Enabled {
++		if needFIPS() {
 +			hello.cipherSuites = append(hello.cipherSuites, defaultFIPSCipherSuitesTLS13...)
 +		} else if hasAESGCMHardwareSupport {
  			hello.cipherSuites = append(hello.cipherSuites, defaultCipherSuitesTLS13...)
