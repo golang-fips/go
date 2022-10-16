@@ -505,7 +505,7 @@ index 1827f76458..4c5c3527a4 100644
  
  // default defaultFIPSCurvePreferences is the FIPS-allowed curves,
 diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
-index f743fc8e9f..5cf7003926 100644
+index f743fc8e9f..9fec2c8eb8 100644
 --- a/src/crypto/tls/boring_test.go
 +++ b/src/crypto/tls/boring_test.go
 @@ -51,11 +51,11 @@ func TestBoringServerProtocolVersion(t *testing.T) {
@@ -533,6 +533,15 @@ index f743fc8e9f..5cf7003926 100644
  		return true
  	}
  	return false
+@@ -311,7 +313,7 @@ func TestBoringCertAlgs(t *testing.T) {
+ 	// Set up some roots, intermediate CAs, and leaf certs with various algorithms.
+ 	// X_Y is X signed by Y.
+ 	R1 := boringCert(t, "R1", boringRSAKey(t, 2048), nil, boringCertCA|boringCertFIPSOK)
+-	R2 := boringCert(t, "R2", boringRSAKey(t, 4096), nil, boringCertCA)
++	R2 := boringCert(t, "R2", boringRSAKey(t, 4096), nil, boringCertCA|boringCertFIPSOK)
+ 
+ 	M1_R1 := boringCert(t, "M1_R1", boringECDSAKey(t, elliptic.P256()), R1, boringCertCA|boringCertFIPSOK)
+ 	M2_R1 := boringCert(t, "M2_R1", boringECDSAKey(t, elliptic.P224()), R1, boringCertCA)
 diff --git a/src/crypto/tls/cipher_suites.go b/src/crypto/tls/cipher_suites.go
 index 9a1fa3104b..f7c64dba42 100644
 --- a/src/crypto/tls/cipher_suites.go
@@ -550,18 +559,10 @@ index 9a1fa3104b..f7c64dba42 100644
  	hasGCMAsmAMD64 = cpu.X86.HasAES && cpu.X86.HasPCLMULQDQ
  	hasGCMAsmARM64 = cpu.ARM64.HasAES && cpu.ARM64.HasPMULL
 diff --git a/src/crypto/tls/handshake_client.go b/src/crypto/tls/handshake_client.go
-index e61e3eb540..9aa231ede0 100644
+index e61e3eb540..7031ab8706 100644
 --- a/src/crypto/tls/handshake_client.go
 +++ b/src/crypto/tls/handshake_client.go
-@@ -10,6 +10,7 @@ import (
- 	"crypto"
- 	"crypto/ecdsa"
- 	"crypto/ed25519"
-+	"crypto/internal/boring"
- 	"crypto/rsa"
- 	"crypto/subtle"
- 	"crypto/x509"
-@@ -127,7 +128,9 @@ func (c *Conn) makeClientHello() (*clientHelloMsg, ecdheParameters, error) {
+@@ -127,7 +127,9 @@ func (c *Conn) makeClientHello() (*clientHelloMsg, ecdheParameters, error) {
  
  	var params ecdheParameters
  	if hello.supportedVersions[0] == VersionTLS13 {
