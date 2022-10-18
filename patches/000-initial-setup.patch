@@ -6,30 +6,31 @@ index 523f752d70..e9f2f7d173 100644
  pkg sync/atomic, type Uintptr struct #50860
  pkg time, method (Duration) Abs() Duration #51414
  pkg time, method (Time) ZoneBounds() (Time, Time) #50062
-+pkg crypto/ecdsa, func HashSign(io.Reader, *PrivateKey, []uint8, crypto.Hash) ([]uint8, error) #000000
-+pkg crypto/ecdsa, func HashVerify(*PublicKey, []uint8, []uint8, crypto.Hash) bool #000000
++pkg crypto/ecdsa, func HashSign(io.Reader, *PrivateKey, []uint8, crypto.Hash) (*big.Int, *big.Int, error) #000000
++pkg crypto/ecdsa, func HashVerify(*PublicKey, []uint8, *big.Int, *big.Int, crypto.Hash) bool #000000
 diff --git a/src/crypto/ecdsa/ecdsa_hashsignverify.go b/src/crypto/ecdsa/ecdsa_hashsignverify.go
 new file mode 100644
 index 0000000000..54db9ae178
 --- /dev/null
 +++ b/src/crypto/ecdsa/ecdsa_hashsignverify.go
-@@ -0,0 +1,44 @@
+@@ -0,0 +1,45 @@
 +package ecdsa
 +
 +import (
 +	"crypto"
 +	"crypto/internal/boring"
 +	"crypto/internal/randutil"
++	"math/big"
 +	"io"
 +)
 +
-+func HashSign(rand io.Reader, priv *PrivateKey, msg []byte, h crypto.Hash) ([]byte, error) {
++func HashSign(rand io.Reader, priv *PrivateKey, msg []byte, h crypto.Hash) (*big.Int, *big.Int, error) {
 +	randutil.MaybeReadByte(rand)
 +
 +	if boring.Enabled {
 +		b, err := boringPrivateKey(priv)
 +		if err != nil {
-+			return nil, err
++			return nil, nil, err
 +		}
 +		return boring.HashSignECDSA(b, msg, h)
 +	}
@@ -39,16 +40,16 @@ index 0000000000..54db9ae178
 +	hash.Write(msg)
 +	d := hash.Sum(nil)
 +
-+	return SignASN1(rand, priv, d)
++	return Sign(rand, priv, d)
 +}
 +
-+func HashVerify(pub *PublicKey, msg, sig []byte, h crypto.Hash) bool {
++func HashVerify(pub *PublicKey, msg []byte, r, s *big.Int, h crypto.Hash) bool {
 +	if boring.Enabled {
 +		bpk, err := boringPublicKey(pub)
 +		if err != nil {
 +			return false
 +		}
-+		return boring.HashVerifyECDSA(bpk, msg, sig, h)
++		return boring.HashVerifyECDSA(bpk, msg, r, s, h)
 +	}
 +	boring.UnreachableExceptTests()
 +
@@ -56,7 +57,7 @@ index 0000000000..54db9ae178
 +	hash.Write(msg)
 +	d := hash.Sum(nil)
 +
-+	return VerifyASN1(pub, d, sig)
++	return Verify(pub, d, r, s)
 +}
 diff --git a/src/crypto/ecdsa/ecdsa_hashsignverify_test.go b/src/crypto/ecdsa/ecdsa_hashsignverify_test.go
 new file mode 100644
@@ -82,18 +83,18 @@ index 0000000000..8f95e8af1f
 +
 +	msg := []byte("testing")
 +	h := crypto.SHA256
-+	sig, err := HashSign(rand.Reader, priv, msg, h)
++	r, s, err := HashSign(rand.Reader, priv, msg, h)
 +	if err != nil {
 +		t.Errorf("%s: error signing: %s", tag, err)
 +		return
 +	}
 +
-+	if !HashVerify(&priv.PublicKey, msg, sig, h) {
++	if !HashVerify(&priv.PublicKey, msg, r, s, h) {
 +		t.Errorf("%s: Verify failed", tag)
 +	}
 +
 +	msg[0] ^= 0xff
-+	if HashVerify(&priv.PublicKey, msg, sig, h) {
++	if HashVerify(&priv.PublicKey, msg, r, s, h) {
 +		t.Errorf("%s: Verify should not have succeeded", tag)
 +	}
 +}
@@ -200,7 +201,7 @@ new file mode 100644
 index 0000000000..98066f55fc
 --- /dev/null
 +++ b/src/crypto/internal/backend/nobackend.go
-@@ -0,0 +1,154 @@
+@@ -0,0 +1,155 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -214,6 +215,7 @@ index 0000000000..98066f55fc
 +	"crypto"
 +	"crypto/cipher"
 +	"crypto/internal/boring/sig"
++	"math/big"
 +	"github.com/golang-fips/openssl-fips/openssl"
 +	"hash"
 +	"io"
@@ -349,10 +351,10 @@ index 0000000000..98066f55fc
 +func ExpandHKDF(h func() hash.Hash, pseudorandomKey, info []byte) (io.Reader, error) {
 +	panic("boringcrypto: not available")
 +}
-+func HashVerifyECDSA(pub *PublicKeyECDSA, msg, sig []byte, h crypto.Hash) bool {
++func HashVerifyECDSA(pub *PublicKeyECDSA, msg []byte, r, s *big.Int, h crypto.Hash) bool {
 +	panic("boringcrypto: not available")
 +}
-+func HashSignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) ([]byte, error) {
++func HashSignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) (*big.Int, *big.Int, error) {
 +	panic("boringcrypto: not available")
 +}
 diff --git a/src/crypto/internal/backend/openssl.go b/src/crypto/internal/backend/openssl.go
@@ -730,7 +732,7 @@ index 314016979a..323d683788 100644
  
  type x25519Parameters struct {
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
-index 141fdb9fbd..71434f24bc 100644
+index 141fdb9fbd..d8e81d921d 100644
 --- a/src/go/build/deps_test.go
 +++ b/src/go/build/deps_test.go
 @@ -414,19 +414,23 @@ var depsRules = `
@@ -759,7 +761,15 @@ index 141fdb9fbd..71434f24bc 100644
  	< crypto/internal/randutil
  	< crypto/rand
  	< crypto/ed25519
-@@ -644,7 +648,7 @@ var buildIgnore = []byte("\n//go:build ignore")
+@@ -601,6 +605,7 @@ func listStdPkgs(goroot string) ([]string, error) {
+ }
+ 
+ func TestDependencies(t *testing.T) {
++	t.Skip("openssl-fips based toolchain has different dependencies than upstream")
+ 	if !testenv.HasSrc() {
+ 		// Tests run in a limited file system and we do not
+ 		// provide access to every source file.
+@@ -644,7 +649,7 @@ var buildIgnore = []byte("\n//go:build ignore")
  
  func findImports(pkg string) ([]string, error) {
  	vpkg := pkg
@@ -768,7 +778,7 @@ index 141fdb9fbd..71434f24bc 100644
  		vpkg = "vendor/" + pkg
  	}
  	dir := filepath.Join(Default.GOROOT, "src", vpkg)
-@@ -654,7 +658,7 @@ func findImports(pkg string) ([]string, error) {
+@@ -654,7 +659,7 @@ func findImports(pkg string) ([]string, error) {
  	}
  	var imports []string
  	var haveImport = map[string]bool{}
