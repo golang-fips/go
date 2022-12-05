@@ -27,7 +27,11 @@ rm src/crypto/boring/boring_test.go
 
 # Add new openssl backend to module and vendor it.
 cd src
-go get github.com/golang-fips/openssl-fips
+SCRIPT_DIR=$(readlink -f $(dirname $0))
+CONFIG_DIR=$(readlink -f $(dirname $0)/../config)
+OPENSSL_FIPS_REF=$(go run ${SCRIPT_DIR}/versions.go ${CONFIG_DIR}/versions.json \
+			github.com/golang-fips/openssl-fips)
+go get github.com/golang-fips/openssl-fips@${OPENSSL_FIPS_REF}
 
 replace="${1}"
 if [ -n "${replace}" ]; then
