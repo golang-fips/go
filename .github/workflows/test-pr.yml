@@ -1,0 +1,92 @@
+name: "Test Go"
+
+on:
+  issue_comment:
+    types: [created]
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
+permissions:
+  actions: none
+  checks: read
+  contents: none
+  deployments: none
+  id-token: none
+  issues: read
+  discussions: read
+  packages: none
+  pages: none
+  pull-requests: read
+  repository-projects: none
+  security-events: none
+  statuses: none
+
+jobs:
+  ack:
+    name: "Check if the comment is valid"
+    runs-on: ubuntu-latest
+    if: |
+      github.event.issue.pull_request
+      && contains(github.event.comment.body, '/test')
+      && contains(fromJson('["OWNER", "MEMBER"]'), github.event.comment.author_association)    
+    outputs:
+      composes: ${{ steps.set-compose.outputs.composes }}
+    steps:
+      - name: "Set the targets"
+        id: set-compose
+        shell: python
+        env:
+          COMMENT: ${{ github.event.comment.body }}
+        run: |
+          import os
+          import re
+          import argparse
+
+          class ParseCompose(argparse.Action):
+              def __call__(self, parser, namespace, values, option_string=None):
+                  setattr(namespace, self.dest, list())
+                  for v in values:
+                      getattr(namespace, self.dest).append(composes[v])
+                      
+
+          composes = {
+              'rhel7': 'registry.access.redhat.com/ubi7/go-toolset:latest',
+              'rhel8': 'registry.access.redhat.com/ubi8/go-toolset:latest',
+              'rhel9': 'registry.access.redhat.com/ubi9/go-toolset:latest'
+          }
+
+          parser = argparse.ArgumentParser(prog="ack")
+
+          parser.add_argument('-o', '--os', choices=composes, nargs='+', action=ParseCompose, default=list(composes.values()))
+
+
+          try:
+              comment = re.search('/test (.*)', os.environ['COMMENT']).group(1)
+          except:
+              comment = ""
+
+          options = parser.parse_intermixed_args(comment.split())
+
+          print("::set-output name=composes::{}".format(options.os))
+
+  test:
+    name: "Test Go"
+    runs-on: ubuntu-latest
+    needs: ack
+    strategy:
+      matrix:
+        compose: ${{fromJson(needs.ack.outputs.composes)}}
+    container:
+      image: ${{ matrix.compose }}
+    steps:
+      - name: "Print OS version"
+        run: cat /etc/redhat-release
+      - uses: actions/checkout@v3
+        with:
+          ref: "refs/pull/${{ github.event.issue.number }}/head"
+      - name: "Build"
+        run: |
+          pwd
+          ls -l
+          pushd ./src
+          ./make.bash -v
+          popd
+        shell: bash
