@@ -806,7 +806,7 @@ index 1827f76458..4c5c3527a4 100644
  
  // default defaultFIPSCurvePreferences is the FIPS-allowed curves,
 diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
-index f743fc8e9f..19ba03531c 100644
+index 59d4d2b272..b572a59303 100644
 --- a/src/crypto/tls/boring_test.go
 +++ b/src/crypto/tls/boring_test.go
 @@ -9,6 +9,7 @@ package tls
@@ -817,7 +817,7 @@ index f743fc8e9f..19ba03531c 100644
  	"crypto/internal/boring/fipstls"
  	"crypto/rand"
  	"crypto/rsa"
-@@ -51,11 +52,11 @@ func TestBoringServerProtocolVersion(t *testing.T) {
+@@ -52,11 +53,11 @@ func TestBoringServerProtocolVersion(t *testing.T) {
  	test("VersionTLS10", VersionTLS10, "client offered only unsupported versions")
  	test("VersionTLS11", VersionTLS11, "client offered only unsupported versions")
  	test("VersionTLS12", VersionTLS12, "")
@@ -831,7 +831,7 @@ index f743fc8e9f..19ba03531c 100644
  }
  
  func isBoringCipherSuite(id uint16) bool {
-@@ -65,7 +66,9 @@ func isBoringCipherSuite(id uint16) bool {
+@@ -66,7 +67,9 @@ func isBoringCipherSuite(id uint16) bool {
  		TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
  		TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
  		TLS_RSA_WITH_AES_128_GCM_SHA256,
@@ -842,16 +842,13 @@ index f743fc8e9f..19ba03531c 100644
  		return true
  	}
  	return false
-@@ -311,7 +314,7 @@ func TestBoringCertAlgs(t *testing.T) {
- 	// Set up some roots, intermediate CAs, and leaf certs with various algorithms.
- 	// X_Y is X signed by Y.
- 	R1 := boringCert(t, "R1", boringRSAKey(t, 2048), nil, boringCertCA|boringCertFIPSOK)
--	R2 := boringCert(t, "R2", boringRSAKey(t, 4096), nil, boringCertCA)
-+	R2 := boringCert(t, "R2", boringRSAKey(t, 4096), nil, boringCertCA|boringCertFIPSOK)
- 
- 	M1_R1 := boringCert(t, "M1_R1", boringECDSAKey(t, elliptic.P256()), R1, boringCertCA|boringCertFIPSOK)
+@@ -318,12 +321,12 @@ func TestBoringCertAlgs(t *testing.T) {
  	M2_R1 := boringCert(t, "M2_R1", boringECDSAKey(t, elliptic.P224()), R1, boringCertCA)
-@@ -322,7 +325,7 @@ func TestBoringCertAlgs(t *testing.T) {
+ 
+ 	I_R1 := boringCert(t, "I_R1", boringRSAKey(t, 3072), R1, boringCertCA|boringCertFIPSOK)
+-	I_R2 := boringCert(t, "I_R2", I_R1.key, R2, boringCertCA|boringCertFIPSOK)
++	I_R2 := boringCert(t, "I_R2", I_R1.key, R2, boringCertCA)
+ 	I_M1 := boringCert(t, "I_M1", I_R1.key, M1_R1, boringCertCA|boringCertFIPSOK)
  	I_M2 := boringCert(t, "I_M2", I_R1.key, M2_R1, boringCertCA|boringCertFIPSOK)
  
  	L1_I := boringCert(t, "L1_I", boringECDSAKey(t, elliptic.P384()), I_R1, boringCertLeaf|boringCertFIPSOK)
@@ -860,7 +857,7 @@ index f743fc8e9f..19ba03531c 100644
  
  	// client verifying server cert
  	testServerCert := func(t *testing.T, desc string, pool *x509.CertPool, key interface{}, list [][]byte, ok bool) {
-@@ -361,6 +364,11 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -362,6 +365,11 @@ func TestBoringCertAlgs(t *testing.T) {
  		serverConfig := testConfig.Clone()
  		serverConfig.ClientCAs = pool
  		serverConfig.ClientAuth = RequireAndVerifyClientCert
@@ -872,7 +869,7 @@ index f743fc8e9f..19ba03531c 100644
  
  		_, serverErr := boringHandshake(t, clientConfig, serverConfig)
  
-@@ -383,8 +391,8 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -384,8 +392,8 @@ func TestBoringCertAlgs(t *testing.T) {
  	// exhaustive test with computed answers.
  	r1pool := x509.NewCertPool()
  	r1pool.AddCert(R1.cert)
@@ -883,7 +880,7 @@ index f743fc8e9f..19ba03531c 100644
  	fipstls.Force()
  	testServerCert(t, "basic (fips)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
  	testClientCert(t, "basic (fips, client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
-@@ -405,7 +413,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -406,7 +414,7 @@ func TestBoringCertAlgs(t *testing.T) {
  			leaf = L2_I
  		}
  		for i := 0; i < 64; i++ {
@@ -892,7 +889,7 @@ index f743fc8e9f..19ba03531c 100644
  			reachableFIPS := map[string]bool{leaf.parentOrg: leaf.fipsOK}
  			list := [][]byte{leaf.der}
  			listName := leaf.name
-@@ -413,7 +421,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -414,7 +422,7 @@ func TestBoringCertAlgs(t *testing.T) {
  				if cond != 0 {
  					list = append(list, c.der)
  					listName += "," + c.name
@@ -901,7 +898,7 @@ index f743fc8e9f..19ba03531c 100644
  						reachable[c.parentOrg] = true
  					}
  					if reachableFIPS[c.org] && c.fipsOK {
-@@ -437,7 +445,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -438,7 +446,7 @@ func TestBoringCertAlgs(t *testing.T) {
  					if cond != 0 {
  						rootName += "," + c.name
  						pool.AddCert(c.cert)
@@ -910,7 +907,7 @@ index f743fc8e9f..19ba03531c 100644
  							shouldVerify = true
  						}
  						if reachableFIPS[c.org] && c.fipsOK {
-@@ -463,6 +471,7 @@ const (
+@@ -464,6 +472,7 @@ const (
  	boringCertCA = iota
  	boringCertLeaf
  	boringCertFIPSOK = 0x80
@@ -918,7 +915,7 @@ index f743fc8e9f..19ba03531c 100644
  )
  
  func boringRSAKey(t *testing.T, size int) *rsa.PrivateKey {
-@@ -489,6 +498,7 @@ type boringCertificate struct {
+@@ -490,6 +499,7 @@ type boringCertificate struct {
  	cert      *x509.Certificate
  	key       interface{}
  	fipsOK    bool
@@ -926,7 +923,7 @@ index f743fc8e9f..19ba03531c 100644
  }
  
  func boringCert(t *testing.T, name string, key interface{}, parent *boringCertificate, mode int) *boringCertificate {
-@@ -510,7 +520,7 @@ func boringCert(t *testing.T, name string, key interface{}, parent *boringCertif
+@@ -511,7 +521,7 @@ func boringCert(t *testing.T, name string, key interface{}, parent *boringCertif
  		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
  		BasicConstraintsValid: true,
  	}
@@ -935,7 +932,7 @@ index f743fc8e9f..19ba03531c 100644
  		tmpl.DNSNames = []string{"example.com"}
  	} else {
  		tmpl.IsCA = true
-@@ -547,7 +557,8 @@ func boringCert(t *testing.T, name string, key interface{}, parent *boringCertif
+@@ -548,7 +558,8 @@ func boringCert(t *testing.T, name string, key interface{}, parent *boringCertif
  	}
  
  	fipsOK := mode&boringCertFIPSOK != 0
@@ -1132,32 +1129,6 @@ index 314016979a..323d683788 100644
  }
  
  type x25519Parameters struct {
-diff --git a/src/crypto/x509/boring.go b/src/crypto/x509/boring.go
-index 4aae90570d..42706f93c4 100644
---- a/src/crypto/x509/boring.go
-+++ b/src/crypto/x509/boring.go
-@@ -26,7 +26,7 @@ func boringAllowCert(c *Certificate) bool {
- 	default:
- 		return false
- 	case *rsa.PublicKey:
--		if size := k.N.BitLen(); size != 2048 && size != 3072 {
-+		if size := k.N.BitLen(); size != 2048 && size != 3072 && size != 4096 {
- 			return false
- 		}
- 	case *ecdsa.PublicKey:
-diff --git a/src/crypto/x509/boring_test.go b/src/crypto/x509/boring_test.go
-index 7010f44b32..70021f3bdd 100644
---- a/src/crypto/x509/boring_test.go
-+++ b/src/crypto/x509/boring_test.go
-@@ -54,7 +54,7 @@ type boringCertificate struct {
- 
- func TestBoringAllowCert(t *testing.T) {
- 	R1 := testBoringCert(t, "R1", boringRSAKey(t, 2048), nil, boringCertCA|boringCertFIPSOK)
--	R2 := testBoringCert(t, "R2", boringRSAKey(t, 4096), nil, boringCertCA)
-+	R2 := testBoringCert(t, "R2", boringRSAKey(t, 4096), nil, boringCertCA|boringCertFIPSOK)
- 
- 	M1_R1 := testBoringCert(t, "M1_R1", boringECDSAKey(t, elliptic.P256()), R1, boringCertCA|boringCertFIPSOK)
- 	M2_R1 := testBoringCert(t, "M2_R1", boringECDSAKey(t, elliptic.P224()), R1, boringCertCA)
 diff --git a/src/crypto/x509/x509_test.go b/src/crypto/x509/x509_test.go
 index b1cdabba28..f2d7a2bd6e 100644
 --- a/src/crypto/x509/x509_test.go
