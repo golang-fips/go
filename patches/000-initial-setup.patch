@@ -125,6 +125,80 @@ index 0000000000..d12ba2f441
 +	testHashSignAndHashVerify(t, elliptic.P384(), "p384")
 +	testHashSignAndHashVerify(t, elliptic.P521(), "p521")
 +}
+diff --git a/src/crypto/ecdsa/ecdsa_test.go b/src/crypto/ecdsa/ecdsa_test.go
+index 77a8134316..db56cdd26e 100644
+--- a/src/crypto/ecdsa/ecdsa_test.go
++++ b/src/crypto/ecdsa/ecdsa_test.go
+@@ -12,6 +12,8 @@ import (
+ 	"crypto/sha1"
+ 	"crypto/sha256"
+ 	"crypto/sha512"
++	"crypto/internal/boring"
++	"crypto/internal/backend/boringtest"
+ 	"encoding/hex"
+ 	"hash"
+ 	"io"
+@@ -27,12 +29,17 @@ func testAllCurves(t *testing.T, f func(*testing.T, elliptic.Curve)) {
+ 		curve elliptic.Curve
+ 	}{
+ 		{"P256", elliptic.P256()},
+-		{"P224", elliptic.P224()},
+ 		{"P384", elliptic.P384()},
+ 		{"P521", elliptic.P521()},
+ 	}
+ 	if testing.Short() {
+ 		tests = tests[:1]
++	} else if !boring.Enabled || boringtest.Supports(t, "CurveP224") {
++		p224 := struct {
++			name  string
++			curve elliptic.Curve
++		}{"P224", elliptic.P224()}
++		tests = append(tests, p224)
+ 	}
+ 	for _, test := range tests {
+ 		curve := test.curve
+@@ -223,7 +230,11 @@ func TestVectors(t *testing.T) {
+ 
+ 			switch curve {
+ 			case "P-224":
+-				pub.Curve = elliptic.P224()
++				if !boring.Enabled || boringtest.Supports(t, "CurveP224") {
++					pub.Curve = elliptic.P224()
++				} else {
++					pub.Curve = nil
++				}
+ 			case "P-256":
+ 				pub.Curve = elliptic.P256()
+ 			case "P-384":
+diff --git a/src/crypto/ecdsa/equal_test.go b/src/crypto/ecdsa/equal_test.go
+index 53ac8504c2..4371e31b1a 100644
+--- a/src/crypto/ecdsa/equal_test.go
++++ b/src/crypto/ecdsa/equal_test.go
+@@ -10,6 +10,8 @@ import (
+ 	"crypto/elliptic"
+ 	"crypto/rand"
+ 	"crypto/x509"
++	"crypto/internal/boring"
++	"crypto/internal/backend/boringtest"
+ 	"testing"
+ )
+ 
+@@ -65,11 +67,13 @@ func testEqual(t *testing.T, c elliptic.Curve) {
+ }
+ 
+ func TestEqual(t *testing.T) {
+-	t.Run("P224", func(t *testing.T) { testEqual(t, elliptic.P224()) })
++	t.Run("P256", func(t *testing.T) { testEqual(t, elliptic.P256()) })
+ 	if testing.Short() {
+ 		return
+ 	}
+-	t.Run("P256", func(t *testing.T) { testEqual(t, elliptic.P256()) })
++	if !boring.Enabled || boringtest.Supports(t, "CurveP224") {
++		t.Run("P224", func(t *testing.T) { testEqual(t, elliptic.P224()) })
++	}
+ 	t.Run("P384", func(t *testing.T) { testEqual(t, elliptic.P384()) })
+ 	t.Run("P521", func(t *testing.T) { testEqual(t, elliptic.P521()) })
+ }
 diff --git a/src/crypto/ed25519/ed25519_test.go b/src/crypto/ed25519/ed25519_test.go
 index 7c5181788f..102c4e5355 100644
 --- a/src/crypto/ed25519/ed25519_test.go
@@ -193,15 +267,64 @@ index 0000000000..c0800df578
 +	x := (*(*[]big.Word)(unsafe.Pointer(&b)))[:len(b)]
 +	return new(big.Int).SetBits(x)
 +}
+diff --git a/src/crypto/internal/backend/boringtest/config.go b/src/crypto/internal/backend/boringtest/config.go
+new file mode 100644
+index 0000000000..521f374ebd
+--- /dev/null
++++ b/src/crypto/internal/backend/boringtest/config.go
+@@ -0,0 +1,43 @@
++/* Test configuration package for OpenSSL FIPS
++
++The FIPS mode behavior of OpenSSL varies between versions and distributions
++depending which version of the FIPS standard the library targets. Because
++the Go crypto tests can not reliably account for these behavioral differences,
++building golang-fips on a new distribution often results in test failures due to
++variations in things like supported crypto algorithms and key sizes.
++
++The goal of this package is to implement a compile-time defined configuration
++for the behavior of OpenSSL, which is more easily configurable to run in different
++environments.  The compile-time schema was chosen as the preferred method, because
++we don't want elements of the run-time environment to impact the result of the tests
++(for example, changes to the environment or config files).
++*/
++
++package boringtest
++
++import (
++	"testing"
++)
++
++var testConfig map[string]bool
++
++func init() {
++	testConfig = map[string]bool{
++		"PKCSv1.5": false,
++		"SHA1": false,
++		// really this is anything < 2048
++		"RSA1024": false,
++		"RSA4096LeafCert": true,
++		"RSA1024LeafCert": false,
++		"TLS13": true,
++		"CurveP224": true,
++	}
++}
++
++func Supports(t *testing.T, key string) bool {
++	result, ok := testConfig[key]
++	if !ok {
++		panic("key not found in boringtest.TestConfig: " + key)
++	}
++	return result
++}
 diff --git a/src/crypto/internal/backend/dummy.s b/src/crypto/internal/backend/dummy.s
 new file mode 100644
 index 0000000000..e69de29bb2
 diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
 new file mode 100644
-index 0000000000..482ed6f470
+index 0000000000..e9d2df4521
 --- /dev/null
 +++ b/src/crypto/internal/backend/nobackend.go
-@@ -0,0 +1,155 @@
+@@ -0,0 +1,158 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -351,6 +474,9 @@ index 0000000000..482ed6f470
 +func ExpandHKDF(h func() hash.Hash, pseudorandomKey, info []byte) (io.Reader, error) {
 +	panic("boringcrypto: not available")
 +}
++func SupportsHKDF() bool {
++	panic("boringcrypto: not available")
++}
 +func HashVerifyECDSA(pub *PublicKeyECDSA, msg []byte, r, s *big.Int, h crypto.Hash) bool {
 +	panic("boringcrypto: not available")
 +}
@@ -359,10 +485,10 @@ index 0000000000..482ed6f470
 +}
 diff --git a/src/crypto/internal/backend/openssl.go b/src/crypto/internal/backend/openssl.go
 new file mode 100644
-index 0000000000..4040c77bc1
+index 0000000000..2721d06078
 --- /dev/null
 +++ b/src/crypto/internal/backend/openssl.go
-@@ -0,0 +1,105 @@
+@@ -0,0 +1,106 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -468,63 +594,65 @@ index 0000000000..4040c77bc1
 +
 +var ExtractHKDF = openssl.ExtractHKDF
 +var ExpandHKDF = openssl.ExpandHKDF
++var SupportsHKDF = openssl.SupportsHKDF
 diff --git a/src/crypto/rsa/pkcs1v15_test.go b/src/crypto/rsa/pkcs1v15_test.go
-index 69c509a771..05eac35d88 100644
+index 69c509a771..c9c5ebcc04 100644
 --- a/src/crypto/rsa/pkcs1v15_test.go
 +++ b/src/crypto/rsa/pkcs1v15_test.go
-@@ -7,6 +7,7 @@ package rsa
+@@ -7,6 +7,8 @@ package rsa
  import (
  	"bytes"
  	"crypto"
 +	"crypto/internal/boring"
++	"crypto/internal/backend/boringtest"
  	"crypto/rand"
  	"crypto/sha1"
  	"crypto/sha256"
-@@ -52,6 +53,10 @@ var decryptPKCS1v15Tests = []DecryptPKCS1v15Test{
+@@ -52,6 +54,10 @@ var decryptPKCS1v15Tests = []DecryptPKCS1v15Test{
  }
  
  func TestDecryptPKCS1v15(t *testing.T) {
-+	if boring.Enabled {
++	if boring.Enabled && !boringtest.Supports(t, "PKCSv1.5") {
 +		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
 +	}
 +
  	decryptionFuncs := []func([]byte) ([]byte, error){
  		func(ciphertext []byte) (plaintext []byte, err error) {
  			return DecryptPKCS1v15(nil, rsaPrivateKey, ciphertext)
-@@ -76,6 +81,10 @@ func TestDecryptPKCS1v15(t *testing.T) {
+@@ -76,6 +82,10 @@ func TestDecryptPKCS1v15(t *testing.T) {
  }
  
  func TestEncryptPKCS1v15(t *testing.T) {
-+	if boring.Enabled {
++	if boring.Enabled && !boringtest.Supports(t, "PKCSv1.5") {
 +		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
 +	}
 +
  	random := rand.Reader
  	k := (rsaPrivateKey.N.BitLen() + 7) / 8
  
-@@ -137,6 +146,10 @@ var decryptPKCS1v15SessionKeyTests = []DecryptPKCS1v15Test{
+@@ -137,6 +147,10 @@ var decryptPKCS1v15SessionKeyTests = []DecryptPKCS1v15Test{
  }
  
  func TestEncryptPKCS1v15SessionKey(t *testing.T) {
-+	if boring.Enabled {
++	if boring.Enabled && !boringtest.Supports(t, "PKCSv1.5") {
 +		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
 +	}
 +
  	for i, test := range decryptPKCS1v15SessionKeyTests {
  		key := []byte("FAIL")
  		err := DecryptPKCS1v15SessionKey(nil, rsaPrivateKey, decodeBase64(test.in), key)
-@@ -151,6 +164,10 @@ func TestEncryptPKCS1v15SessionKey(t *testing.T) {
+@@ -151,6 +165,10 @@ func TestEncryptPKCS1v15SessionKey(t *testing.T) {
  }
  
  func TestEncryptPKCS1v15DecrypterSessionKey(t *testing.T) {
-+	if boring.Enabled {
++	if boring.Enabled && !boringtest.Supports(t, "PKCSv1.5") {
 +		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
 +	}
 +
  	for i, test := range decryptPKCS1v15SessionKeyTests {
  		plaintext, err := rsaPrivateKey.Decrypt(rand.Reader, decodeBase64(test.in), &PKCS1v15DecryptOptions{SessionKeyLen: 4})
  		if err != nil {
-@@ -190,7 +207,7 @@ type signPKCS1v15Test struct {
+@@ -190,7 +208,7 @@ type signPKCS1v15Test struct {
  //
  //	`openssl rsautl -verify -inkey pk -in signature | hexdump -C`
  var signPKCS1v15Tests = []signPKCS1v15Test{
@@ -533,7 +661,7 @@ index 69c509a771..05eac35d88 100644
  }
  
  func TestSignPKCS1v15(t *testing.T) {
-@@ -199,7 +216,7 @@ func TestSignPKCS1v15(t *testing.T) {
+@@ -199,7 +217,7 @@ func TestSignPKCS1v15(t *testing.T) {
  		h.Write([]byte(test.in))
  		digest := h.Sum(nil)
  
@@ -542,7 +670,7 @@ index 69c509a771..05eac35d88 100644
  		if err != nil {
  			t.Errorf("#%d %s", i, err)
  		}
-@@ -219,7 +236,7 @@ func TestVerifyPKCS1v15(t *testing.T) {
+@@ -219,7 +237,7 @@ func TestVerifyPKCS1v15(t *testing.T) {
  
  		sig, _ := hex.DecodeString(test.out)
  
@@ -551,7 +679,7 @@ index 69c509a771..05eac35d88 100644
  		if err != nil {
  			t.Errorf("#%d %s", i, err)
  		}
-@@ -242,21 +259,25 @@ func TestUnpaddedSignature(t *testing.T) {
+@@ -242,21 +260,25 @@ func TestUnpaddedSignature(t *testing.T) {
  	//
  	// Where "key" contains the RSA private key given at the bottom of this
  	// file.
@@ -573,14 +701,14 @@ index 69c509a771..05eac35d88 100644
  }
  
  func TestShortSessionKey(t *testing.T) {
-+	if boring.Enabled {
++	if boring.Enabled && !boringtest.Supports(t, "PKCSv1.5") {
 +		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
 +	}
 +
  	// This tests that attempting to decrypt a session key where the
  	// ciphertext is too small doesn't run outside the array bounds.
  	ciphertext, err := EncryptPKCS1v15(rand.Reader, &rsaPrivateKey.PublicKey, []byte{1})
-@@ -299,6 +320,51 @@ var rsaPrivateKey = &PrivateKey{
+@@ -299,6 +321,51 @@ var rsaPrivateKey = &PrivateKey{
  	},
  }
  
@@ -633,28 +761,29 @@ index 69c509a771..05eac35d88 100644
  	pub := &PublicKey{
  		E: 65537,
 diff --git a/src/crypto/rsa/pss_test.go b/src/crypto/rsa/pss_test.go
-index 51f9760187..93bbc26bd0 100644
+index 51f9760187..eceb31aa71 100644
 --- a/src/crypto/rsa/pss_test.go
 +++ b/src/crypto/rsa/pss_test.go
-@@ -9,6 +9,7 @@ import (
+@@ -9,6 +9,8 @@ import (
  	"bytes"
  	"compress/bzip2"
  	"crypto"
 +	"crypto/internal/boring"
++	"crypto/internal/backend/boringtest"
  	"crypto/rand"
  	"crypto/sha1"
  	"crypto/sha256"
-@@ -76,6 +77,9 @@ func TestEMSAPSS(t *testing.T) {
+@@ -76,6 +78,9 @@ func TestEMSAPSS(t *testing.T) {
  // TestPSSGolden tests all the test vectors in pss-vect.txt from
  // ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-1/pkcs-1v2-1-vec.zip
  func TestPSSGolden(t *testing.T) {
-+	if boring.Enabled {
++	if boring.Enabled && !boringtest.Supports(t, "SHA1") {
 +		t.Skip("skipping PSS test with BoringCrypto: SHA-1 not allowed")
 +	}
  	inFile, err := os.Open("testdata/pss-vect.txt.bz2")
  	if err != nil {
  		t.Fatalf("Failed to open input file: %s", err)
-@@ -167,6 +171,10 @@ func TestPSSGolden(t *testing.T) {
+@@ -167,6 +172,10 @@ func TestPSSGolden(t *testing.T) {
  // TestPSSOpenSSL ensures that we can verify a PSS signature from OpenSSL with
  // the default options. OpenSSL sets the salt length to be maximal.
  func TestPSSOpenSSL(t *testing.T) {
@@ -665,7 +794,7 @@ index 51f9760187..93bbc26bd0 100644
  	hash := crypto.SHA256
  	h := hash.New()
  	h.Write([]byte("testing"))
-@@ -194,10 +202,15 @@ func TestPSSNilOpts(t *testing.T) {
+@@ -194,10 +203,15 @@ func TestPSSNilOpts(t *testing.T) {
  	h.Write([]byte("testing"))
  	hashed := h.Sum(nil)
  
@@ -674,14 +803,14 @@ index 51f9760187..93bbc26bd0 100644
  }
  
  func TestPSSSigning(t *testing.T) {
-+	if boring.Enabled {
++	if boring.Enabled && !boringtest.Supports(t, "SHA1") {
 +		t.Skip("skipping PSS test with BoringCrypto: too short key")
 +	}
 +
  	var saltLengthCombinations = []struct {
  		signSaltLength, verifySaltLength int
  		good                             bool
-@@ -233,7 +246,7 @@ func TestPSSSigning(t *testing.T) {
+@@ -233,7 +247,7 @@ func TestPSSSigning(t *testing.T) {
  }
  
  func TestSignWithPSSSaltLengthAuto(t *testing.T) {
@@ -691,10 +820,18 @@ index 51f9760187..93bbc26bd0 100644
  		t.Fatal(err)
  	}
 diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
-index 766d9a954f..dc502cae8f 100644
+index 766d9a954f..7d24a08882 100644
 --- a/src/crypto/rsa/rsa_test.go
 +++ b/src/crypto/rsa/rsa_test.go
-@@ -26,6 +26,10 @@ func TestKeyGeneration(t *testing.T) {
+@@ -16,6 +16,7 @@ import (
+ )
+ 
+ import "crypto/internal/boring"
++import "crypto/internal/backend/boringtest"
+ 
+ func TestKeyGeneration(t *testing.T) {
+ 	for _, size := range []int{128, 1024, 2048, 3072} {
+@@ -26,6 +27,10 @@ func TestKeyGeneration(t *testing.T) {
  		if bits := priv.N.BitLen(); bits != size {
  			t.Errorf("key too short (%d vs %d)", bits, size)
  		}
@@ -705,7 +842,7 @@ index 766d9a954f..dc502cae8f 100644
  		testKeyBasics(t, priv)
  		if testing.Short() {
  			break
-@@ -115,16 +119,23 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
+@@ -115,16 +120,23 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
  	}
  
  	if boring.Enabled {
@@ -734,33 +871,33 @@ index 766d9a954f..dc502cae8f 100644
  			return
  		}
  		if !bytes.Equal(dec, msg) {
-@@ -253,6 +264,10 @@ func TestEncryptOAEP(t *testing.T) {
+@@ -253,6 +265,10 @@ func TestEncryptOAEP(t *testing.T) {
  	n := new(big.Int)
  	for i, test := range testEncryptOAEPData {
  		n.SetString(test.modulus, 16)
-+		if boring.Enabled && n.BitLen() < 2048 {
++		if boring.Enabled && !boringtest.Supports(t, "RSA1024") && n.BitLen() < 2048 {
 +			t.Logf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
 +			continue
 +		}
  		public := PublicKey{N: n, E: test.e}
  
  		for j, message := range test.msgs {
-@@ -276,6 +291,10 @@ func TestDecryptOAEP(t *testing.T) {
+@@ -276,6 +292,10 @@ func TestDecryptOAEP(t *testing.T) {
  	d := new(big.Int)
  	for i, test := range testEncryptOAEPData {
  		n.SetString(test.modulus, 16)
-+		if boring.Enabled && n.BitLen() < 2048 {
++		if boring.Enabled && !boringtest.Supports(t, "RSA1024") && n.BitLen() < 2048 {
 +			t.Logf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
 +			continue
 +		}
  		d.SetString(test.d, 16)
  		private := new(PrivateKey)
  		private.PublicKey = PublicKey{N: n, E: test.e}
-@@ -309,6 +328,10 @@ func TestEncryptDecryptOAEP(t *testing.T) {
+@@ -309,6 +329,10 @@ func TestEncryptDecryptOAEP(t *testing.T) {
  	d := new(big.Int)
  	for i, test := range testEncryptOAEPData {
  		n.SetString(test.modulus, 16)
-+		if boring.Enabled && n.BitLen() < 2048 {
++		if boring.Enabled && !boringtest.Supports(t, "RSA1024") && n.BitLen() < 2048 {
 +			t.Logf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
 +			continue
 +		}
@@ -768,7 +905,7 @@ index 766d9a954f..dc502cae8f 100644
  		priv := new(PrivateKey)
  		priv.PublicKey = PublicKey{N: n, E: test.e}
 diff --git a/src/crypto/tls/boring.go b/src/crypto/tls/boring.go
-index 1827f76458..4c5c3527a4 100644
+index 1827f76458..140b1a3dd8 100644
 --- a/src/crypto/tls/boring.go
 +++ b/src/crypto/tls/boring.go
 @@ -8,8 +8,15 @@ package tls
@@ -787,7 +924,7 @@ index 1827f76458..4c5c3527a4 100644
  // needFIPS returns fipstls.Required(); it avoids a new import in common.go.
  func needFIPS() bool {
  	return fipstls.Required()
-@@ -17,14 +24,14 @@ func needFIPS() bool {
+@@ -17,14 +24,18 @@ func needFIPS() bool {
  
  // fipsMinVersion replaces c.minVersion in FIPS-only mode.
  func fipsMinVersion(c *Config) uint16 {
@@ -801,37 +938,57 @@ index 1827f76458..4c5c3527a4 100644
 -	// FIPS requires TLS 1.2.
 -	return VersionTLS12
 +	// FIPS requires TLS 1.2 or later.
-+	return VersionTLS13
++	if boring.SupportsHKDF() {
++		return VersionTLS13
++	}  else {
++		return VersionTLS12
++	}
  }
  
  // default defaultFIPSCurvePreferences is the FIPS-allowed curves,
 diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
-index 59d4d2b272..b572a59303 100644
+index 59d4d2b272..2ae3814364 100644
 --- a/src/crypto/tls/boring_test.go
 +++ b/src/crypto/tls/boring_test.go
-@@ -9,6 +9,7 @@ package tls
+@@ -9,6 +9,8 @@ package tls
  import (
  	"crypto/ecdsa"
  	"crypto/elliptic"
 +	"crypto/internal/boring"
++	"crypto/internal/backend/boringtest"
  	"crypto/internal/boring/fipstls"
  	"crypto/rand"
  	"crypto/rsa"
-@@ -52,11 +53,11 @@ func TestBoringServerProtocolVersion(t *testing.T) {
+@@ -44,7 +46,11 @@ func TestBoringServerProtocolVersion(t *testing.T) {
+ 	test("VersionTLS10", VersionTLS10, "")
+ 	test("VersionTLS11", VersionTLS11, "")
+ 	test("VersionTLS12", VersionTLS12, "")
+-	test("VersionTLS13", VersionTLS13, "")
++	if boring.Enabled && !boring.SupportsHKDF() {
++		test("VersionTLS13", VersionTLS13, "client offered only unsupported versions")
++	} else {
++		test("VersionTLS13", VersionTLS13, "")
++	}
+ 
+ 	fipstls.Force()
+ 	defer fipstls.Abandon()
+@@ -52,11 +58,13 @@ func TestBoringServerProtocolVersion(t *testing.T) {
  	test("VersionTLS10", VersionTLS10, "client offered only unsupported versions")
  	test("VersionTLS11", VersionTLS11, "client offered only unsupported versions")
  	test("VersionTLS12", VersionTLS12, "")
 -	test("VersionTLS13", VersionTLS13, "client offered only unsupported versions")
-+	test("VersionTLS13", VersionTLS13, "")
++	if boring.SupportsHKDF() {
++		test("VersionTLS13", VersionTLS13, "")
++	}
  }
  
  func isBoringVersion(v uint16) bool {
 -	return v == VersionTLS12
-+	return v == VersionTLS12 || v == VersionTLS13
++	return v == VersionTLS12 || (boring.SupportsHKDF() && v == VersionTLS13)
  }
  
  func isBoringCipherSuite(id uint16) bool {
-@@ -66,7 +67,9 @@ func isBoringCipherSuite(id uint16) bool {
+@@ -66,7 +74,9 @@ func isBoringCipherSuite(id uint16) bool {
  		TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
  		TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
  		TLS_RSA_WITH_AES_128_GCM_SHA256,
@@ -842,8 +999,20 @@ index 59d4d2b272..b572a59303 100644
  		return true
  	}
  	return false
-@@ -318,12 +321,12 @@ func TestBoringCertAlgs(t *testing.T) {
- 	M2_R1 := boringCert(t, "M2_R1", boringECDSAKey(t, elliptic.P224()), R1, boringCertCA)
+@@ -315,15 +325,31 @@ func TestBoringCertAlgs(t *testing.T) {
+ 	R2 := boringCert(t, "R2", boringRSAKey(t, 512), nil, boringCertCA)
+ 
+ 	M1_R1 := boringCert(t, "M1_R1", boringECDSAKey(t, elliptic.P256()), R1, boringCertCA|boringCertFIPSOK)
+-	M2_R1 := boringCert(t, "M2_R1", boringECDSAKey(t, elliptic.P224()), R1, boringCertCA)
++
++	// If OpenSSL supports P224, use the default upstream behavior,
++	// otherwise test with P384
++	var M2_R1 *boringCertificate
++	if boringtest.Supports(t, "CurveP224") {
++		M2_R1 = boringCert(t, "M2_R1", boringECDSAKey(t, elliptic.P224()), R1, boringCertCA)
++	} else {
++		M2_R1 = boringCert(t, "M2_R1", boringECDSAKey(t, elliptic.P384()), R1, boringCertCA|boringCertFIPSOK)
++	}
  
  	I_R1 := boringCert(t, "I_R1", boringRSAKey(t, 3072), R1, boringCertCA|boringCertFIPSOK)
 -	I_R2 := boringCert(t, "I_R2", I_R1.key, R2, boringCertCA|boringCertFIPSOK)
@@ -853,11 +1022,19 @@ index 59d4d2b272..b572a59303 100644
  
  	L1_I := boringCert(t, "L1_I", boringECDSAKey(t, elliptic.P384()), I_R1, boringCertLeaf|boringCertFIPSOK)
 -	L2_I := boringCert(t, "L2_I", boringRSAKey(t, 1024), I_R1, boringCertLeaf)
-+	L2_I := boringCert(t, "L2_I", boringRSAKey(t, 1024), I_R1, boringCertLeaf|boringCertNotBoring)
++
++
++	// Older versions of OpenSSL allow 1024 bit leaf certs
++	var L2_I *boringCertificate
++	if boringtest.Supports(t, "RSA1024LeafCert") {
++		L2_I = boringCert(t, "L2_I", boringRSAKey(t, 1024), I_R1, boringCertLeaf)
++	} else {
++		L2_I = boringCert(t, "L2_I", boringRSAKey(t, 1024), I_R1, boringCertLeaf|boringCertNotBoring)
++	}
  
  	// client verifying server cert
  	testServerCert := func(t *testing.T, desc string, pool *x509.CertPool, key interface{}, list [][]byte, ok bool) {
-@@ -362,6 +365,11 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -362,6 +388,11 @@ func TestBoringCertAlgs(t *testing.T) {
  		serverConfig := testConfig.Clone()
  		serverConfig.ClientCAs = pool
  		serverConfig.ClientAuth = RequireAndVerifyClientCert
@@ -869,7 +1046,7 @@ index 59d4d2b272..b572a59303 100644
  
  		_, serverErr := boringHandshake(t, clientConfig, serverConfig)
  
-@@ -384,8 +392,8 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -384,8 +415,8 @@ func TestBoringCertAlgs(t *testing.T) {
  	// exhaustive test with computed answers.
  	r1pool := x509.NewCertPool()
  	r1pool.AddCert(R1.cert)
@@ -880,7 +1057,7 @@ index 59d4d2b272..b572a59303 100644
  	fipstls.Force()
  	testServerCert(t, "basic (fips)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
  	testClientCert(t, "basic (fips, client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
-@@ -406,7 +414,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -406,7 +437,7 @@ func TestBoringCertAlgs(t *testing.T) {
  			leaf = L2_I
  		}
  		for i := 0; i < 64; i++ {
@@ -889,7 +1066,7 @@ index 59d4d2b272..b572a59303 100644
  			reachableFIPS := map[string]bool{leaf.parentOrg: leaf.fipsOK}
  			list := [][]byte{leaf.der}
  			listName := leaf.name
-@@ -414,7 +422,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -414,7 +445,7 @@ func TestBoringCertAlgs(t *testing.T) {
  				if cond != 0 {
  					list = append(list, c.der)
  					listName += "," + c.name
@@ -898,7 +1075,7 @@ index 59d4d2b272..b572a59303 100644
  						reachable[c.parentOrg] = true
  					}
  					if reachableFIPS[c.org] && c.fipsOK {
-@@ -438,7 +446,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -438,7 +469,7 @@ func TestBoringCertAlgs(t *testing.T) {
  					if cond != 0 {
  						rootName += "," + c.name
  						pool.AddCert(c.cert)
@@ -907,7 +1084,7 @@ index 59d4d2b272..b572a59303 100644
  							shouldVerify = true
  						}
  						if reachableFIPS[c.org] && c.fipsOK {
-@@ -464,6 +472,7 @@ const (
+@@ -464,6 +495,7 @@ const (
  	boringCertCA = iota
  	boringCertLeaf
  	boringCertFIPSOK = 0x80
@@ -915,7 +1092,7 @@ index 59d4d2b272..b572a59303 100644
  )
  
  func boringRSAKey(t *testing.T, size int) *rsa.PrivateKey {
-@@ -490,6 +499,7 @@ type boringCertificate struct {
+@@ -490,6 +522,7 @@ type boringCertificate struct {
  	cert      *x509.Certificate
  	key       interface{}
  	fipsOK    bool
@@ -923,7 +1100,7 @@ index 59d4d2b272..b572a59303 100644
  }
  
  func boringCert(t *testing.T, name string, key interface{}, parent *boringCertificate, mode int) *boringCertificate {
-@@ -511,7 +521,7 @@ func boringCert(t *testing.T, name string, key interface{}, parent *boringCertif
+@@ -511,7 +544,7 @@ func boringCert(t *testing.T, name string, key interface{}, parent *boringCertif
  		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
  		BasicConstraintsValid: true,
  	}
@@ -932,7 +1109,7 @@ index 59d4d2b272..b572a59303 100644
  		tmpl.DNSNames = []string{"example.com"}
  	} else {
  		tmpl.IsCA = true
-@@ -548,7 +558,8 @@ func boringCert(t *testing.T, name string, key interface{}, parent *boringCertif
+@@ -548,7 +581,8 @@ func boringCert(t *testing.T, name string, key interface{}, parent *boringCertif
  	}
  
  	fipsOK := mode&boringCertFIPSOK != 0
@@ -958,6 +1135,28 @@ index 9a1fa3104b..f7c64dba42 100644
  var (
  	hasGCMAsmAMD64 = cpu.X86.HasAES && cpu.X86.HasPCLMULQDQ
  	hasGCMAsmARM64 = cpu.ARM64.HasAES && cpu.ARM64.HasPMULL
+diff --git a/src/crypto/tls/common.go b/src/crypto/tls/common.go
+index 1861efce66..3b3e166abc 100644
+--- a/src/crypto/tls/common.go
++++ b/src/crypto/tls/common.go
+@@ -12,6 +12,7 @@ import (
+ 	"crypto/ecdsa"
+ 	"crypto/ed25519"
+ 	"crypto/elliptic"
++	"crypto/internal/boring"
+ 	"crypto/rand"
+ 	"crypto/rsa"
+ 	"crypto/sha512"
+@@ -984,6 +985,9 @@ const roleServer = false
+ func (c *Config) supportedVersions(isClient bool) []uint16 {
+ 	versions := make([]uint16, 0, len(supportedVersions))
+ 	for _, v := range supportedVersions {
++		if boring.Enabled && !boring.SupportsHKDF() && v > VersionTLS12 {
++			continue
++		}
+ 		if needFIPS() && (v < fipsMinVersion(c) || v > fipsMaxVersion(c)) {
+ 			continue
+ 		}
 diff --git a/src/crypto/tls/handshake_client.go b/src/crypto/tls/handshake_client.go
 index e61e3eb540..7031ab8706 100644
 --- a/src/crypto/tls/handshake_client.go
@@ -1129,19 +1328,49 @@ index 314016979a..323d683788 100644
  }
  
  type x25519Parameters struct {
+diff --git a/src/crypto/x509/boring_test.go b/src/crypto/x509/boring_test.go
+index 90fe2a7227..c742e4992f 100644
+--- a/src/crypto/x509/boring_test.go
++++ b/src/crypto/x509/boring_test.go
+@@ -10,6 +10,7 @@ import (
+ 	"crypto/ecdsa"
+ 	"crypto/elliptic"
+ 	"crypto/internal/boring/fipstls"
++	"crypto/internal/backend/boringtest"
+ 	"crypto/rand"
+ 	"crypto/rsa"
+ 	"crypto/x509/pkix"
+@@ -58,7 +59,15 @@ func TestBoringAllowCert(t *testing.T) {
+ 	R3 := testBoringCert(t, "R3", boringRSAKey(t, 4096), nil, boringCertCA|boringCertFIPSOK)
+ 
+ 	M1_R1 := testBoringCert(t, "M1_R1", boringECDSAKey(t, elliptic.P256()), R1, boringCertCA|boringCertFIPSOK)
+-	M2_R1 := testBoringCert(t, "M2_R1", boringECDSAKey(t, elliptic.P224()), R1, boringCertCA)
++
++	var M2_R1 *boringCertificate
++	// If OpenSSL supports P224, use the default upstream behavior,
++	// otherwise test with P384
++	if boringtest.Supports(t, "CurveP224") {
++		M2_R1 = testBoringCert(t, "M2_R1", boringECDSAKey(t, elliptic.P224()), R1, boringCertCA)
++	} else {
++		M2_R1 = testBoringCert(t, "M2_R1", boringECDSAKey(t, elliptic.P384()), R1, boringCertCA|boringCertFIPSOK)
++	}
+ 
+ 	I_R1 := testBoringCert(t, "I_R1", boringRSAKey(t, 3072), R1, boringCertCA|boringCertFIPSOK)
+ 	testBoringCert(t, "I_R2", I_R1.key, R2, boringCertCA|boringCertFIPSOK)
 diff --git a/src/crypto/x509/x509_test.go b/src/crypto/x509/x509_test.go
-index b1cdabba28..f2d7a2bd6e 100644
+index 167ddb7fd0..f5ce78166e 100644
 --- a/src/crypto/x509/x509_test.go
 +++ b/src/crypto/x509/x509_test.go
-@@ -11,6 +11,7 @@ import (
+@@ -11,6 +11,8 @@ import (
  	"crypto/ecdsa"
  	"crypto/ed25519"
  	"crypto/elliptic"
 +	"crypto/internal/boring"
++	"crypto/internal/backend/boringtest"
  	"crypto/rand"
  	"crypto/rsa"
  	_ "crypto/sha256"
-@@ -117,32 +118,54 @@ func TestParsePKIXPublicKey(t *testing.T) {
+@@ -117,32 +119,54 @@ func TestParsePKIXPublicKey(t *testing.T) {
  	})
  }
  
@@ -1216,7 +1445,7 @@ index b1cdabba28..f2d7a2bd6e 100644
  -----END RSA TESTING KEY-----
  `)
  
-@@ -195,13 +218,13 @@ func bigFromHexString(s string) *big.Int {
+@@ -195,13 +219,13 @@ func bigFromHexString(s string) *big.Int {
  
  var rsaPrivateKey = &rsa.PrivateKey{
  	PublicKey: rsa.PublicKey{
@@ -1234,7 +1463,7 @@ index b1cdabba28..f2d7a2bd6e 100644
  	},
  }
  
-@@ -614,6 +637,13 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
+@@ -614,6 +638,13 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
  	extraExtensionData := []byte("extra extension")
  
  	for _, test := range tests {
@@ -1248,11 +1477,33 @@ index b1cdabba28..f2d7a2bd6e 100644
  		commonName := "test.example.com"
  		template := Certificate{
  			SerialNumber: big.NewInt(1),
+@@ -3544,11 +3575,19 @@ func TestParseRevocationList(t *testing.T) {
+ }
+ 
+ func TestRevocationListCheckSignatureFrom(t *testing.T) {
+-	goodKey, err := ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
++	var testCurve elliptic.Curve
++	// If OpenSSL supports P224, use the default upstream behavior,
++	// otherwise test with P384
++	if !boring.Enabled || boringtest.Supports(t, "CurveP224") {
++		testCurve = elliptic.P224()
++	} else {
++		testCurve = elliptic.P384()
++	}
++	goodKey, err := ecdsa.GenerateKey(testCurve, rand.Reader)
+ 	if err != nil {
+ 		t.Fatalf("failed to generate test key: %s", err)
+ 	}
+-	badKey, err := ecdsa.GenerateKey(elliptic.P224(), rand.Reader)
++	badKey, err := ecdsa.GenerateKey(testCurve, rand.Reader)
+ 	if err != nil {
+ 		t.Fatalf("failed to generate test key: %s", err)
+ 	}
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
-index 141fdb9fbd..d8e81d921d 100644
+index 73df030638..1de20b996e 100644
 --- a/src/go/build/deps_test.go
 +++ b/src/go/build/deps_test.go
-@@ -414,19 +414,23 @@ var depsRules = `
+@@ -415,19 +415,23 @@ var depsRules = `
  	< crypto/internal/edwards25519
  	< crypto/cipher;
  
@@ -1278,7 +1529,7 @@ index 141fdb9fbd..d8e81d921d 100644
  	< crypto/internal/randutil
  	< crypto/rand
  	< crypto/ed25519
-@@ -601,6 +605,7 @@ func listStdPkgs(goroot string) ([]string, error) {
+@@ -602,6 +606,7 @@ func listStdPkgs(goroot string) ([]string, error) {
  }
  
  func TestDependencies(t *testing.T) {
@@ -1286,7 +1537,7 @@ index 141fdb9fbd..d8e81d921d 100644
  	if !testenv.HasSrc() {
  		// Tests run in a limited file system and we do not
  		// provide access to every source file.
-@@ -644,7 +649,7 @@ var buildIgnore = []byte("\n//go:build ignore")
+@@ -645,7 +650,7 @@ var buildIgnore = []byte("\n//go:build ignore")
  
  func findImports(pkg string) ([]string, error) {
  	vpkg := pkg
@@ -1295,7 +1546,7 @@ index 141fdb9fbd..d8e81d921d 100644
  		vpkg = "vendor/" + pkg
  	}
  	dir := filepath.Join(Default.GOROOT, "src", vpkg)
-@@ -654,7 +659,7 @@ func findImports(pkg string) ([]string, error) {
+@@ -655,7 +660,7 @@ func findImports(pkg string) ([]string, error) {
  	}
  	var imports []string
  	var haveImport = map[string]bool{}
