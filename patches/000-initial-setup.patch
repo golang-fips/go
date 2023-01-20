@@ -277,7 +277,7 @@ index 0000000000..521f374ebd
 +
 +The FIPS mode behavior of OpenSSL varies between versions and distributions
 +depending which version of the FIPS standard the library targets. Because
-+the Go crypto tests can not reliably account for these behavioral differences, 
++the Go crypto tests can not reliably account for these behavioral differences,
 +building golang-fips on a new distribution often results in test failures due to
 +variations in things like supported crypto algorithms and key sizes.
 +
