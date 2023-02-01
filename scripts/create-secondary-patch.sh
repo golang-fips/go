@@ -37,7 +37,7 @@ replace="${1}"
 if [ -n "${replace}" ]; then
     echo "replace github.com/golang-fips/openssl-fips => ${replace}" >> go.mod
 fi
-go mod tidy
+go mod tidy -go=1.19
 go mod vendor
 
 # Generate the final patch.

@@ -18,6 +18,7 @@ git submodule add --force https://github.com/golang/go.git
 git submodule update
 
 pushd go
+git fetch
 git checkout ${GIT_REF}
 
 # If we're on a branch, the cached tree might be out of sync,
