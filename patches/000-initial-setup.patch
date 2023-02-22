@@ -343,7 +343,7 @@ new file mode 100644
 index 0000000000..e9d2df4521
 --- /dev/null
 +++ b/src/crypto/internal/backend/nobackend.go
-@@ -0,0 +1,158 @@
+@@ -0,0 +1,163 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -432,17 +432,22 @@ index 0000000000..e9d2df4521
 +
 +type PublicKeyECDH struct{ _ int }
 +type PrivateKeyECDH struct{ _ int }
++func (pc *PublicKeyECDH) Bytes() []byte { panic("boringcrypto: not available") }
++func (pc *PrivateKeyECDH) PublicKey() (*PublicKeyECDH, error) { panic("boringcrypto: not available") }
 +
-+func GenerateKeyECDH(curve string) (X, Y, D openssl.BigInt, err error) {
++func GenerateKeyECDH(curve string) (*PrivateKeyECDH, []byte, error) {
 +	panic("boringcrypto: not available")
 +}
-+func NewPrivateKeyECDH(curve string, X, Y, D openssl.BigInt) (*PrivateKeyECDH, error) {
++func NewPrivateKeyECDH(curve string, bytes []byte) (*PrivateKeyECDH, error) {
 +	panic("boringcrypto: not available")
 +}
-+func NewPublicKeyECDH(curve string, X, Y openssl.BigInt) (*PublicKeyECDH, error) {
++func NewPublicKeyECDH(curve string, bytes []byte) (*PublicKeyECDH, error) {
 +	panic("boringcrypto: not available")
 +}
 +func SharedKeyECDH(priv *PrivateKeyECDH, peerPublicKey []byte) ([]byte, error) {
++	panic("boringcrypto: not available")
++}
++func ECDH(priv *PrivateKeyECDH, pub *PublicKeyECDH) ([]byte, error) {
 +	panic("boringcrypto: not available")
 +}
 +
