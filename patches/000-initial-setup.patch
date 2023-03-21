@@ -151,32 +151,37 @@ index 0000000000..d12ba2f441
 +	testHashSignAndHashVerify(t, elliptic.P521(), "p521")
 +}
 diff --git a/src/crypto/ecdsa/ecdsa_test.go b/src/crypto/ecdsa/ecdsa_test.go
-index 95c78c8e32..bd7fe31a04 100644
+index 95c78c8e32..7652102083 100644
 --- a/src/crypto/ecdsa/ecdsa_test.go
 +++ b/src/crypto/ecdsa/ecdsa_test.go
-@@ -13,6 +13,8 @@ import (
+@@ -9,6 +9,8 @@ import (
+ 	"bytes"
+ 	"compress/bzip2"
+ 	"crypto/elliptic"
++	"crypto/internal/backend/boringtest"
++	"crypto/internal/boring"
+ 	"crypto/rand"
  	"crypto/sha1"
  	"crypto/sha256"
- 	"crypto/sha512"
-+	"crypto/internal/boring"
-+	"crypto/internal/backend/boringtest"
- 	"encoding/hex"
- 	"hash"
- 	"io"
-@@ -35,6 +37,12 @@ func testAllCurves(t *testing.T, f func(*testing.T, elliptic.Curve)) {
+@@ -35,8 +37,17 @@ func testAllCurves(t *testing.T, f func(*testing.T, elliptic.Curve)) {
  	}
  	if testing.Short() {
  		tests = tests[:1]
 +	} else if !boring.Enabled || boringtest.Supports(t, "CurveP224") {
 +		p224 := struct {
-+		name  string
-+		curve elliptic.Curve
++			name  string
++			curve elliptic.Curve
 +		}{"P224", elliptic.P224()}
 +		tests = append(tests, p224)
  	}
  	for _, test := range tests {
++		if !boringtest.Supports(t, "Curve"+test.name) {
++			t.Skip("unsupported test in FIPS mode")
++		}
  		curve := test.curve
-@@ -234,7 +242,11 @@ func TestVectors(t *testing.T) {
+ 		t.Run(test.name, func(t *testing.T) {
+ 			t.Parallel()
+@@ -234,7 +245,11 @@ func TestVectors(t *testing.T) {
  
  			switch curve {
  			case "P-224":
@@ -340,7 +345,7 @@ new file mode 100644
 index 0000000000..e69de29bb2
 diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
 new file mode 100644
-index 0000000000..e9d2df4521
+index 0000000000..15c1ee8cbe
 --- /dev/null
 +++ b/src/crypto/internal/backend/nobackend.go
 @@ -0,0 +1,163 @@
@@ -769,7 +774,7 @@ index dfa1eddc88..39a4fc184a 100644
  	pub := parsePublicKey(`-----BEGIN RSA PUBLIC KEY-----
  MEgCQQCd9BVzo775lkohasxjnefF1nCMcNoibqIWEVDe/K7M2GSoO4zlSQB+gkix
 diff --git a/src/crypto/rsa/pss_test.go b/src/crypto/rsa/pss_test.go
-index cf03e3cb7e..befd1612b5 100644
+index cf03e3cb7e..1226149321 100644
 --- a/src/crypto/rsa/pss_test.go
 +++ b/src/crypto/rsa/pss_test.go
 @@ -9,6 +9,8 @@ import (
@@ -868,7 +873,7 @@ index 11f87e8e49..bdd6d85c69 100644
  			return nil, ErrDecryption
  		}
 diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
-index 16101f043a..37a6380431 100644
+index 16101f043a..7ce8cdaa7a 100644
 --- a/src/crypto/rsa/rsa_test.go
 +++ b/src/crypto/rsa/rsa_test.go
 @@ -21,6 +21,9 @@ import (

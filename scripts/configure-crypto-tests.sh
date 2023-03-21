@@ -42,8 +42,8 @@ elif [[ "$OS_ID" == "Red Hat Enterprise Linux 7" ]]; then
   set_param "RSA1024LeafCert" "true"
   set_param "TLS13" "false"
   set_param "CurveP224" "false"
+  set_param "CurveP256" "false"
 else
   echo "Detected unknown os: $OS_ID ..."
   echo "Keeping current settings."
 fi
-
