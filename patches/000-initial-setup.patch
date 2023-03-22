@@ -175,7 +175,7 @@ index 95c78c8e32..7652102083 100644
 +		tests = append(tests, p224)
  	}
  	for _, test := range tests {
-+		if !boringtest.Supports(t, "Curve"+test.name) {
++		if boring.Enabled && !boringtest.Supports(t, "Curve"+test.name) {
 +			t.Skip("unsupported test in FIPS mode")
 +		}
  		curve := test.curve
@@ -296,7 +296,7 @@ new file mode 100644
 index 0000000000..94286d8541
 --- /dev/null
 +++ b/src/crypto/internal/backend/boringtest/config.go
-@@ -0,0 +1,44 @@
+@@ -0,0 +1,46 @@
 +/* Test configuration package for OpenSSL FIPS
 +
 +The FIPS mode behavior of OpenSSL varies between versions and distributions
@@ -331,13 +331,15 @@ index 0000000000..94286d8541
 +		"TLS13": true,
 +		"CurveP224": true,
 +		"CurveP256": true,
++		"CurveP384": true,
++		"CurveP521": true,
 +	}
 +}
 +
 +func Supports(t *testing.T, key string) bool {
 +	result, ok := testConfig[key]
 +	if !ok {
-+		panic("key not found in boringtest.TestConfig: " + key)
++		return true
 +	}
 +	return result
 +}
