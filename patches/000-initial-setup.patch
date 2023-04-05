@@ -30,7 +30,7 @@ index 4aaf46b5d0..c231e299d9 100644
  -- issue16333/issue16333.go --
  package vendoring17
 diff --git a/src/crypto/ecdh/ecdh_test.go b/src/crypto/ecdh/ecdh_test.go
-index 426850a146..5147b6d95c 100644
+index 10da95afbb..af6bcd86f4 100644
 --- a/src/crypto/ecdh/ecdh_test.go
 +++ b/src/crypto/ecdh/ecdh_test.go
 @@ -9,6 +9,7 @@ import (
@@ -151,7 +151,7 @@ index 0000000000..d12ba2f441
 +	testHashSignAndHashVerify(t, elliptic.P521(), "p521")
 +}
 diff --git a/src/crypto/ecdsa/ecdsa_test.go b/src/crypto/ecdsa/ecdsa_test.go
-index 95c78c8e32..7652102083 100644
+index 95c78c8e32..51f58b305e 100644
 --- a/src/crypto/ecdsa/ecdsa_test.go
 +++ b/src/crypto/ecdsa/ecdsa_test.go
 @@ -9,6 +9,8 @@ import (
@@ -293,7 +293,7 @@ index 0000000000..c0800df578
 +}
 diff --git a/src/crypto/internal/backend/boringtest/config.go b/src/crypto/internal/backend/boringtest/config.go
 new file mode 100644
-index 0000000000..94286d8541
+index 0000000000..6c8c00d11e
 --- /dev/null
 +++ b/src/crypto/internal/backend/boringtest/config.go
 @@ -0,0 +1,46 @@
@@ -876,20 +876,19 @@ index 11f87e8e49..bdd6d85c69 100644
  			return nil, ErrDecryption
  		}
 diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
-index 16101f043a..7ce8cdaa7a 100644
+index 3278a7ff30..e4484540c1 100644
 --- a/src/crypto/rsa/rsa_test.go
 +++ b/src/crypto/rsa/rsa_test.go
-@@ -21,6 +21,9 @@ import (
+@@ -23,6 +23,8 @@ import (
  	"testing"
  )
 
-+import boring "crypto/internal/backend"
 +import "crypto/internal/backend/boringtest"
 +
  func TestKeyGeneration(t *testing.T) {
  	for _, size := range []int{128, 1024, 2048, 3072} {
  		priv, err := GenerateKey(rand.Reader, size)
-@@ -30,6 +33,10 @@ func TestKeyGeneration(t *testing.T) {
+@@ -32,6 +34,10 @@ func TestKeyGeneration(t *testing.T) {
  		if bits := priv.N.BitLen(); bits != size {
  			t.Errorf("key too short (%d vs %d)", bits, size)
  		}
@@ -900,7 +899,7 @@ index 16101f043a..7ce8cdaa7a 100644
  		testKeyBasics(t, priv)
  		if testing.Short() {
  			break
-@@ -112,6 +119,35 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
+@@ -114,6 +120,35 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
  		t.Errorf("private exponent too large")
  	}
 
@@ -936,7 +935,7 @@ index 16101f043a..7ce8cdaa7a 100644
  	msg := []byte("hi!")
  	enc, err := EncryptPKCS1v15(rand.Reader, &priv.PublicKey, msg)
  	if err != nil {
-@@ -119,7 +155,7 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
+@@ -121,7 +156,7 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
  		return
  	}
 
@@ -945,7 +944,7 @@ index 16101f043a..7ce8cdaa7a 100644
  	if err != nil {
  		t.Errorf("DecryptPKCS1v15: %v", err)
  		return
-@@ -151,6 +187,9 @@ func TestEverything(t *testing.T) {
+@@ -178,6 +213,9 @@ func TestEverything(t *testing.T) {
  			if bits := priv.N.BitLen(); bits != size {
  				t.Errorf("key too short (%d vs %d)", bits, size)
  			}
@@ -955,7 +954,7 @@ index 16101f043a..7ce8cdaa7a 100644
  			testEverything(t, priv)
  		})
  	}
-@@ -602,6 +641,10 @@ func TestEncryptOAEP(t *testing.T) {
+@@ -629,6 +667,10 @@ func TestEncryptOAEP(t *testing.T) {
  	n := new(big.Int)
  	for i, test := range testEncryptOAEPData {
  		n.SetString(test.modulus, 16)
@@ -966,7 +965,7 @@ index 16101f043a..7ce8cdaa7a 100644
  		public := PublicKey{N: n, E: test.e}
 
  		for j, message := range test.msgs {
-@@ -625,6 +668,10 @@ func TestDecryptOAEP(t *testing.T) {
+@@ -652,6 +694,10 @@ func TestDecryptOAEP(t *testing.T) {
  	d := new(big.Int)
  	for i, test := range testEncryptOAEPData {
  		n.SetString(test.modulus, 16)
@@ -977,7 +976,7 @@ index 16101f043a..7ce8cdaa7a 100644
  		d.SetString(test.d, 16)
  		private := new(PrivateKey)
  		private.PublicKey = PublicKey{N: n, E: test.e}
-@@ -668,6 +715,10 @@ func Test2DecryptOAEP(t *testing.T) {
+@@ -695,6 +741,10 @@ func Test2DecryptOAEP(t *testing.T) {
  	sha1 := crypto.SHA1
  	sha256 := crypto.SHA256
 
@@ -988,7 +987,7 @@ index 16101f043a..7ce8cdaa7a 100644
  	out, err := priv.Decrypt(random, in, &OAEPOptions{MGFHash: sha1, Hash: sha256})
 
  	if err != nil {
-@@ -683,6 +734,10 @@ func TestEncryptDecryptOAEP(t *testing.T) {
+@@ -710,6 +760,10 @@ func TestEncryptDecryptOAEP(t *testing.T) {
  	d := new(big.Int)
  	for i, test := range testEncryptOAEPData {
  		n.SetString(test.modulus, 16)
@@ -1042,7 +1041,7 @@ index 1827f76458..140b1a3dd8 100644
 
  // default defaultFIPSCurvePreferences is the FIPS-allowed curves,
 diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
-index 59d4d2b272..2ae3814364 100644
+index ba68f355eb..8ddd2526c7 100644
 --- a/src/crypto/tls/boring_test.go
 +++ b/src/crypto/tls/boring_test.go
 @@ -9,6 +9,8 @@ package tls
@@ -1231,7 +1230,7 @@ index 04e6dfe018..b6ed936cd1 100644
  	hasGCMAsmAMD64 = cpu.X86.HasAES && cpu.X86.HasPCLMULQDQ
  	hasGCMAsmARM64 = cpu.ARM64.HasAES && cpu.ARM64.HasPMULL
 diff --git a/src/crypto/tls/common.go b/src/crypto/tls/common.go
-index 007f0f47b2..ba8ec1ad84 100644
+index 5394d64ac6..db4e2dbf60 100644
 --- a/src/crypto/tls/common.go
 +++ b/src/crypto/tls/common.go
 @@ -12,6 +12,7 @@ import (
@@ -1253,7 +1252,7 @@ index 007f0f47b2..ba8ec1ad84 100644
  			continue
  		}
 diff --git a/src/crypto/tls/handshake_client.go b/src/crypto/tls/handshake_client.go
-index 7cf906c91d..4f9fd8f09d 100644
+index 63d86b9f3a..a8ee915041 100644
 --- a/src/crypto/tls/handshake_client.go
 +++ b/src/crypto/tls/handshake_client.go
 @@ -127,7 +127,9 @@ func (c *Conn) makeClientHello() (*clientHelloMsg, *ecdh.PrivateKey, error) {
@@ -1268,7 +1267,7 @@ index 7cf906c91d..4f9fd8f09d 100644
  		} else {
  			hello.cipherSuites = append(hello.cipherSuites, defaultCipherSuitesTLS13NoAES...)
 diff --git a/src/crypto/tls/handshake_client_test.go b/src/crypto/tls/handshake_client_test.go
-index 380de9f6fb..02b4ac8c40 100644
+index 749c9fc954..2e37a1867c 100644
 --- a/src/crypto/tls/handshake_client_test.go
 +++ b/src/crypto/tls/handshake_client_test.go
 @@ -2135,6 +2135,7 @@ func testBuffering(t *testing.T, version uint16) {
@@ -1280,7 +1279,7 @@ index 380de9f6fb..02b4ac8c40 100644
  	done := make(chan bool)
 
 diff --git a/src/crypto/tls/handshake_client_tls13.go b/src/crypto/tls/handshake_client_tls13.go
-index 3bdd9373d6..ecfc4677b1 100644
+index fefba01a06..fa6989e619 100644
 --- a/src/crypto/tls/handshake_client_tls13.go
 +++ b/src/crypto/tls/handshake_client_tls13.go
 @@ -41,10 +41,6 @@ type clientHandshakeStateTLS13 struct {
@@ -1295,7 +1294,7 @@ index 3bdd9373d6..ecfc4677b1 100644
  	// sections 4.1.2 and 4.1.3.
  	if c.handshakes > 0 {
 diff --git a/src/crypto/tls/handshake_server_tls13.go b/src/crypto/tls/handshake_server_tls13.go
-index 80d4dce3c5..f9b799bb83 100644
+index b7b568cd84..af75e7dbe0 100644
 --- a/src/crypto/tls/handshake_server_tls13.go
 +++ b/src/crypto/tls/handshake_server_tls13.go
 @@ -44,10 +44,6 @@ type serverHandshakeStateTLS13 struct {
@@ -1310,7 +1309,7 @@ index 80d4dce3c5..f9b799bb83 100644
  	if err := hs.processClientHello(); err != nil {
  		return err
 diff --git a/src/crypto/tls/key_schedule.go b/src/crypto/tls/key_schedule.go
-index 8150d804a4..03b0c1fd98 100644
+index ae8f80a7cf..30a8450f40 100644
 --- a/src/crypto/tls/key_schedule.go
 +++ b/src/crypto/tls/key_schedule.go
 @@ -7,6 +7,7 @@ package tls
@@ -1319,17 +1318,17 @@ index 8150d804a4..03b0c1fd98 100644
  	"crypto/hmac"
 +	"crypto/internal/boring"
  	"errors"
+ 	"fmt"
  	"hash"
- 	"io"
-@@ -41,9 +42,20 @@ func (c *cipherSuiteTLS13) expandLabel(secret []byte, label string, context []by
- 		b.AddBytes(context)
- 	})
+@@ -58,9 +59,20 @@ func (c *cipherSuiteTLS13) expandLabel(secret []byte, label string, context []by
+ 		panic(fmt.Errorf("failed to construct HKDF label: %s", err))
+ 	}
  	out := make([]byte, length)
--	n, err := hkdf.Expand(c.hash.New, secret, hkdfLabel.BytesOrPanic()).Read(out)
+-	n, err := hkdf.Expand(c.hash.New, secret, hkdfLabelBytes).Read(out)
 -	if err != nil || n != length {
 -		panic("tls: HKDF-Expand-Label invocation failed unexpectedly")
 +	if boring.Enabled {
-+		reader, err := boring.ExpandHKDF(c.hash.New, secret, hkdfLabel.BytesOrPanic())
++		reader, err := boring.ExpandHKDF(c.hash.New, secret, hkdfLabelBytes)
 +		if err != nil {
 +			panic("tls: HKDF-Expand-Label invocation failed unexpectedly")
 +		}
@@ -1338,14 +1337,14 @@ index 8150d804a4..03b0c1fd98 100644
 +			panic("tls: HKDF-Expand-Label invocation failed unexpectedly")
 +		}
 +	} else {
-+		n, err := hkdf.Expand(c.hash.New, secret, hkdfLabel.BytesOrPanic()).Read(out)
++		n, err := hkdf.Expand(c.hash.New, secret, hkdfLabelBytes).Read(out)
 +		if err != nil || n != length {
 +			panic("tls: HKDF-Expand-Label invocation failed unexpectedly")
 +		}
  	}
  	return out
  }
-@@ -61,7 +73,15 @@ func (c *cipherSuiteTLS13) extract(newSecret, currentSecret []byte) []byte {
+@@ -78,7 +90,15 @@ func (c *cipherSuiteTLS13) extract(newSecret, currentSecret []byte) []byte {
  	if newSecret == nil {
  		newSecret = make([]byte, c.hash.Size())
  	}
