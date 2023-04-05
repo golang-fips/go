@@ -1999,7 +1999,7 @@ index 9a4adba58f..f13e5f37a1 100644
  	} else {
  		testCurve = elliptic.P384()
 diff --git a/src/go.mod b/src/go.mod
-index 62f3489183..e0407e946e 100644
+index dc4b1a77d2..dabb9735af 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -3,6 +3,7 @@ module std
@@ -2008,10 +2008,10 @@ index 62f3489183..e0407e946e 100644
  require (
 +	github.com/golang-fips/openssl-fips v0.0.0-20230119221410-41938ace180b
  	golang.org/x/crypto v0.0.0-20220516162934-403b01795ae8
- 	golang.org/x/net v0.0.0-20221214163817-183621ab9c4e
+ 	golang.org/x/net v0.0.0-20230214200805-d99f623d45a4
  )
 diff --git a/src/go.sum b/src/go.sum
-index 5857a41946..2a9ba818a9 100644
+index 18402b8778..38e7dd7677 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,3 +1,5 @@
@@ -2019,7 +2019,7 @@ index 5857a41946..2a9ba818a9 100644
 +github.com/golang-fips/openssl-fips v0.0.0-20230119221410-41938ace180b/go.mod h1:V2IU8imz/VkScnIbTOrdYsZ5R88ZFypCE0LzhRJ3HsI=
  golang.org/x/crypto v0.0.0-20220516162934-403b01795ae8 h1:y+mHpWoQJNAHt26Nhh6JP7hvM71IRZureyvZhoVALIs=
  golang.org/x/crypto v0.0.0-20220516162934-403b01795ae8/go.mod h1:IxCIyHEi3zRg3s0A5j5BB6A9Jmi73HwBIUl50j+osU4=
- golang.org/x/net v0.0.0-20221214163817-183621ab9c4e h1:ny/17Y8U4fgn9XOKSWpD8Fgz3CD+msKsE74LF845pIg=
+ golang.org/x/net v0.0.0-20230214200805-d99f623d45a4 h1:iaVaPFITmD6a3T5kPUYNWiaNrPvSEl6s+xvx6B9yfR0=
 diff --git a/src/vendor/github.com/golang-fips/openssl-fips/LICENSE b/src/vendor/github.com/golang-fips/openssl-fips/LICENSE
 new file mode 100644
 index 0000000000..97e8515401
@@ -6062,131 +6062,8 @@ index 15b50c90d3..0b55cedc91 100644
  }
  
  type sha512Ctx struct {
-diff --git a/src/vendor/golang.org/x/net/http2/hpack/hpack.go b/src/vendor/golang.org/x/net/http2/hpack/hpack.go
-index 02e80e30a4..85f18a2b0a 100644
---- a/src/vendor/golang.org/x/net/http2/hpack/hpack.go
-+++ b/src/vendor/golang.org/x/net/http2/hpack/hpack.go
-@@ -359,7 +359,6 @@ func (d *Decoder) parseFieldLiteral(n uint8, it indexType) error {
- 
- 	var hf HeaderField
- 	wantStr := d.emitEnabled || it.indexed()
--	var undecodedName undecodedString
- 	if nameIdx > 0 {
- 		ihf, ok := d.at(nameIdx)
- 		if !ok {
-@@ -367,27 +366,15 @@ func (d *Decoder) parseFieldLiteral(n uint8, it indexType) error {
- 		}
- 		hf.Name = ihf.Name
- 	} else {
--		undecodedName, buf, err = d.readString(buf)
-+		hf.Name, buf, err = d.readString(buf, wantStr)
- 		if err != nil {
- 			return err
- 		}
- 	}
--	undecodedValue, buf, err := d.readString(buf)
-+	hf.Value, buf, err = d.readString(buf, wantStr)
- 	if err != nil {
- 		return err
- 	}
--	if wantStr {
--		if nameIdx <= 0 {
--			hf.Name, err = d.decodeString(undecodedName)
--			if err != nil {
--				return err
--			}
--		}
--		hf.Value, err = d.decodeString(undecodedValue)
--		if err != nil {
--			return err
--		}
--	}
- 	d.buf = buf
- 	if it.indexed() {
- 		d.dynTab.add(hf)
-@@ -472,52 +459,46 @@ func readVarInt(n byte, p []byte) (i uint64, remain []byte, err error) {
- 	return 0, origP, errNeedMore
- }
- 
--// readString reads an hpack string from p.
-+// readString decodes an hpack string from p.
- //
--// It returns a reference to the encoded string data to permit deferring decode costs
--// until after the caller verifies all data is present.
--func (d *Decoder) readString(p []byte) (u undecodedString, remain []byte, err error) {
-+// wantStr is whether s will be used. If false, decompression and
-+// []byte->string garbage are skipped if s will be ignored
-+// anyway. This does mean that huffman decoding errors for non-indexed
-+// strings past the MAX_HEADER_LIST_SIZE are ignored, but the server
-+// is returning an error anyway, and because they're not indexed, the error
-+// won't affect the decoding state.
-+func (d *Decoder) readString(p []byte, wantStr bool) (s string, remain []byte, err error) {
- 	if len(p) == 0 {
--		return u, p, errNeedMore
-+		return "", p, errNeedMore
- 	}
- 	isHuff := p[0]&128 != 0
- 	strLen, p, err := readVarInt(7, p)
- 	if err != nil {
--		return u, p, err
-+		return "", p, err
- 	}
- 	if d.maxStrLen != 0 && strLen > uint64(d.maxStrLen) {
--		// Returning an error here means Huffman decoding errors
--		// for non-indexed strings past the maximum string length
--		// are ignored, but the server is returning an error anyway
--		// and because the string is not indexed the error will not
--		// affect the decoding state.
--		return u, nil, ErrStringLength
-+		return "", nil, ErrStringLength
- 	}
- 	if uint64(len(p)) < strLen {
--		return u, p, errNeedMore
-+		return "", p, errNeedMore
- 	}
--	u.isHuff = isHuff
--	u.b = p[:strLen]
--	return u, p[strLen:], nil
--}
--
--type undecodedString struct {
--	isHuff bool
--	b      []byte
--}
--
--func (d *Decoder) decodeString(u undecodedString) (string, error) {
--	if !u.isHuff {
--		return string(u.b), nil
-+	if !isHuff {
-+		if wantStr {
-+			s = string(p[:strLen])
-+		}
-+		return s, p[strLen:], nil
- 	}
--	buf := bufPool.Get().(*bytes.Buffer)
--	buf.Reset() // don't trust others
--	var s string
--	err := huffmanDecode(buf, d.maxStrLen, u.b)
--	if err == nil {
-+
-+	if wantStr {
-+		buf := bufPool.Get().(*bytes.Buffer)
-+		buf.Reset() // don't trust others
-+		defer bufPool.Put(buf)
-+		if err := huffmanDecode(buf, d.maxStrLen, p[:strLen]); err != nil {
-+			buf.Reset()
-+			return "", nil, err
-+		}
- 		s = buf.String()
-+		buf.Reset() // be nice to GC
- 	}
--	buf.Reset() // be nice to GC
--	bufPool.Put(buf)
--	return s, err
-+	return s, p[strLen:], nil
- }
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index fd6a1ae10b..b18f9d22a8 100644
+index efe65014c8..385765b89f 100644
 --- a/src/vendor/modules.txt
 +++ b/src/vendor/modules.txt
 @@ -1,3 +1,6 @@
