@@ -222,6 +222,11 @@ var badLinkerFlags = [][]string{
 	{"-Wl,-R,@foo"},
 	{"-Wl,--just-symbols,@foo"},
 	{"../x.o"},
+	{"-Wl,-R,"},
+	{"-Wl,-O"},
+	{"-Wl,-e="},
+	{"-Wl,-e,"},
+	{"-Wl,-R,-flag"},
 }
 
 func TestCheckLinkerFlags(t *testing.T) {
