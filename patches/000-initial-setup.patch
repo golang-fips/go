@@ -954,7 +954,7 @@ index 3278a7ff30..e4484540c1 100644
  			testEverything(t, priv)
  		})
  	}
-@@ -629,6 +667,10 @@ func TestEncryptOAEP(t *testing.T) {
+@@ -629,6 +667,14 @@ func TestEncryptOAEP(t *testing.T) {
  	n := new(big.Int)
  	for i, test := range testEncryptOAEPData {
  		n.SetString(test.modulus, 16)
@@ -962,6 +962,10 @@ index 3278a7ff30..e4484540c1 100644
 +			t.Logf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
 +			continue
 +		}
++ 	if boring.Enabled && i == 1 {
++ 		t.Log("skipping due to unsupported padding usage")
++ 		continue
++ 	}
  		public := PublicKey{N: n, E: test.e}
 
  		for j, message := range test.msgs {
