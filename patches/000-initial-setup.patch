@@ -296,7 +296,7 @@ new file mode 100644
 index 0000000000..6c8c00d11e
 --- /dev/null
 +++ b/src/crypto/internal/backend/boringtest/config.go
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,47 @@
 +/* Test configuration package for OpenSSL FIPS
 +
 +The FIPS mode behavior of OpenSSL varies between versions and distributions
@@ -333,6 +333,7 @@ index 0000000000..6c8c00d11e
 +		"CurveP256": true,
 +		"CurveP384": true,
 +		"CurveP521": true,
++		"RSANoPadding": false,
 +	}
 +}
 +
@@ -1097,6 +1098,21 @@ index ba68f355eb..8ddd2526c7 100644
  		return true
  	}
  	return false
+@@ -226,6 +236,14 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
+ 			// 1.3, and the ECDSA ones bind to the curve used.
+ 			serverConfig.MaxVersion = VersionTLS12
+ 
++			if boring.Enabled && !boringtest.Supports(t, "RSANoPadding") {
++				switch sigHash {
++				case PSSWithSHA256, PSSWithSHA384, PSSWithSHA512:
++					t.Skip("Unsupported in FIPS mode")
++					return
++				}
++			}
++
+ 			clientErr, serverErr := boringHandshake(t, testConfig, serverConfig)
+ 			if clientErr != nil {
+ 				t.Fatalf("expected handshake with %#x to succeed; client error: %v; server error: %v", sigHash, clientErr, serverErr)
 @@ -315,15 +325,31 @@ func TestBoringCertAlgs(t *testing.T) {
  	R2 := boringCert(t, "R2", boringRSAKey(t, 512), nil, boringCertCA)
 
