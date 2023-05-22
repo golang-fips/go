@@ -776,6 +776,31 @@ index dfa1eddc88..39a4fc184a 100644
  func TestShortPKCS1v15Signature(t *testing.T) {
  	pub := parsePublicKey(`-----BEGIN RSA PUBLIC KEY-----
  MEgCQQCd9BVzo775lkohasxjnefF1nCMcNoibqIWEVDe/K7M2GSoO4zlSQB+gkix
+diff --git a/src/crypto/rsa/pss.go b/src/crypto/rsa/pss.go
+index f7d23b55ef..6da2bc5698 100644
+--- a/src/crypto/rsa/pss.go
++++ b/src/crypto/rsa/pss.go
+@@ -214,20 +214,6 @@ func signPSSWithSalt(priv *PrivateKey, hash crypto.Hash, hashed, salt []byte) ([
+ 		return nil, err
+ 	}
+
+-	if boring.Enabled {
+-		bkey, err := boringPrivateKey(priv)
+-		if err != nil {
+-			return nil, err
+-		}
+-		// Note: BoringCrypto always does decrypt "withCheck".
+-		// (It's not just decrypt.)
+-		s, err := boring.DecryptRSANoPadding(bkey, em)
+-		if err != nil {
+-			return nil, err
+-		}
+-		return s, nil
+-	}
+-
+ 	// RFC 8017: "Note that the octet length of EM will be one less than k if
+ 	// modBits - 1 is divisible by 8 and equal to k otherwise, where k is the
+ 	// length in octets of the RSA modulus n." 🙄
 diff --git a/src/crypto/rsa/pss_test.go b/src/crypto/rsa/pss_test.go
 index cf03e3cb7e..1226149321 100644
 --- a/src/crypto/rsa/pss_test.go
@@ -854,10 +879,19 @@ index cf03e3cb7e..1226149321 100644
  	}
 
 diff --git a/src/crypto/rsa/rsa.go b/src/crypto/rsa/rsa.go
-index 11f87e8e49..bdd6d85c69 100644
+index 11f87e8e49..ff245df69a 100644
 --- a/src/crypto/rsa/rsa.go
 +++ b/src/crypto/rsa/rsa.go
-@@ -508,7 +508,7 @@ func EncryptOAEP(hash hash.Hash, random io.Reader, pub *PublicKey, msg []byte, l
+@@ -453,8 +453,6 @@ func mgf1XOR(out []byte, hash hash.Hash, seed []byte) {
+ var ErrMessageTooLong = errors.New("crypto/rsa: message too long for RSA key size")
+
+ func encrypt(pub *PublicKey, plaintext []byte) ([]byte, error) {
+-	boring.Unreachable()
+-
+ 	N := bigmod.NewModulusFromBig(pub.N)
+ 	m, err := bigmod.NewNat().SetBytes(plaintext, N)
+ 	if err != nil {
+@@ -508,7 +506,7 @@ func EncryptOAEP(hash hash.Hash, random io.Reader, pub *PublicKey, msg []byte, l
  		if err != nil {
  			return nil, err
  		}
@@ -866,7 +900,34 @@ index 11f87e8e49..bdd6d85c69 100644
  	}
  	boring.UnreachableExceptTests()
 
-@@ -679,7 +679,7 @@ func decryptOAEP(hash, mgfHash hash.Hash, random io.Reader, priv *PrivateKey, ci
+@@ -532,15 +530,6 @@ func EncryptOAEP(hash hash.Hash, random io.Reader, pub *PublicKey, msg []byte, l
+ 	mgf1XOR(db, hash, seed)
+ 	mgf1XOR(seed, hash, db)
+
+-	if boring.Enabled {
+-		var bkey *boring.PublicKeyRSA
+-		bkey, err = boringPublicKey(pub)
+-		if err != nil {
+-			return nil, err
+-		}
+-		return boring.EncryptRSANoPadding(bkey, em)
+-	}
+-
+ 	return encrypt(pub, em)
+ }
+
+@@ -597,10 +586,6 @@ const noCheck = false
+ // m^e is calculated and compared with ciphertext, in order to defend against
+ // errors in the CRT computation.
+ func decrypt(priv *PrivateKey, ciphertext []byte, check bool) ([]byte, error) {
+-	if len(priv.Primes) <= 2 {
+-		boring.Unreachable()
+-	}
+-
+ 	var (
+ 		err  error
+ 		m, c *bigmod.Nat
+@@ -679,7 +664,7 @@ func decryptOAEP(hash, mgfHash hash.Hash, random io.Reader, priv *PrivateKey, ci
  		if err != nil {
  			return nil, err
  		}
@@ -1267,10 +1328,10 @@ index 63d86b9f3a..a8ee915041 100644
  		} else {
  			hello.cipherSuites = append(hello.cipherSuites, defaultCipherSuitesTLS13NoAES...)
 diff --git a/src/crypto/tls/handshake_client_test.go b/src/crypto/tls/handshake_client_test.go
-index 749c9fc954..2e37a1867c 100644
+index 22be38faff..d460eeb880 100644
 --- a/src/crypto/tls/handshake_client_test.go
 +++ b/src/crypto/tls/handshake_client_test.go
-@@ -2135,6 +2135,7 @@ func testBuffering(t *testing.T, version uint16) {
+@@ -2156,6 +2156,7 @@ func testBuffering(t *testing.T, version uint16) {
  }
 
  func TestAlertFlushing(t *testing.T) {
@@ -1279,7 +1340,7 @@ index 749c9fc954..2e37a1867c 100644
  	done := make(chan bool)
 
 diff --git a/src/crypto/tls/handshake_client_tls13.go b/src/crypto/tls/handshake_client_tls13.go
-index fefba01a06..fa6989e619 100644
+index 4a8661085e..87fe11de5c 100644
 --- a/src/crypto/tls/handshake_client_tls13.go
 +++ b/src/crypto/tls/handshake_client_tls13.go
 @@ -41,10 +41,6 @@ type clientHandshakeStateTLS13 struct {
