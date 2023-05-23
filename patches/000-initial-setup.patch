@@ -958,8 +958,8 @@ index 3278a7ff30..e4484540c1 100644
  	n := new(big.Int)
  	for i, test := range testEncryptOAEPData {
  		n.SetString(test.modulus, 16)
-+		if boring.Enabled && !boringtest.Supports(t, "RSA1024") && n.BitLen() < 2048 {
-+			t.Logf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
++		if boring.Enabled {
++			t.Log("skipping test in FIPS mode due to short keys and unpadded RSA operations not allowed with FIPS")
 +			continue
 +		}
  		public := PublicKey{N: n, E: test.e}
@@ -1041,7 +1041,7 @@ index 1827f76458..140b1a3dd8 100644
 
  // default defaultFIPSCurvePreferences is the FIPS-allowed curves,
 diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
-index ba68f355eb..8ddd2526c7 100644
+index ba68f355eb..7bfe3f9417 100644
 --- a/src/crypto/tls/boring_test.go
 +++ b/src/crypto/tls/boring_test.go
 @@ -9,6 +9,8 @@ package tls
@@ -1093,7 +1093,23 @@ index ba68f355eb..8ddd2526c7 100644
  		return true
  	}
  	return false
-@@ -315,15 +325,31 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -226,7 +236,14 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
+ 			// 1.3, and the ECDSA ones bind to the curve used.
+ 			serverConfig.MaxVersion = VersionTLS12
+
+-			clientErr, serverErr := boringHandshake(t, testConfig, serverConfig)
++			clientConfig := testConfig.Clone()
++
++			if boring.Enabled {
++				serverConfig.Rand = boring.RandReader
++				clientConfig.Rand = boring.RandReader
++			}
++
++			clientErr, serverErr := boringHandshake(t, clientConfig, serverConfig)
+ 			if clientErr != nil {
+ 				t.Fatalf("expected handshake with %#x to succeed; client error: %v; server error: %v", sigHash, clientErr, serverErr)
+ 			}
+@@ -315,15 +332,31 @@ func TestBoringCertAlgs(t *testing.T) {
  	R2 := boringCert(t, "R2", boringRSAKey(t, 512), nil, boringCertCA)
 
  	M1_R1 := boringCert(t, "M1_R1", boringECDSAKey(t, elliptic.P256()), R1, boringCertCA|boringCertFIPSOK)
@@ -1128,7 +1144,19 @@ index ba68f355eb..8ddd2526c7 100644
 
  	// client verifying server cert
  	testServerCert := func(t *testing.T, desc string, pool *x509.CertPool, key interface{}, list [][]byte, ok bool) {
-@@ -362,6 +388,11 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -336,6 +369,11 @@ func TestBoringCertAlgs(t *testing.T) {
+ 		serverConfig.Certificates = []Certificate{{Certificate: list, PrivateKey: key}}
+ 		serverConfig.BuildNameToCertificate()
+
++		if boring.Enabled {
++			serverConfig.Rand = boring.RandReader
++			clientConfig.Rand = boring.RandReader
++		}
++
+ 		clientErr, _ := boringHandshake(t, clientConfig, serverConfig)
+
+ 		if (clientErr == nil) == ok {
+@@ -362,6 +400,16 @@ func TestBoringCertAlgs(t *testing.T) {
  		serverConfig := testConfig.Clone()
  		serverConfig.ClientCAs = pool
  		serverConfig.ClientAuth = RequireAndVerifyClientCert
@@ -1137,10 +1165,15 @@ index ba68f355eb..8ddd2526c7 100644
 +			serverConfig.Certificates[0].PrivateKey = testRSA2048PrivateKey
 +			serverConfig.BuildNameToCertificate()
 +		}
++
++		if boring.Enabled {
++			serverConfig.Rand = boring.RandReader
++			clientConfig.Rand = boring.RandReader
++		}
 
  		_, serverErr := boringHandshake(t, clientConfig, serverConfig)
 
-@@ -384,8 +415,8 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -384,8 +432,8 @@ func TestBoringCertAlgs(t *testing.T) {
  	// exhaustive test with computed answers.
  	r1pool := x509.NewCertPool()
  	r1pool.AddCert(R1.cert)
@@ -1151,7 +1184,7 @@ index ba68f355eb..8ddd2526c7 100644
  	fipstls.Force()
  	testServerCert(t, "basic (fips)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
  	testClientCert(t, "basic (fips, client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
-@@ -406,7 +437,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -406,7 +454,7 @@ func TestBoringCertAlgs(t *testing.T) {
  			leaf = L2_I
  		}
  		for i := 0; i < 64; i++ {
@@ -1160,7 +1193,7 @@ index ba68f355eb..8ddd2526c7 100644
  			reachableFIPS := map[string]bool{leaf.parentOrg: leaf.fipsOK}
  			list := [][]byte{leaf.der}
  			listName := leaf.name
-@@ -414,7 +445,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -414,7 +462,7 @@ func TestBoringCertAlgs(t *testing.T) {
  				if cond != 0 {
  					list = append(list, c.der)
  					listName += "," + c.name
@@ -1169,7 +1202,7 @@ index ba68f355eb..8ddd2526c7 100644
  						reachable[c.parentOrg] = true
  					}
  					if reachableFIPS[c.org] && c.fipsOK {
-@@ -438,7 +469,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -438,7 +486,7 @@ func TestBoringCertAlgs(t *testing.T) {
  					if cond != 0 {
  						rootName += "," + c.name
  						pool.AddCert(c.cert)
@@ -1178,7 +1211,7 @@ index ba68f355eb..8ddd2526c7 100644
  							shouldVerify = true
  						}
  						if reachableFIPS[c.org] && c.fipsOK {
-@@ -464,6 +495,7 @@ const (
+@@ -464,6 +512,7 @@ const (
  	boringCertCA = iota
  	boringCertLeaf
  	boringCertFIPSOK = 0x80
@@ -1186,7 +1219,7 @@ index ba68f355eb..8ddd2526c7 100644
  )
 
  func boringRSAKey(t *testing.T, size int) *rsa.PrivateKey {
-@@ -490,6 +522,7 @@ type boringCertificate struct {
+@@ -490,6 +539,7 @@ type boringCertificate struct {
  	cert      *x509.Certificate
  	key       interface{}
  	fipsOK    bool
@@ -1194,7 +1227,7 @@ index ba68f355eb..8ddd2526c7 100644
  }
 
  func boringCert(t *testing.T, name string, key interface{}, parent *boringCertificate, mode int) *boringCertificate {
-@@ -511,7 +544,7 @@ func boringCert(t *testing.T, name string, key interface{}, parent *boringCertif
+@@ -511,7 +561,7 @@ func boringCert(t *testing.T, name string, key interface{}, parent *boringCertif
  		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth, x509.ExtKeyUsageClientAuth},
  		BasicConstraintsValid: true,
  	}
@@ -1203,7 +1236,7 @@ index ba68f355eb..8ddd2526c7 100644
  		tmpl.DNSNames = []string{"example.com"}
  	} else {
  		tmpl.IsCA = true
-@@ -548,7 +581,8 @@ func boringCert(t *testing.T, name string, key interface{}, parent *boringCertif
+@@ -548,7 +598,8 @@ func boringCert(t *testing.T, name string, key interface{}, parent *boringCertif
  	}
 
  	fipsOK := mode&boringCertFIPSOK != 0
