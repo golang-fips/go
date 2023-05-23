@@ -1401,7 +1401,7 @@ index c941124fb2..7ea291c6f4 100644
  		if err != nil {
  			return nil, err
 diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
-index 7d24a08882..fa3f094330 100644
+index ef84e75b04..49e08d5698 100644
 --- a/src/crypto/rsa/rsa_test.go
 +++ b/src/crypto/rsa/rsa_test.go
 @@ -15,7 +15,7 @@ import (
@@ -1453,9 +1453,9 @@ index 7d24a08882..fa3f094330 100644
  	n := new(big.Int)
  	for i, test := range testEncryptOAEPData {
  		n.SetString(test.modulus, 16)
--		if boring.Enabled && !boringtest.Supports(t, "RSA1024") && n.BitLen() < 2048 {
-+		if boring.Enabled() && !boringtest.Supports(t, "RSA1024") && n.BitLen() < 2048 {
- 			t.Logf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
+-		if boring.Enabled {
++		if boring.Enabled() {
+ 			t.Log("skipping test in FIPS mode due to short keys and unpadded RSA operations not allowed with FIPS")
  			continue
  		}
 @@ -292,7 +292,7 @@ func TestDecryptOAEP(t *testing.T) {
@@ -1735,7 +1735,7 @@ index 140b1a3dd8..fe6fa96d28 100644
         }
  }
 diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
-index 8ddd2526c7..5b041ef1d3 100644
+index 7bfe3f9417..49702f59ba 100644
 --- a/src/crypto/tls/boring_test.go
 +++ b/src/crypto/tls/boring_test.go
 @@ -2,14 +2,14 @@
@@ -1764,7 +1764,25 @@ index 8ddd2526c7..5b041ef1d3 100644
  		test("VersionTLS13", VersionTLS13, "client offered only unsupported versions")
  	} else {
  		test("VersionTLS13", VersionTLS13, "")
-@@ -388,7 +388,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -238,7 +238,7 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
+ 
+ 			clientConfig := testConfig.Clone()
+ 
+-			if boring.Enabled {
++			if boring.Enabled() {
+ 				serverConfig.Rand = boring.RandReader
+ 				clientConfig.Rand = boring.RandReader
+ 			}
+@@ -369,7 +369,7 @@ func TestBoringCertAlgs(t *testing.T) {
+ 		serverConfig.Certificates = []Certificate{{Certificate: list, PrivateKey: key}}
+ 		serverConfig.BuildNameToCertificate()
+ 
+-		if boring.Enabled {
++		if boring.Enabled() {
+ 			serverConfig.Rand = boring.RandReader
+ 			clientConfig.Rand = boring.RandReader
+ 		}
+@@ -400,13 +400,13 @@ func TestBoringCertAlgs(t *testing.T) {
  		serverConfig := testConfig.Clone()
  		serverConfig.ClientCAs = pool
  		serverConfig.ClientAuth = RequireAndVerifyClientCert
@@ -1773,7 +1791,14 @@ index 8ddd2526c7..5b041ef1d3 100644
  			serverConfig.Certificates[0].Certificate = [][]byte{testRSA2048Certificate}
  			serverConfig.Certificates[0].PrivateKey = testRSA2048PrivateKey
  			serverConfig.BuildNameToCertificate()
-@@ -415,8 +415,8 @@ func TestBoringCertAlgs(t *testing.T) {
+ 		}
+ 
+-		if boring.Enabled {
++		if boring.Enabled() {
+ 			serverConfig.Rand = boring.RandReader
+ 			clientConfig.Rand = boring.RandReader
+ 		}
+@@ -432,8 +432,8 @@ func TestBoringCertAlgs(t *testing.T) {
  	// exhaustive test with computed answers.
  	r1pool := x509.NewCertPool()
  	r1pool.AddCert(R1.cert)
@@ -1784,7 +1809,7 @@ index 8ddd2526c7..5b041ef1d3 100644
  	fipstls.Force()
  	testServerCert(t, "basic (fips)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
  	testClientCert(t, "basic (fips, client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
-@@ -437,7 +437,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -454,7 +454,7 @@ func TestBoringCertAlgs(t *testing.T) {
  			leaf = L2_I
  		}
  		for i := 0; i < 64; i++ {
@@ -1793,7 +1818,7 @@ index 8ddd2526c7..5b041ef1d3 100644
  			reachableFIPS := map[string]bool{leaf.parentOrg: leaf.fipsOK}
  			list := [][]byte{leaf.der}
  			listName := leaf.name
-@@ -445,7 +445,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -462,7 +462,7 @@ func TestBoringCertAlgs(t *testing.T) {
  				if cond != 0 {
  					list = append(list, c.der)
  					listName += "," + c.name
@@ -1802,7 +1827,7 @@ index 8ddd2526c7..5b041ef1d3 100644
  						reachable[c.parentOrg] = true
  					}
  					if reachableFIPS[c.org] && c.fipsOK {
-@@ -469,7 +469,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -486,7 +486,7 @@ func TestBoringCertAlgs(t *testing.T) {
  					if cond != 0 {
  						rootName += "," + c.name
  						pool.AddCert(c.cert)
