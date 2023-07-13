@@ -5,15 +5,15 @@ index a9ec6e6bfe..7111867b66 100644
 @@ -2,7 +2,7 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto
 +//go:build !no_openssl
-
+ 
  package api
-
+ 
 @@ -12,6 +12,6 @@ import (
  )
-
+ 
  func init() {
 -	fmt.Printf("SKIP with boringcrypto enabled\n")
 +	fmt.Printf("SKIP with !no_openssl enabled\n")
@@ -31,7 +31,7 @@ index 183c1697c8..abe85b5ad3 100644
 +	boring "crypto/internal/backend"
  	"strconv"
  )
-
+ 
 @@ -38,7 +38,7 @@ func NewCipher(key []byte) (cipher.Block, error) {
  	case 16, 24, 32:
  		break
@@ -61,10 +61,10 @@ index 097c37e343..47618fe3c6 100644
 @@ -13,9 +13,9 @@
  // is satisfied, so that applications can tag files that use this package.
  package boring
-
+ 
 -import "crypto/internal/boring"
 +import boring "crypto/internal/backend"
-
+ 
  // Enabled reports whether BoringCrypto handles supported crypto operations.
  func Enabled() bool {
 -	return boring.Enabled
@@ -123,7 +123,7 @@ index 74420559b5..acf71ba580 100644
 --- a/src/crypto/ecdh/ecdh.go
 +++ b/src/crypto/ecdh/ecdh.go
 @@ -8,7 +8,7 @@ package ecdh
-
+ 
  import (
  	"crypto"
 -	"crypto/internal/boring"
@@ -190,7 +190,7 @@ index 01354fa2cf..a7f1d9eced 100644
 +++ b/src/crypto/ecdh/nist.go
 @@ -5,7 +5,7 @@
  package ecdh
-
+ 
  import (
 -	"crypto/internal/boring"
 +	boring "crypto/internal/backend"
@@ -199,7 +199,7 @@ index 01354fa2cf..a7f1d9eced 100644
  	"encoding/binary"
 @@ -36,7 +36,7 @@ func (c *nistCurve[Point]) String() string {
  var errInvalidPrivateKey = errors.New("crypto/ecdh: invalid private key")
-
+ 
  func (c *nistCurve[Point]) GenerateKey(rand io.Reader) (*PrivateKey, error) {
 -	if boring.Enabled && rand == boring.RandReader {
 +	if boring.Enabled() && rand == boring.RandReader {
@@ -227,12 +227,12 @@ index 01354fa2cf..a7f1d9eced 100644
 @@ -196,7 +196,7 @@ func (c *nistCurve[Point]) ecdh(local *PrivateKey, remote *PublicKey) ([]byte, e
  	// only be the result of a scalar multiplication if one of the inputs is the
  	// zero scalar or the point at infinity.
-
+ 
 -	if boring.Enabled {
 +	if boring.Enabled() {
  		return boring.ECDH(local.boring, remote.boring)
  	}
-
+ 
 diff --git a/src/crypto/ecdsa/boring.go b/src/crypto/ecdsa/boring.go
 index 275c60b4de..58f0034b18 100644
 --- a/src/crypto/ecdsa/boring.go
@@ -240,12 +240,12 @@ index 275c60b4de..58f0034b18 100644
 @@ -2,13 +2,13 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto
 +//go:build !no_openssl
-
+ 
  package ecdsa
-
+ 
  import (
 -	"crypto/internal/boring"
 -	"crypto/internal/boring/bbig"
@@ -255,7 +255,7 @@ index 275c60b4de..58f0034b18 100644
  	"math/big"
  )
 diff --git a/src/crypto/ecdsa/ecdsa.go b/src/crypto/ecdsa/ecdsa.go
-index 68272af41f..b1eea00bef 100644
+index 03a9a72ddd..4bf497f9cc 100644
 --- a/src/crypto/ecdsa/ecdsa.go
 +++ b/src/crypto/ecdsa/ecdsa.go
 @@ -27,8 +27,8 @@ import (
@@ -272,7 +272,7 @@ index 68272af41f..b1eea00bef 100644
 @@ -154,7 +154,7 @@ func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOp
  func GenerateKey(c elliptic.Curve, rand io.Reader) (*PrivateKey, error) {
  	randutil.MaybeReadByte(rand)
-
+ 
 -	if boring.Enabled && rand == boring.RandReader {
 +	if boring.Enabled() && rand == boring.RandReader {
  		x, y, d, err := boring.GenerateKeyECDSA(c.Params().Name)
@@ -281,7 +281,7 @@ index 68272af41f..b1eea00bef 100644
 @@ -248,7 +248,7 @@ var errNoAsm = errors.New("no assembly implementation available")
  func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte) ([]byte, error) {
  	randutil.MaybeReadByte(rand)
-
+ 
 -	if boring.Enabled && rand == boring.RandReader {
 +	if boring.Enabled() && rand == boring.RandReader {
  		b, err := boringPrivateKey(priv)
@@ -301,7 +301,7 @@ index 37f3a18223..51e3b49cdc 100644
 --- a/src/crypto/ecdsa/ecdsa_hashsignverify.go
 +++ b/src/crypto/ecdsa/ecdsa_hashsignverify.go
 @@ -2,7 +2,7 @@ package ecdsa
-
+ 
  import (
  	"crypto"
 -	"crypto/internal/boring"
@@ -312,7 +312,7 @@ index 37f3a18223..51e3b49cdc 100644
 @@ -11,7 +11,7 @@ import (
  func HashSign(rand io.Reader, priv *PrivateKey, msg []byte, h crypto.Hash) (*big.Int, *big.Int, error) {
  	randutil.MaybeReadByte(rand)
-
+ 
 -	if boring.Enabled {
 +	if boring.Enabled() {
  		b, err := boringPrivateKey(priv)
@@ -320,7 +320,7 @@ index 37f3a18223..51e3b49cdc 100644
  			return nil, nil, err
 @@ -28,7 +28,7 @@ func HashSign(rand io.Reader, priv *PrivateKey, msg []byte, h crypto.Hash) (*big
  }
-
+ 
  func HashVerify(pub *PublicKey, msg []byte, r, s *big.Int, h crypto.Hash) bool {
 -	if boring.Enabled {
 +	if boring.Enabled() {
@@ -332,7 +332,7 @@ index d12ba2f441..6334a56496 100644
 --- a/src/crypto/ecdsa/ecdsa_hashsignverify_test.go
 +++ b/src/crypto/ecdsa/ecdsa_hashsignverify_test.go
 @@ -2,7 +2,7 @@ package ecdsa
-
+ 
  import (
  	"crypto"
 -	"crypto/internal/boring"
@@ -343,14 +343,14 @@ index d12ba2f441..6334a56496 100644
 @@ -34,7 +34,7 @@ func testHashSignAndHashVerify(t *testing.T, c elliptic.Curve, tag string) {
  func TestHashSignAndHashVerify(t *testing.T) {
  	testHashSignAndHashVerify(t, elliptic.P256(), "p256")
-
+ 
 -	if testing.Short() && !boring.Enabled {
 +	if testing.Short() && !boring.Enabled() {
  		return
  	}
  	testHashSignAndHashVerify(t, elliptic.P384(), "p384")
 diff --git a/src/crypto/ecdsa/ecdsa_test.go b/src/crypto/ecdsa/ecdsa_test.go
-index 51f58b305e..967e8ff7fb 100644
+index 61a4662036..80e484842b 100644
 --- a/src/crypto/ecdsa/ecdsa_test.go
 +++ b/src/crypto/ecdsa/ecdsa_test.go
 @@ -10,7 +10,7 @@ import (
@@ -359,10 +359,10 @@ index 51f58b305e..967e8ff7fb 100644
  	"crypto/internal/backend/boringtest"
 -	"crypto/internal/boring"
 +	boring "crypto/internal/backend"
+ 	"crypto/internal/bigmod"
  	"crypto/rand"
  	"crypto/sha1"
- 	"crypto/sha256"
-@@ -37,7 +37,7 @@ func testAllCurves(t *testing.T, f func(*testing.T, elliptic.Curve)) {
+@@ -38,7 +38,7 @@ func testAllCurves(t *testing.T, f func(*testing.T, elliptic.Curve)) {
  	}
  	if testing.Short() {
  		tests = tests[:1]
@@ -371,7 +371,7 @@ index 51f58b305e..967e8ff7fb 100644
  		p224 := struct {
  			name  string
  			curve elliptic.Curve
-@@ -45,7 +45,7 @@ func testAllCurves(t *testing.T, f func(*testing.T, elliptic.Curve)) {
+@@ -46,7 +46,7 @@ func testAllCurves(t *testing.T, f func(*testing.T, elliptic.Curve)) {
  		tests = append(tests, p224)
  	}
  	for _, test := range tests {
@@ -380,8 +380,8 @@ index 51f58b305e..967e8ff7fb 100644
  			t.Skip("unsupported test in FIPS mode")
  		}
  		curve := test.curve
-@@ -245,7 +245,7 @@ func TestVectors(t *testing.T) {
-
+@@ -246,7 +246,7 @@ func TestVectors(t *testing.T) {
+ 
  			switch curve {
  			case "P-224":
 -				if !boring.Enabled || boringtest.Supports(t, "CurveP224") {
@@ -418,15 +418,15 @@ index 039bd82ed2..21a35b760c 100644
 @@ -2,15 +2,15 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build !boringcrypto
 +//go:build no_openssl
-
+ 
  package ecdsa
-
+ 
 -import "crypto/internal/boring"
 +import boring "crypto/internal/backend"
-
+ 
  func boringPublicKey(*PublicKey) (*boring.PublicKeyECDSA, error) {
 -	panic("boringcrypto: not available")
 +	panic("!no_openssl: not available")
@@ -449,7 +449,7 @@ index 8b5c2cc9af..ebbb1c0c07 100644
  	"crypto/sha512"
  	"encoding/hex"
 @@ -322,7 +322,7 @@ func TestMalleability(t *testing.T) {
-
+ 
  func TestAllocations(t *testing.T) {
  	t.Skip("Allocations test broken with openssl linkage")
 -	if boring.Enabled {
@@ -463,7 +463,7 @@ index ed3ebc0602..9941228156 100644
 +++ b/src/crypto/hmac/hmac.go
 @@ -22,7 +22,7 @@ timing side-channels:
  package hmac
-
+ 
  import (
 -	"crypto/internal/boring"
 +	boring "crypto/internal/backend"
@@ -484,7 +484,7 @@ index 55415abf02..0edd7a6003 100644
 --- a/src/crypto/hmac/hmac_test.go
 +++ b/src/crypto/hmac/hmac_test.go
 @@ -6,7 +6,7 @@ package hmac
-
+ 
  import (
  	"bytes"
 -	"crypto/internal/boring"
@@ -494,7 +494,7 @@ index 55415abf02..0edd7a6003 100644
  	"crypto/sha256"
 @@ -584,8 +584,8 @@ func TestHMAC(t *testing.T) {
  }
-
+ 
  func TestNonUniqueHash(t *testing.T) {
 -	if boring.Enabled {
 -		t.Skip("hash.Hash provided by boringcrypto are not comparable")
@@ -1367,10 +1367,10 @@ index f2e5a503ea..65918a480e 100644
 @@ -2,7 +2,7 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto
 +//go:build !no_openssl
-
+ 
  // runtime_arg0 is declared in tls.go without a body.
  // It's provided by package runtime,
 diff --git a/src/crypto/internal/boring/fipstls/tls.go b/src/crypto/internal/boring/fipstls/tls.go
@@ -1380,23 +1380,23 @@ index 3bf1471fb0..d6c5ca736d 100644
 @@ -2,10 +2,10 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto
 +//go:build !no_openssl
-
+ 
  // Package fipstls allows control over whether crypto/tls requires FIPS-approved settings.
 -// This package only exists with GOEXPERIMENT=boringcrypto, but the effects are independent
 +// This package only exists with GOEXPERIMENT=!no_openssl, but the effects are independent
  // of the use of BoringCrypto.
  package fipstls
-
+ 
 diff --git a/src/crypto/rand/rand_unix.go b/src/crypto/rand/rand_unix.go
 index 40fce36314..c30be35635 100644
 --- a/src/crypto/rand/rand_unix.go
 +++ b/src/crypto/rand/rand_unix.go
 @@ -10,7 +10,7 @@
  package rand
-
+ 
  import (
 -	"crypto/internal/boring"
 +	boring "crypto/internal/backend"
@@ -1405,7 +1405,7 @@ index 40fce36314..c30be35635 100644
  	"os"
 @@ -23,7 +23,7 @@ import (
  const urandomDevice = "/dev/urandom"
-
+ 
  func init() {
 -	if boring.Enabled {
 +	if boring.Enabled() {
@@ -1419,12 +1419,12 @@ index b9f9d3154f..85c2a45848 100644
 @@ -2,13 +2,13 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto
 +//go:build !no_openssl
-
+ 
  package rsa
-
+ 
  import (
 -	"crypto/internal/boring"
 -	"crypto/internal/boring/bbig"
@@ -1440,10 +1440,10 @@ index 2234d079f0..4e7fd9de4a 100644
 @@ -2,7 +2,7 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto
 +//go:build !no_openssl
-
+ 
  // Note: Can run these tests against the non-BoringCrypto
  // version of the code by using "CGO_ENABLED=0 go test".
 diff --git a/src/crypto/rsa/notboring.go b/src/crypto/rsa/notboring.go
@@ -1453,15 +1453,15 @@ index 2abc043640..a83be6dfdb 100644
 @@ -2,15 +2,15 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build !boringcrypto
 +//go:build no_openssl
-
+ 
  package rsa
-
+ 
 -import "crypto/internal/boring"
 +import boring "crypto/internal/backend"
-
+ 
  func boringPublicKey(*PublicKey) (*boring.PublicKeyRSA, error) {
 -	panic("boringcrypto: not available")
 +	panic("!no_openssl: not available")
@@ -1475,7 +1475,7 @@ index e51b9d2ca7..2d5f6b5ea9 100644
 --- a/src/crypto/rsa/pkcs1v15.go
 +++ b/src/crypto/rsa/pkcs1v15.go
 @@ -6,7 +6,7 @@ package rsa
-
+ 
  import (
  	"crypto"
 -	"crypto/internal/boring"
@@ -1486,7 +1486,7 @@ index e51b9d2ca7..2d5f6b5ea9 100644
 @@ -46,7 +46,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
  		return nil, ErrMessageTooLong
  	}
-
+ 
 -	if boring.Enabled && random == boring.RandReader {
 +	if boring.Enabled() && random == boring.RandReader {
  		bkey, err := boringPublicKey(pub)
@@ -1495,7 +1495,7 @@ index e51b9d2ca7..2d5f6b5ea9 100644
 @@ -66,7 +66,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
  	em[len(em)-len(msg)-1] = 0
  	copy(mm, msg)
-
+ 
 -	if boring.Enabled {
 +	if boring.Enabled() {
  		var bkey *boring.PublicKeyRSA
@@ -1504,7 +1504,7 @@ index e51b9d2ca7..2d5f6b5ea9 100644
 @@ -91,7 +91,7 @@ func DecryptPKCS1v15(random io.Reader, priv *PrivateKey, ciphertext []byte) ([]b
  		return nil, err
  	}
-
+ 
 -	if boring.Enabled {
 +	if boring.Enabled() {
  		bkey, err := boringPrivateKey(priv)
@@ -1513,7 +1513,7 @@ index e51b9d2ca7..2d5f6b5ea9 100644
 @@ -170,7 +170,7 @@ func decryptPKCS1v15(priv *PrivateKey, ciphertext []byte) (valid int, em []byte,
  		return
  	}
-
+ 
 -	if boring.Enabled {
 +	if boring.Enabled() {
  		var bkey *boring.PrivateKeyRSA
@@ -1522,7 +1522,7 @@ index e51b9d2ca7..2d5f6b5ea9 100644
 @@ -278,12 +278,12 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
  		return nil, ErrMessageTooLong
  	}
-
+ 
 -	if boring.Enabled {
 +	if boring.Enabled() {
  		bkey, err := boringPrivateKey(priv)
@@ -1532,7 +1532,7 @@ index e51b9d2ca7..2d5f6b5ea9 100644
 -		return boring.SignRSAPKCS1v15(bkey, hash, hashed)
 +		return boring.SignRSAPKCS1v15(bkey, hash, hashed, true)
  	}
-
+ 
  	// EM = 0x00 || 0x01 || PS || 0x00 || T
 @@ -304,12 +304,12 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
  // returning a nil error. If hash is zero then hashed is used directly. This
@@ -1564,49 +1564,49 @@ index 39a4fc184a..0853178e3a 100644
  	. "crypto/rsa"
 @@ -56,7 +56,7 @@ var decryptPKCS1v15Tests = []DecryptPKCS1v15Test{
  }
-
+ 
  func TestDecryptPKCS1v15(t *testing.T) {
 -	if boring.Enabled && !boringtest.Supports(t, "PKCSv1.5") {
 +	if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
  		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
  	}
-
+ 
 @@ -84,7 +84,7 @@ func TestDecryptPKCS1v15(t *testing.T) {
  }
-
+ 
  func TestEncryptPKCS1v15(t *testing.T) {
 -	if boring.Enabled && !boringtest.Supports(t, "PKCSv1.5") {
 +	if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
  		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
  	}
-
+ 
 @@ -149,7 +149,7 @@ var decryptPKCS1v15SessionKeyTests = []DecryptPKCS1v15Test{
  }
-
+ 
  func TestEncryptPKCS1v15SessionKey(t *testing.T) {
 -	if boring.Enabled && !boringtest.Supports(t, "PKCSv1.5") {
 +	if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
  		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
  	}
-
+ 
 @@ -167,7 +167,7 @@ func TestEncryptPKCS1v15SessionKey(t *testing.T) {
  }
-
+ 
  func TestEncryptPKCS1v15DecrypterSessionKey(t *testing.T) {
 -	if boring.Enabled && !boringtest.Supports(t, "PKCSv1.5") {
 +	if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
  		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
  	}
-
+ 
 @@ -277,7 +277,7 @@ func TestUnpaddedSignature(t *testing.T) {
  }
-
+ 
  func TestShortSessionKey(t *testing.T) {
 -	if boring.Enabled && !boringtest.Supports(t, "PKCSv1.5") {
 +	if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
  		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
  	}
-
+ 
 diff --git a/src/crypto/rsa/pss.go b/src/crypto/rsa/pss.go
 index f7d23b55ef..3c822aa587 100644
 --- a/src/crypto/rsa/pss.go
@@ -1623,7 +1623,7 @@ index f7d23b55ef..3c822aa587 100644
 @@ -214,7 +214,7 @@ func signPSSWithSalt(priv *PrivateKey, hash crypto.Hash, hashed, salt []byte) ([
  		return nil, err
  	}
-
+ 
 -	if boring.Enabled {
 +	if boring.Enabled() {
  		bkey, err := boringPrivateKey(priv)
@@ -1668,16 +1668,16 @@ index 1226149321..befd1612b5 100644
 +	if boring.Enabled() {
  		t.Skip("skipping PSS test with BoringCrypto: too short key")
  	}
-
+ 
 @@ -209,7 +209,7 @@ func TestPSSNilOpts(t *testing.T) {
  }
-
+ 
  func TestPSSSigning(t *testing.T) {
 -	if boring.Enabled && !boringtest.Supports(t, "SHA1") {
 +	if boring.Enabled() && !boringtest.Supports(t, "SHA1") {
  		t.Skip("skipping PSS test with BoringCrypto: too short key")
  	}
-
+ 
 diff --git a/src/crypto/rsa/rsa.go b/src/crypto/rsa/rsa.go
 index ab56ccd1ed..dd79dc5439 100644
 --- a/src/crypto/rsa/rsa.go
@@ -1696,7 +1696,7 @@ index ab56ccd1ed..dd79dc5439 100644
 @@ -286,7 +286,7 @@ func GenerateKey(random io.Reader, bits int) (*PrivateKey, error) {
  func GenerateMultiPrimeKey(random io.Reader, nprimes int, bits int) (*PrivateKey, error) {
  	randutil.MaybeReadByte(random)
-
+ 
 -	if boring.Enabled && random == boring.RandReader && nprimes == 2 &&
 +	if boring.Enabled() && random == boring.RandReader && nprimes == 2 &&
  		(bits == 2048 || bits == 3072 || bits == 4096) {
@@ -1705,7 +1705,7 @@ index ab56ccd1ed..dd79dc5439 100644
 @@ -504,7 +504,7 @@ func EncryptOAEP(hash hash.Hash, random io.Reader, pub *PublicKey, msg []byte, l
  		return nil, ErrMessageTooLong
  	}
-
+ 
 -	if boring.Enabled && random == boring.RandReader {
 +	if boring.Enabled() && random == boring.RandReader {
  		bkey, err := boringPublicKey(pub)
@@ -1714,7 +1714,7 @@ index ab56ccd1ed..dd79dc5439 100644
 @@ -533,7 +533,7 @@ func EncryptOAEP(hash hash.Hash, random io.Reader, pub *PublicKey, msg []byte, l
  	mgf1XOR(db, hash, seed)
  	mgf1XOR(seed, hash, db)
-
+ 
 -	if boring.Enabled {
 +	if boring.Enabled() {
  		var bkey *boring.PublicKeyRSA
@@ -1723,7 +1723,7 @@ index ab56ccd1ed..dd79dc5439 100644
 @@ -675,7 +675,7 @@ func decryptOAEP(hash, mgfHash hash.Hash, random io.Reader, priv *PrivateKey, ci
  		return nil, ErrDecryption
  	}
-
+ 
 -	if boring.Enabled {
 +	if boring.Enabled() {
  		bkey, err := boringPrivateKey(priv)
@@ -1754,7 +1754,7 @@ index b994daec19..4b7427e1ae 100644
 @@ -120,12 +120,12 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
  		t.Errorf("private exponent too large")
  	}
-
+ 
 -	if boring.Enabled {
 +	if boring.Enabled() {
  		// Cannot call encrypt/decrypt with raw RSA. PKCSv1.5
@@ -1768,7 +1768,7 @@ index b994daec19..4b7427e1ae 100644
  		}
 @@ -167,7 +167,7 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
  }
-
+ 
  func TestAllocations(t *testing.T) {
 -	if boring.Enabled {
 +	if boring.Enabled() {
@@ -1805,12 +1805,12 @@ index b994daec19..4b7427e1ae 100644
 @@ -741,7 +741,7 @@ func Test2DecryptOAEP(t *testing.T) {
  	sha1 := crypto.SHA1
  	sha256 := crypto.SHA256
-
+ 
 -	if boring.Enabled && n.BitLen() < 2048 {
 +	if boring.Enabled() && n.BitLen() < 2048 {
  		t.Skipf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
  	}
-
+ 
 @@ -760,7 +760,7 @@ func TestEncryptDecryptOAEP(t *testing.T) {
  	d := new(big.Int)
  	for i, test := range testEncryptOAEPData {
@@ -1826,18 +1826,18 @@ index b5786d1bf4..9bd03f3940 100644
 +++ b/src/crypto/sha1/boring.go
 @@ -12,11 +12,11 @@
  package sha1
-
+ 
  import (
 -	"crypto/internal/boring"
 +	boring "crypto/internal/backend"
  	"hash"
  )
-
+ 
 -const boringEnabled = boring.Enabled
 +var boringEnabled = boring.Enabled()
-
+ 
  func boringNewSHA1() hash.Hash { return boring.NewSHA1() }
-
+ 
 diff --git a/src/crypto/sha1/notboring.go b/src/crypto/sha1/notboring.go
 index 42ef87937f..c1a3205539 100644
 --- a/src/crypto/sha1/notboring.go
@@ -1845,15 +1845,15 @@ index 42ef87937f..c1a3205539 100644
 @@ -11,10 +11,10 @@ import (
  	"hash"
  )
-
+ 
 -const boringEnabled = false
 +var boringEnabled = false
-
+ 
 -func boringNewSHA1() hash.Hash { panic("boringcrypto: not available") }
 +func boringNewSHA1() hash.Hash { panic("!no_openssl: not available") }
-
+ 
  func boringUnreachable() {}
-
+ 
 -func boringSHA1([]byte) [20]byte { panic("boringcrypto: not available") }
 +func boringSHA1([]byte) [20]byte { panic("!no_openssl: not available") }
 diff --git a/src/crypto/sha1/sha1_test.go b/src/crypto/sha1/sha1_test.go
@@ -1861,7 +1861,7 @@ index 85ed126091..71f4b46663 100644
 --- a/src/crypto/sha1/sha1_test.go
 +++ b/src/crypto/sha1/sha1_test.go
 @@ -8,7 +8,7 @@ package sha1
-
+ 
  import (
  	"bytes"
 -	"crypto/internal/boring"
@@ -1879,7 +1879,7 @@ index 85ed126091..71f4b46663 100644
  				}
  				io.WriteString(c, g.in[0:len(g.in)/2])
 @@ -145,7 +145,7 @@ func TestBlockSize(t *testing.T) {
-
+ 
  // Tests that blockGeneric (pure Go) and block (in assembly for some architectures) match.
  func TestBlockGeneric(t *testing.T) {
 -	if boring.Enabled {
@@ -1889,7 +1889,7 @@ index 85ed126091..71f4b46663 100644
  	for i := 1; i < 30; i++ { // arbitrary factor
 @@ -218,7 +218,7 @@ func TestLargeHashes(t *testing.T) {
  }
-
+ 
  func TestAllocations(t *testing.T) {
 -	if boring.Enabled {
 +	if boring.Enabled() {
@@ -1901,7 +1901,7 @@ index 2deafbc9fc..282c326b32 100644
 --- a/src/crypto/sha256/sha256.go
 +++ b/src/crypto/sha256/sha256.go
 @@ -8,7 +8,7 @@ package sha256
-
+ 
  import (
  	"crypto"
 -	"crypto/internal/boring"
@@ -1919,7 +1919,7 @@ index 2deafbc9fc..282c326b32 100644
  	}
  	d := new(digest)
 @@ -158,7 +158,7 @@ func New() hash.Hash {
-
+ 
  // New224 returns a new hash.Hash computing the SHA224 checksum.
  func New224() hash.Hash {
 -	if boring.Enabled {
@@ -1928,7 +1928,7 @@ index 2deafbc9fc..282c326b32 100644
  	}
  	d := new(digest)
 @@ -251,7 +251,7 @@ func (d *digest) checkSum() [Size]byte {
-
+ 
  // Sum256 returns the SHA256 checksum of the data.
  func Sum256(data []byte) [Size]byte {
 -	if boring.Enabled {
@@ -1937,7 +1937,7 @@ index 2deafbc9fc..282c326b32 100644
  	}
  	var d digest
 @@ -262,7 +262,7 @@ func Sum256(data []byte) [Size]byte {
-
+ 
  // Sum224 returns the SHA224 checksum of the data.
  func Sum224(data []byte) [Size224]byte {
 -	if boring.Enabled {
@@ -1950,7 +1950,7 @@ index 7304678346..a073d31119 100644
 --- a/src/crypto/sha256/sha256_test.go
 +++ b/src/crypto/sha256/sha256_test.go
 @@ -8,7 +8,7 @@ package sha256
-
+ 
  import (
  	"bytes"
 -	"crypto/internal/boring"
@@ -1959,7 +1959,7 @@ index 7304678346..a073d31119 100644
  	"encoding"
  	"fmt"
 @@ -217,7 +217,7 @@ func TestBlockSize(t *testing.T) {
-
+ 
  // Tests that blockGeneric (pure Go) and block (in assembly for some architectures) match.
  func TestBlockGeneric(t *testing.T) {
 -	if boring.Enabled {
@@ -1969,7 +1969,7 @@ index 7304678346..a073d31119 100644
  	gen, asm := New().(*digest), New().(*digest)
 @@ -294,7 +294,7 @@ func TestLargeHashes(t *testing.T) {
  }
-
+ 
  func TestAllocations(t *testing.T) {
 -	if boring.Enabled {
 +	if boring.Enabled() {
@@ -1981,7 +1981,7 @@ index 9ae1b3aae2..e56eedb201 100644
 --- a/src/crypto/sha512/sha512.go
 +++ b/src/crypto/sha512/sha512.go
 @@ -12,7 +12,7 @@ package sha512
-
+ 
  import (
  	"crypto"
 -	"crypto/internal/boring"
@@ -1990,7 +1990,7 @@ index 9ae1b3aae2..e56eedb201 100644
  	"errors"
  	"hash"
 @@ -206,7 +206,7 @@ func consumeUint64(b []byte) ([]byte, uint64) {
-
+ 
  // New returns a new hash.Hash computing the SHA-512 checksum.
  func New() hash.Hash {
 -	if boring.Enabled {
@@ -1999,7 +1999,7 @@ index 9ae1b3aae2..e56eedb201 100644
  	}
  	d := &digest{function: crypto.SHA512}
 @@ -230,7 +230,7 @@ func New512_256() hash.Hash {
-
+ 
  // New384 returns a new hash.Hash computing the SHA-384 checksum.
  func New384() hash.Hash {
 -	if boring.Enabled {
@@ -2008,7 +2008,7 @@ index 9ae1b3aae2..e56eedb201 100644
  	}
  	d := &digest{function: crypto.SHA384}
 @@ -341,7 +341,7 @@ func (d *digest) checkSum() [Size]byte {
-
+ 
  // Sum512 returns the SHA512 checksum of the data.
  func Sum512(data []byte) [Size]byte {
 -	if boring.Enabled {
@@ -2017,7 +2017,7 @@ index 9ae1b3aae2..e56eedb201 100644
  	}
  	d := digest{function: crypto.SHA512}
 @@ -352,7 +352,7 @@ func Sum512(data []byte) [Size]byte {
-
+ 
  // Sum384 returns the SHA384 checksum of the data.
  func Sum384(data []byte) [Size384]byte {
 -	if boring.Enabled {
@@ -2030,7 +2030,7 @@ index 921cdbb7bb..a35165bcbf 100644
 --- a/src/crypto/sha512/sha512_test.go
 +++ b/src/crypto/sha512/sha512_test.go
 @@ -8,7 +8,7 @@ package sha512
-
+ 
  import (
  	"bytes"
 -	"crypto/internal/boring"
@@ -2039,7 +2039,7 @@ index 921cdbb7bb..a35165bcbf 100644
  	"encoding"
  	"encoding/hex"
 @@ -823,7 +823,7 @@ func TestBlockSize(t *testing.T) {
-
+ 
  // Tests that blockGeneric (pure Go) and block (in assembly for some architectures) match.
  func TestBlockGeneric(t *testing.T) {
 -	if boring.Enabled {
@@ -2049,7 +2049,7 @@ index 921cdbb7bb..a35165bcbf 100644
  	gen, asm := New().(*digest), New().(*digest)
 @@ -893,7 +893,7 @@ func TestLargeHashes(t *testing.T) {
  }
-
+ 
  func TestAllocations(t *testing.T) {
 -	if boring.Enabled {
 +	if boring.Enabled() {
@@ -2063,15 +2063,15 @@ index 140b1a3dd8..fe6fa96d28 100644
 @@ -2,7 +2,7 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto
 +//go:build !no_openssl
-
+ 
  package tls
-
+ 
 @@ -12,7 +12,7 @@ import (
  )
-
+ 
  func init() {
 -       if boring.Enabled && !boring.ExecutingTest() {
 +       if boring.Enabled() && !boring.ExecutingTest() {
@@ -2085,12 +2085,12 @@ index 7bfe3f9417..49702f59ba 100644
 @@ -2,14 +2,14 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto
 +//go:build !no_openssl
-
+ 
  package tls
-
+ 
  import (
  	"crypto/ecdsa"
  	"crypto/elliptic"
@@ -2109,9 +2109,9 @@ index 7bfe3f9417..49702f59ba 100644
  	} else {
  		test("VersionTLS13", VersionTLS13, "")
 @@ -238,7 +238,7 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
-
+ 
  			clientConfig := testConfig.Clone()
-
+ 
 -			if boring.Enabled {
 +			if boring.Enabled() {
  				serverConfig.Rand = boring.RandReader
@@ -2120,7 +2120,7 @@ index 7bfe3f9417..49702f59ba 100644
 @@ -369,7 +369,7 @@ func TestBoringCertAlgs(t *testing.T) {
  		serverConfig.Certificates = []Certificate{{Certificate: list, PrivateKey: key}}
  		serverConfig.BuildNameToCertificate()
-
+ 
 -		if boring.Enabled {
 +		if boring.Enabled() {
  			serverConfig.Rand = boring.RandReader
@@ -2136,7 +2136,7 @@ index 7bfe3f9417..49702f59ba 100644
  			serverConfig.Certificates[0].PrivateKey = testRSA2048PrivateKey
  			serverConfig.BuildNameToCertificate()
  		}
-
+ 
 -		if boring.Enabled {
 +		if boring.Enabled() {
  			serverConfig.Rand = boring.RandReader
@@ -2271,12 +2271,12 @@ index 7d85b39c59..fe2719485b 100644
 @@ -2,7 +2,7 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build !boringcrypto
 +//go:build no_openssl
-
+ 
  package tls
-
+ 
 diff --git a/src/crypto/x509/boring.go b/src/crypto/x509/boring.go
 index 095b58c315..ac06591ea8 100644
 --- a/src/crypto/x509/boring.go
@@ -2284,12 +2284,12 @@ index 095b58c315..ac06591ea8 100644
 @@ -2,7 +2,7 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto
 +//go:build !no_openssl
-
+ 
  package x509
-
+ 
 diff --git a/src/crypto/x509/boring_test.go b/src/crypto/x509/boring_test.go
 index 102acda578..07b3c7095e 100644
 --- a/src/crypto/x509/boring_test.go
@@ -2297,12 +2297,12 @@ index 102acda578..07b3c7095e 100644
 @@ -2,7 +2,7 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto
 +//go:build !no_openssl
-
+ 
  package x509
-
+ 
 diff --git a/src/crypto/x509/notboring.go b/src/crypto/x509/notboring.go
 index c83a7272c9..0c7dea2f1f 100644
 --- a/src/crypto/x509/notboring.go
@@ -2310,12 +2310,12 @@ index c83a7272c9..0c7dea2f1f 100644
 @@ -2,7 +2,7 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build !boringcrypto
 +//go:build no_openssl
-
+ 
  package x509
-
+ 
 diff --git a/src/crypto/x509/x509_test.go b/src/crypto/x509/x509_test.go
 index 8734dd03c1..22a104f338 100644
 --- a/src/crypto/x509/x509_test.go
@@ -2331,7 +2331,7 @@ index 8734dd03c1..22a104f338 100644
  	"crypto/rsa"
 @@ -653,7 +653,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
  	extraExtensionData := []byte("extra extension")
-
+ 
  	for _, test := range tests {
 -		if boring.Enabled && test.sigAlgo.isRSAPSS() {
 +		if boring.Enabled() && test.sigAlgo.isRSAPSS() {
@@ -2353,7 +2353,7 @@ index 4697da201c..0a5e32e27a 100644
 +++ b/src/go.mod
 @@ -3,6 +3,7 @@ module std
  go 1.20
-
+ 
  require (
 +	github.com/golang-fips/openssl-fips v0.0.0-20230323210700-e1541889d8a8
  	golang.org/x/crypto v0.3.1-0.20221117191849-2c476679df9a
@@ -3170,14 +3170,14 @@ index e15f3682c7..5e1e789da0 100644
 @@ -2,19 +2,24 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
 +//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
 +// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
-
+ 
 -package boring
 +package openssl
-
+ 
 -// #include "goboringcrypto.h"
 +// #include "goopenssl.h"
  import "C"
@@ -3189,19 +3189,19 @@ index e15f3682c7..5e1e789da0 100644
  	"runtime"
 +	"unsafe"
  )
-
+ 
  type ecdsaSignature struct {
 -	R, S BigInt
 +	R, S *big.Int
  }
-
+ 
  type PrivateKeyECDSA struct {
 @@ -34,11 +39,15 @@ func (k *PublicKeyECDSA) finalize() {
  }
-
+ 
  var errUnknownCurve = errors.New("boringcrypto: unknown elliptic curve")
 +var errUnsupportedCurve = errors.New("boringcrypto: unsupported elliptic curve")
-
+ 
  func curveNID(curve string) (C.int, error) {
  	switch curve {
  	case "P-224":
@@ -3250,7 +3250,7 @@ index e15f3682c7..5e1e789da0 100644
 @@ -119,19 +128,55 @@ func NewPrivateKeyECDSA(curve string, X, Y BigInt, D BigInt) (*PrivateKeyECDSA,
  	return k, nil
  }
-
+ 
 +func HashSignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) (*big.Int, *big.Int, error) {
 +	size := C._goboringcrypto_ECDSA_size(priv.key)
 +	sig := make([]byte, size)
@@ -3285,7 +3285,7 @@ index e15f3682c7..5e1e789da0 100644
  	runtime.KeepAlive(priv)
  	return sig[:sigLen], nil
  }
-
+ 
  func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, sig []byte) bool {
 -	ok := C._goboringcrypto_ECDSA_verify(0, base(hash), C.size_t(len(hash)), base(sig), C.size_t(len(sig)), pub.key) != 0
 +	ok := C._goboringcrypto_internal_ECDSA_verify(0, base(hash), C.size_t(len(hash)), (*C.uint8_t)(unsafe.Pointer(&sig[0])), C.uint(len(sig)), pub.key) > 0
@@ -4630,14 +4630,14 @@ index 6241a65f5f..6f001777ae 100644
 @@ -2,14 +2,14 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
 +//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
 +// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
-
+ 
 -package boring
 +package openssl
-
+ 
 -// #include "goboringcrypto.h"
 +// #include "goopenssl.h"
  import "C"
@@ -4649,7 +4649,7 @@ index 6241a65f5f..6f001777ae 100644
 @@ -67,13 +67,25 @@ func NewHMAC(h func() hash.Hash, key []byte) hash.Hash {
  		return nil
  	}
-
+ 
 -	// Note: Could hash down long keys here using EVP_Digest.
 -	hkey := bytes.Clone(key)
 +	var hkey []byte
@@ -4675,7 +4675,7 @@ index 6241a65f5f..6f001777ae 100644
  	hmac.Reset()
  	return hmac
 @@ -81,8 +93,8 @@ func NewHMAC(h func() hash.Hash, key []byte) hash.Hash {
-
+ 
  type boringHMAC struct {
  	md          *C.GO_EVP_MD
 -	ctx         C.GO_HMAC_CTX
@@ -4687,7 +4687,7 @@ index 6241a65f5f..6f001777ae 100644
  	key         []byte
 @@ -91,9 +103,7 @@ type boringHMAC struct {
  }
-
+ 
  func (h *boringHMAC) Reset() {
 -	if h.needCleanup {
 -		C._goboringcrypto_HMAC_CTX_cleanup(&h.ctx)
@@ -4702,7 +4702,7 @@ index 6241a65f5f..6f001777ae 100644
  	}
 -	C._goboringcrypto_HMAC_CTX_init(&h.ctx)
 +	C._goboringcrypto_HMAC_CTX_reset(h.ctx)
-
+ 
 -	if C._goboringcrypto_HMAC_Init(&h.ctx, unsafe.Pointer(base(h.key)), C.int(len(h.key)), h.md) == 0 {
 +	if C._goboringcrypto_HMAC_Init_ex(h.ctx, unsafe.Pointer(base(h.key)), C.int(len(h.key)), h.md, nil) == 0 {
  		panic("boringcrypto: HMAC_Init failed")
@@ -4716,12 +4716,12 @@ index 6241a65f5f..6f001777ae 100644
  	runtime.KeepAlive(h) // Next line will keep h alive too; just making doubly sure.
 @@ -115,12 +125,12 @@ func (h *boringHMAC) Reset() {
  }
-
+ 
  func (h *boringHMAC) finalize() {
 -	C._goboringcrypto_HMAC_CTX_cleanup(&h.ctx)
 +	C._goboringcrypto_HMAC_CTX_free(h.ctx)
  }
-
+ 
  func (h *boringHMAC) Write(p []byte) (int, error) {
  	if len(p) > 0 {
 -		C._goboringcrypto_HMAC_Update(&h.ctx, (*C.uint8_t)(unsafe.Pointer(&p[0])), C.size_t(len(p)))
@@ -4755,14 +4755,14 @@ index 1c5e4c742d..2fa4a38e44 100644
 @@ -2,32 +2,34 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build !(boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan && cgo)
 +//go:build !linux || !cgo || android || cmd_go_bootstrap || msan || no_openssl
 +// +build !linux !cgo android cmd_go_bootstrap msan no_openssl
-
+ 
 -package boring
 +package openssl
-
+ 
  import (
  	"crypto"
  	"crypto/cipher"
@@ -4770,10 +4770,10 @@ index 1c5e4c742d..2fa4a38e44 100644
  	"hash"
 +	"io"
  )
-
+ 
 -const available = false
 +var enabled = false
-
+ 
  // Unreachable marks code that should be unreachable
  // when BoringCrypto is in use. It is a no-op without BoringCrypto.
  func Unreachable() {
@@ -4782,23 +4782,23 @@ index 1c5e4c742d..2fa4a38e44 100644
 -	// standard Go crypto.
 -	sig.StandardCrypto()
  }
-
+ 
  // UnreachableExceptTests marks code that should be unreachable
  // when BoringCrypto is in use. It is a no-op without BoringCrypto.
  func UnreachableExceptTests() {}
-
+ 
 +func ExecutingTest() bool { return false }
 +
 +// This is a noop withotu BoringCrytpo.
 +func PanicIfStrictFIPS(v interface{}) {}
 +
  type randReader int
-
+ 
  func (randReader) Read(b []byte) (int, error) { panic("boringcrypto: not available") }
 @@ -40,16 +42,9 @@ func NewSHA256() hash.Hash { panic("boringcrypto: not available") }
  func NewSHA384() hash.Hash { panic("boringcrypto: not available") }
  func NewSHA512() hash.Hash { panic("boringcrypto: not available") }
-
+ 
 -func SHA1([]byte) [20]byte   { panic("boringcrypto: not available") }
 -func SHA224([]byte) [28]byte { panic("boringcrypto: not available") }
 -func SHA256([]byte) [32]byte { panic("boringcrypto: not available") }
@@ -4806,10 +4806,10 @@ index 1c5e4c742d..2fa4a38e44 100644
 -func SHA512([]byte) [64]byte { panic("boringcrypto: not available") }
 -
  func NewHMAC(h func() hash.Hash, key []byte) hash.Hash { panic("boringcrypto: not available") }
-
+ 
  func NewAESCipher(key []byte) (cipher.Block, error) { panic("boringcrypto: not available") }
 -func NewGCMTLS(cipher.Block) (cipher.AEAD, error)   { panic("boringcrypto: not available") }
-
+ 
  type PublicKeyECDSA struct{ _ int }
  type PrivateKeyECDSA struct{ _ int }
 @@ -63,17 +58,39 @@ func NewPrivateKeyECDSA(curve string, X, Y, D BigInt) (*PrivateKeyECDSA, error)
@@ -4846,10 +4846,10 @@ index 1c5e4c742d..2fa4a38e44 100644
 +func GenerateKeyECDH(curve string) (*PrivateKeyECDH, []byte, error) {
  	panic("boringcrypto: not available")
  }
-
+ 
  type PublicKeyRSA struct{ _ int }
  type PrivateKeyRSA struct{ _ int }
-
+ 
 -func DecryptRSAOAEP(h, mgfHash hash.Hash, priv *PrivateKeyRSA, ciphertext, label []byte) ([]byte, error) {
 +func DecryptRSAOAEP(h hash.Hash, priv *PrivateKeyRSA, ciphertext, label []byte) ([]byte, error) {
  	panic("boringcrypto: not available")
@@ -4882,13 +4882,13 @@ index 1c5e4c742d..2fa4a38e44 100644
  func VerifyRSAPSS(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte, saltLen int) error {
  	panic("boringcrypto: not available")
  }
-
+ 
 -type PublicKeyECDH struct{}
 -type PrivateKeyECDH struct{}
 +func ExtractHKDF(h func() hash.Hash, secret, salt []byte) ([]byte, error) {
 +	panic("boringcrypto: not available")
 +}
-
+ 
 -func ECDH(*PrivateKeyECDH, *PublicKeyECDH) ([]byte, error)      { panic("boringcrypto: not available") }
 -func GenerateKeyECDH(string) (*PrivateKeyECDH, []byte, error)   { panic("boringcrypto: not available") }
 -func NewPrivateKeyECDH(string, []byte) (*PrivateKeyECDH, error) { panic("boringcrypto: not available") }
@@ -6373,19 +6373,19 @@ index 7639c01909..b3668b8823 100644
 @@ -2,11 +2,12 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
 +//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
 +// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
-
+ 
 -package boring
 +package openssl
-
+ 
 -// #include "goboringcrypto.h"
 +// #include "goopenssl.h"
  import "C"
  import "unsafe"
-
+ 
 @@ -16,7 +17,7 @@ func (randReader) Read(b []byte) (int, error) {
  	// Note: RAND_bytes should never fail; the return value exists only for historical reasons.
  	// We check it even so.
@@ -6405,14 +6405,14 @@ index fa693ea319..75ba7a8a59 100644
 @@ -2,15 +2,15 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
 +//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
 +// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
-
+ 
 -package boring
 +package openssl
-
+ 
 -// #include "goboringcrypto.h"
 +// #include "goopenssl.h"
  import "C"
@@ -6423,19 +6423,19 @@ index fa693ea319..75ba7a8a59 100644
  	"hash"
  	"runtime"
 @@ -25,12 +25,12 @@ func GenerateKeyRSA(bits int) (N, E, D, P, Q, Dp, Dq, Qinv BigInt, err error) {
-
+ 
  	key := C._goboringcrypto_RSA_new()
  	if key == nil {
 -		return bad(fail("RSA_new"))
 +		return bad(NewOpenSSLError("RSA_new failed"))
  	}
  	defer C._goboringcrypto_RSA_free(key)
-
+ 
  	if C._goboringcrypto_RSA_generate_key_fips(key, C.int(bits), nil) == 0 {
 -		return bad(fail("RSA_generate_key_fips"))
 +		return bad(NewOpenSSLError("RSA_generate_key_fips failed"))
  	}
-
+ 
  	var n, e, d, p, q, dp, dq, qinv *C.GO_BIGNUM
 @@ -48,12 +48,12 @@ type PublicKeyRSA struct {
  func NewPublicKeyRSA(N, E BigInt) (*PublicKeyRSA, error) {
@@ -6492,7 +6492,7 @@ index fa693ea319..75ba7a8a59 100644
  	runtime.SetFinalizer(k, (*PrivateKeyRSA).finalize)
 @@ -109,7 +115,7 @@ func (k *PrivateKeyRSA) withKey(f func(*C.GO_RSA) C.int) C.int {
  }
-
+ 
  func setupRSA(withKey func(func(*C.GO_RSA) C.int) C.int,
 -	padding C.int, h, mgfHash hash.Hash, label []byte, saltLen int, ch crypto.Hash,
 +	padding C.int, h hash.Hash, label []byte, saltLen int, ch crypto.Hash,
@@ -6500,7 +6500,7 @@ index fa693ea319..75ba7a8a59 100644
  	defer func() {
  		if err != nil {
 @@ -126,7 +132,7 @@ func setupRSA(withKey func(func(*C.GO_RSA) C.int) C.int,
-
+ 
  	pkey = C._goboringcrypto_EVP_PKEY_new()
  	if pkey == nil {
 -		return nil, nil, fail("EVP_PKEY_new")
@@ -6582,24 +6582,24 @@ index fa693ea319..75ba7a8a59 100644
 +			return nil, nil, NewOpenSSLError("EVP_PKEY_set_rsa_mgf1_md failed")
  		}
  	}
-
+ 
 @@ -187,12 +197,12 @@ func setupRSA(withKey func(func(*C.GO_RSA) C.int) C.int,
  }
-
+ 
  func cryptRSA(withKey func(func(*C.GO_RSA) C.int) C.int,
 -	padding C.int, h, mgfHash hash.Hash, label []byte, saltLen int, ch crypto.Hash,
 +	padding C.int, h hash.Hash, label []byte, saltLen int, ch crypto.Hash,
  	init func(*C.GO_EVP_PKEY_CTX) C.int,
  	crypt func(*C.GO_EVP_PKEY_CTX, *C.uint8_t, *C.size_t, *C.uint8_t, C.size_t) C.int,
  	in []byte) ([]byte, error) {
-
+ 
 -	pkey, ctx, err := setupRSA(withKey, padding, h, mgfHash, label, saltLen, ch, init)
 +	pkey, ctx, err := setupRSA(withKey, padding, h, label, saltLen, ch, init)
  	if err != nil {
  		return nil, err
  	}
 @@ -201,37 +211,37 @@ func cryptRSA(withKey func(func(*C.GO_RSA) C.int) C.int,
-
+ 
  	var outLen C.size_t
  	if crypt(ctx, nil, &outLen, base(in), C.size_t(len(in))) == 0 {
 -		return nil, fail("EVP_PKEY_decrypt/encrypt")
@@ -6613,50 +6613,50 @@ index fa693ea319..75ba7a8a59 100644
  	}
  	return out[:outLen], nil
  }
-
+ 
 -func DecryptRSAOAEP(h, mgfHash hash.Hash, priv *PrivateKeyRSA, ciphertext, label []byte) ([]byte, error) {
 -	return cryptRSA(priv.withKey, C.GO_RSA_PKCS1_OAEP_PADDING, h, mgfHash, label, 0, 0, decryptInit, decrypt, ciphertext)
 +func DecryptRSAOAEP(h hash.Hash, priv *PrivateKeyRSA, ciphertext, label []byte) ([]byte, error) {
 +	return cryptRSA(priv.withKey, C.GO_RSA_PKCS1_OAEP_PADDING, h, label, 0, 0, decryptInit, decrypt, ciphertext)
  }
-
+ 
 -func EncryptRSAOAEP(h, mgfHash hash.Hash, pub *PublicKeyRSA, msg, label []byte) ([]byte, error) {
 -	return cryptRSA(pub.withKey, C.GO_RSA_PKCS1_OAEP_PADDING, h, mgfHash, label, 0, 0, encryptInit, encrypt, msg)
 +func EncryptRSAOAEP(h hash.Hash, pub *PublicKeyRSA, msg, label []byte) ([]byte, error) {
 +	return cryptRSA(pub.withKey, C.GO_RSA_PKCS1_OAEP_PADDING, h, label, 0, 0, encryptInit, encrypt, msg)
  }
-
+ 
  func DecryptRSAPKCS1(priv *PrivateKeyRSA, ciphertext []byte) ([]byte, error) {
 -	return cryptRSA(priv.withKey, C.GO_RSA_PKCS1_PADDING, nil, nil, nil, 0, 0, decryptInit, decrypt, ciphertext)
 +	return cryptRSA(priv.withKey, C.GO_RSA_PKCS1_PADDING, nil, nil, 0, 0, decryptInit, decrypt, ciphertext)
  }
-
+ 
  func EncryptRSAPKCS1(pub *PublicKeyRSA, msg []byte) ([]byte, error) {
 -	return cryptRSA(pub.withKey, C.GO_RSA_PKCS1_PADDING, nil, nil, nil, 0, 0, encryptInit, encrypt, msg)
 +	return cryptRSA(pub.withKey, C.GO_RSA_PKCS1_PADDING, nil, nil, 0, 0, encryptInit, encrypt, msg)
  }
-
+ 
  func DecryptRSANoPadding(priv *PrivateKeyRSA, ciphertext []byte) ([]byte, error) {
 -	return cryptRSA(priv.withKey, C.GO_RSA_NO_PADDING, nil, nil, nil, 0, 0, decryptInit, decrypt, ciphertext)
 +	return cryptRSA(priv.withKey, C.GO_RSA_NO_PADDING, nil, nil, 0, 0, decryptInit, decrypt, ciphertext)
  }
-
+ 
  func EncryptRSANoPadding(pub *PublicKeyRSA, msg []byte) ([]byte, error) {
 -	return cryptRSA(pub.withKey, C.GO_RSA_NO_PADDING, nil, nil, nil, 0, 0, encryptInit, encrypt, msg)
 +	return cryptRSA(pub.withKey, C.GO_RSA_NO_PADDING, nil, nil, 0, 0, encryptInit, encrypt, msg)
  }
-
+ 
  // These dumb wrappers work around the fact that cgo functions cannot be used as values directly.
 @@ -252,6 +262,10 @@ func encrypt(ctx *C.GO_EVP_PKEY_CTX, out *C.uint8_t, outLen *C.size_t, in *C.uin
  	return C._goboringcrypto_EVP_PKEY_encrypt(ctx, out, outLen, in, inLen)
  }
-
+ 
 +// These should match crypto/rsa/pss.go
 +const saltLengthAuto = 0
 +const saltLengthEqualsHash = -1
 +
  var invalidSaltLenErr = errors.New("crypto/rsa: PSSOptions.SaltLength cannot be negative")
-
+ 
  func SignRSAPSS(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte, saltLen int) ([]byte, error) {
 @@ -259,27 +273,24 @@ func SignRSAPSS(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte, saltLen int)
  	if md == nil {
@@ -6740,7 +6740,7 @@ index fa693ea319..75ba7a8a59 100644
  	}
  	return nil
  }
-
+ 
 -func SignRSAPKCS1v15(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte) ([]byte, error) {
 -	if h == 0 {
 -		// No hashing.
@@ -6772,7 +6772,7 @@ index fa693ea319..75ba7a8a59 100644
 +		runtime.KeepAlive(priv)
  		return out[:outLen], nil
  	}
-
+ 
 -	md := cryptoHashToMD(h)
 -	if md == nil {
 -		return nil, errors.New("crypto/rsa: unsupported hash function: " + strconv.Itoa(int(h)))
@@ -6808,7 +6808,7 @@ index fa693ea319..75ba7a8a59 100644
 +	runtime.KeepAlive(priv)
  	return out[:outLen], nil
  }
-
+ 
 -func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte) error {
 -	if h == 0 {
 -		var out []byte
@@ -6893,18 +6893,18 @@ index cf82f3f64f..0b55cedc91 100644
 @@ -2,12 +2,13 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
-
+ 
 -//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
 +//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
 +// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
-
+ 
 -package boring
 +package openssl
-
+ 
  /*
 -#include "goboringcrypto.h"
 +#include "goopenssl.h"
-
+ 
  int
  _goboringcrypto_gosha1(void *p, size_t n, void *out)
 @@ -17,7 +18,6 @@ _goboringcrypto_gosha1(void *p, size_t n, void *out)
@@ -6950,7 +6950,7 @@ index cf82f3f64f..0b55cedc91 100644
 @@ -126,31 +122,24 @@ type sha1Ctx struct {
  	nx     uint32
  }
-
+ 
 -func (h *sha1Hash) noescapeCtx() *C.GO_SHA_CTX {
 -	return (*C.GO_SHA_CTX)(noescape(unsafe.Pointer(&h.ctx)))
 -}
@@ -6966,7 +6966,7 @@ index cf82f3f64f..0b55cedc91 100644
 +func (h *sha1Hash) Size() int            { return 20 }
 +func (h *sha1Hash) BlockSize() int       { return 64 }
 +func (h *sha1Hash) Sum(in []byte) []byte { return append(in, h.sum()...) }
-
+ 
  func (h *sha1Hash) Write(p []byte) (int, error) {
 -	if len(p) > 0 && C._goboringcrypto_SHA1_Update(h.noescapeCtx(), unsafe.Pointer(&*addr(p)), C.size_t(len(p))) == 0 {
 +	if len(p) > 0 && C._goboringcrypto_SHA1_Update(&h.ctx, unsafe.Pointer(&p[0]), C.size_t(len(p))) == 0 {
@@ -6974,7 +6974,7 @@ index cf82f3f64f..0b55cedc91 100644
  	}
  	return len(p), nil
  }
-
+ 
 -func (h0 *sha1Hash) sum(dst []byte) []byte {
 +func (h0 *sha1Hash) sum() []byte {
  	h := *h0 // make copy so future Write+Sum is valid
@@ -6985,12 +6985,12 @@ index cf82f3f64f..0b55cedc91 100644
 -	return append(dst, h.out[:]...)
 +	return h.out[:]
  }
-
+ 
  const (
 @@ -207,30 +196,24 @@ type sha224Hash struct {
  	out [224 / 8]byte
  }
-
+ 
 -func (h *sha224Hash) noescapeCtx() *C.GO_SHA256_CTX {
 -	return (*C.GO_SHA256_CTX)(noescape(unsafe.Pointer(&h.ctx)))
 -}
@@ -7005,7 +7005,7 @@ index cf82f3f64f..0b55cedc91 100644
 +func (h *sha224Hash) Size() int            { return 224 / 8 }
 +func (h *sha224Hash) BlockSize() int       { return 64 }
 +func (h *sha224Hash) Sum(in []byte) []byte { return append(in, h.sum()...) }
-
+ 
  func (h *sha224Hash) Write(p []byte) (int, error) {
 -	if len(p) > 0 && C._goboringcrypto_SHA224_Update(h.noescapeCtx(), unsafe.Pointer(&*addr(p)), C.size_t(len(p))) == 0 {
 +	if len(p) > 0 && C._goboringcrypto_SHA224_Update(&h.ctx, unsafe.Pointer(&p[0]), C.size_t(len(p))) == 0 {
@@ -7013,7 +7013,7 @@ index cf82f3f64f..0b55cedc91 100644
  	}
  	return len(p), nil
  }
-
+ 
 -func (h0 *sha224Hash) sum(dst []byte) []byte {
 +func (h0 *sha224Hash) sum() []byte {
  	h := *h0 // make copy so future Write+Sum is valid
@@ -7024,12 +7024,12 @@ index cf82f3f64f..0b55cedc91 100644
 -	return append(dst, h.out[:]...)
 +	return h.out[:]
  }
-
+ 
  // NewSHA256 returns a new SHA256 hash.
 @@ -245,30 +228,24 @@ type sha256Hash struct {
  	out [256 / 8]byte
  }
-
+ 
 -func (h *sha256Hash) noescapeCtx() *C.GO_SHA256_CTX {
 -	return (*C.GO_SHA256_CTX)(noescape(unsafe.Pointer(&h.ctx)))
 -}
@@ -7044,7 +7044,7 @@ index cf82f3f64f..0b55cedc91 100644
 +func (h *sha256Hash) Size() int            { return 256 / 8 }
 +func (h *sha256Hash) BlockSize() int       { return 64 }
 +func (h *sha256Hash) Sum(in []byte) []byte { return append(in, h.sum()...) }
-
+ 
  func (h *sha256Hash) Write(p []byte) (int, error) {
 -	if len(p) > 0 && C._goboringcrypto_SHA256_Update(h.noescapeCtx(), unsafe.Pointer(&*addr(p)), C.size_t(len(p))) == 0 {
 +	if len(p) > 0 && C._goboringcrypto_SHA256_Update(&h.ctx, unsafe.Pointer(&p[0]), C.size_t(len(p))) == 0 {
@@ -7052,7 +7052,7 @@ index cf82f3f64f..0b55cedc91 100644
  	}
  	return len(p), nil
  }
-
+ 
 -func (h0 *sha256Hash) sum(dst []byte) []byte {
 +func (h0 *sha256Hash) sum() []byte {
  	h := *h0 // make copy so future Write+Sum is valid
@@ -7063,12 +7063,12 @@ index cf82f3f64f..0b55cedc91 100644
 -	return append(dst, h.out[:]...)
 +	return h.out[:]
  }
-
+ 
  const (
 @@ -382,30 +359,24 @@ type sha384Hash struct {
  	out [384 / 8]byte
  }
-
+ 
 -func (h *sha384Hash) noescapeCtx() *C.GO_SHA512_CTX {
 -	return (*C.GO_SHA512_CTX)(noescape(unsafe.Pointer(&h.ctx)))
 -}
@@ -7083,7 +7083,7 @@ index cf82f3f64f..0b55cedc91 100644
 +func (h *sha384Hash) Size() int            { return 384 / 8 }
 +func (h *sha384Hash) BlockSize() int       { return 128 }
 +func (h *sha384Hash) Sum(in []byte) []byte { return append(in, h.sum()...) }
-
+ 
  func (h *sha384Hash) Write(p []byte) (int, error) {
 -	if len(p) > 0 && C._goboringcrypto_SHA384_Update(h.noescapeCtx(), unsafe.Pointer(&*addr(p)), C.size_t(len(p))) == 0 {
 +	if len(p) > 0 && C._goboringcrypto_SHA384_Update(&h.ctx, unsafe.Pointer(&p[0]), C.size_t(len(p))) == 0 {
@@ -7091,7 +7091,7 @@ index cf82f3f64f..0b55cedc91 100644
  	}
  	return len(p), nil
  }
-
+ 
 -func (h0 *sha384Hash) sum(dst []byte) []byte {
 +func (h0 *sha384Hash) sum() []byte {
  	h := *h0 // make copy so future Write+Sum is valid
@@ -7102,12 +7102,12 @@ index cf82f3f64f..0b55cedc91 100644
 -	return append(dst, h.out[:]...)
 +	return h.out[:]
  }
-
+ 
  // NewSHA512 returns a new SHA512 hash.
 @@ -420,30 +391,24 @@ type sha512Hash struct {
  	out [512 / 8]byte
  }
-
+ 
 -func (h *sha512Hash) noescapeCtx() *C.GO_SHA512_CTX {
 -	return (*C.GO_SHA512_CTX)(noescape(unsafe.Pointer(&h.ctx)))
 -}
@@ -7122,7 +7122,7 @@ index cf82f3f64f..0b55cedc91 100644
 +func (h *sha512Hash) Size() int            { return 512 / 8 }
 +func (h *sha512Hash) BlockSize() int       { return 128 }
 +func (h *sha512Hash) Sum(in []byte) []byte { return append(in, h.sum()...) }
-
+ 
  func (h *sha512Hash) Write(p []byte) (int, error) {
 -	if len(p) > 0 && C._goboringcrypto_SHA512_Update(h.noescapeCtx(), unsafe.Pointer(&*addr(p)), C.size_t(len(p))) == 0 {
 +	if len(p) > 0 && C._goboringcrypto_SHA512_Update(&h.ctx, unsafe.Pointer(&p[0]), C.size_t(len(p))) == 0 {
@@ -7130,7 +7130,7 @@ index cf82f3f64f..0b55cedc91 100644
  	}
  	return len(p), nil
  }
-
+ 
 -func (h0 *sha512Hash) sum(dst []byte) []byte {
 +func (h0 *sha512Hash) sum() []byte {
  	h := *h0 // make copy so future Write+Sum is valid
@@ -7141,7 +7141,7 @@ index cf82f3f64f..0b55cedc91 100644
 -	return append(dst, h.out[:]...)
 +	return h.out[:]
  }
-
+ 
  type sha512Ctx struct {
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
 index 89a7c86c41..d3e88755be 100644
