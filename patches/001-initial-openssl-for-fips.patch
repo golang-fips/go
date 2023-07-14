@@ -255,7 +255,7 @@ index 275c60b4de..58f0034b18 100644
  	"math/big"
  )
 diff --git a/src/crypto/ecdsa/ecdsa.go b/src/crypto/ecdsa/ecdsa.go
-index 68272af41f..b1eea00bef 100644
+index 03a9a72ddd..4bf497f9cc 100644
 --- a/src/crypto/ecdsa/ecdsa.go
 +++ b/src/crypto/ecdsa/ecdsa.go
 @@ -27,8 +27,8 @@ import (
@@ -350,7 +350,7 @@ index d12ba2f441..6334a56496 100644
  	}
  	testHashSignAndHashVerify(t, elliptic.P384(), "p384")
 diff --git a/src/crypto/ecdsa/ecdsa_test.go b/src/crypto/ecdsa/ecdsa_test.go
-index 51f58b305e..967e8ff7fb 100644
+index 61a4662036..80e484842b 100644
 --- a/src/crypto/ecdsa/ecdsa_test.go
 +++ b/src/crypto/ecdsa/ecdsa_test.go
 @@ -10,7 +10,7 @@ import (
@@ -359,10 +359,10 @@ index 51f58b305e..967e8ff7fb 100644
  	"crypto/internal/backend/boringtest"
 -	"crypto/internal/boring"
 +	boring "crypto/internal/backend"
+ 	"crypto/internal/bigmod"
  	"crypto/rand"
  	"crypto/sha1"
- 	"crypto/sha256"
-@@ -37,7 +37,7 @@ func testAllCurves(t *testing.T, f func(*testing.T, elliptic.Curve)) {
+@@ -38,7 +38,7 @@ func testAllCurves(t *testing.T, f func(*testing.T, elliptic.Curve)) {
  	}
  	if testing.Short() {
  		tests = tests[:1]
@@ -371,7 +371,7 @@ index 51f58b305e..967e8ff7fb 100644
  		p224 := struct {
  			name  string
  			curve elliptic.Curve
-@@ -45,7 +45,7 @@ func testAllCurves(t *testing.T, f func(*testing.T, elliptic.Curve)) {
+@@ -46,7 +46,7 @@ func testAllCurves(t *testing.T, f func(*testing.T, elliptic.Curve)) {
  		tests = append(tests, p224)
  	}
  	for _, test := range tests {
@@ -380,7 +380,7 @@ index 51f58b305e..967e8ff7fb 100644
  			t.Skip("unsupported test in FIPS mode")
  		}
  		curve := test.curve
-@@ -245,7 +245,7 @@ func TestVectors(t *testing.T) {
+@@ -246,7 +246,7 @@ func TestVectors(t *testing.T) {
 
  			switch curve {
  			case "P-224":
@@ -2348,24 +2348,24 @@ index 8734dd03c1..22a104f338 100644
  	} else {
  		testCurve = elliptic.P384()
 diff --git a/src/go.mod b/src/go.mod
-index 4697da201c..0a5e32e27a 100644
+index 4697da201c..a3891edd78 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -3,6 +3,7 @@ module std
  go 1.20
 
  require (
-+	github.com/golang-fips/openssl-fips v0.0.0-20230323210700-e1541889d8a8
++	github.com/golang-fips/openssl-fips v0.0.0-20230714114059-9051f24728fe
  	golang.org/x/crypto v0.3.1-0.20221117191849-2c476679df9a
  	golang.org/x/net v0.4.1-0.20230214201333-88ed8ca3307d
  )
 diff --git a/src/go.sum b/src/go.sum
-index 625f2070b3..fb6828ce41 100644
+index 625f2070b3..2e984ad481 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,3 +1,5 @@
-+github.com/golang-fips/openssl-fips v0.0.0-20230323210700-e1541889d8a8 h1:nY4kLp8xhBuVWF5mqsluydyZnJzW2FELBC+A4EEtu1o=
-+github.com/golang-fips/openssl-fips v0.0.0-20230323210700-e1541889d8a8/go.mod h1:V2IU8imz/VkScnIbTOrdYsZ5R88ZFypCE0LzhRJ3HsI=
++github.com/golang-fips/openssl-fips v0.0.0-20230714114059-9051f24728fe h1:Zr44HT3VYwYIkT72fyvaqWZN+sO2Saw++e+6PaXapN0=
++github.com/golang-fips/openssl-fips v0.0.0-20230714114059-9051f24728fe/go.mod h1:V2IU8imz/VkScnIbTOrdYsZ5R88ZFypCE0LzhRJ3HsI=
  golang.org/x/crypto v0.3.1-0.20221117191849-2c476679df9a h1:diz9pEYuTIuLMJLs3rGDkeaTsNyRs6duYdFyPAxzE/U=
  golang.org/x/crypto v0.3.1-0.20221117191849-2c476679df9a/go.mod h1:hebNnKkNXi2UzZN1eVRvBB7co0a+JxK6XbPiWVs/3J4=
  golang.org/x/net v0.4.1-0.20230214201333-88ed8ca3307d h1:KHU/KRz6+/yWyRHEC24m7T5gou5VSh62duch955ktBY=
@@ -5631,10 +5631,10 @@ index 0000000000..df4ebe3297
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_ecdh.c b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_ecdh.c
 new file mode 100644
-index 0000000000..abdee81a91
+index 0000000000..8205b040c5
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/openssl_port_ecdh.c
-@@ -0,0 +1,334 @@
+@@ -0,0 +1,342 @@
 +// +build linux
 +// +build !android
 +// +build !no_openssl
@@ -5676,6 +5676,8 @@ index 0000000000..abdee81a91
 +		return 0;
 +
 +	*result = malloc(len);
++	if (!*result)
++		return 0;
 +
 +	len = _goboringcrypto_EC_POINT_point2oct(group, point,
 +						 GO_POINT_CONVERSION_UNCOMPRESSED,
@@ -5760,14 +5762,18 @@ index 0000000000..abdee81a91
 +		if (!priv)
 +			goto err;
 +
-+		if (!_goboringcrypto_internal_OSSL_PARAM_BLD_push_BN(bld, "priv", priv))
++		if (!_goboringcrypto_internal_OSSL_PARAM_BLD_push_BN(bld, "priv", priv)) {
++			_goboringcrypto_BN_clear_free(priv);
 +			goto err;
++		}
 +
 +		params = _goboringcrypto_internal_OSSL_PARAM_BLD_to_param(bld);
-+		_goboringcrypto_BN_free(priv);
-+		if (!params)
++		if (!params) {
++			_goboringcrypto_BN_clear_free(priv);
 +			goto err;
++		}
 +
++		_goboringcrypto_BN_clear_free(priv);
 +		selection = GO_EVP_PKEY_KEYPAIR;
 +	} else {
 +		if (!_goboringcrypto_internal_OSSL_PARAM_BLD_push_octet_string(bld, "pub", bytes, len))
@@ -5797,7 +5803,7 @@ index 0000000000..abdee81a91
 +	return result;
 +}
 +
-+DEFINEFUNCINTERNAL(void, OPENSSL_free, (void *addr), (addr))
++DEFINEFUNCINTERNAL(void, CRYPTO_free, (void *addr, const char *file, int line), (addr, file, line))
 +
 +size_t
 +_goboringcrypto_EVP_PKEY_get1_encoded_ecdh_public_key(GO_EVP_PKEY *pkey,
@@ -5812,10 +5818,11 @@ index 0000000000..abdee81a91
 +
 +	*result = malloc(len);
 +	if (!*result) {
-+		_goboringcrypto_internal_OPENSSL_free(res);
++		_goboringcrypto_internal_CRYPTO_free(res, __FILE__, __LINE__);
 +		return 0;
 +	}
 +	memcpy(*result, res, len);
++	_goboringcrypto_internal_CRYPTO_free(res, __FILE__, __LINE__);
 +	return len;
 +}
 +
@@ -5852,6 +5859,7 @@ index 0000000000..abdee81a91
 +err:
 +	_goboringcrypto_EC_GROUP_free(group);
 +	_goboringcrypto_EC_POINT_free(point);
++	_goboringcrypto_BN_free(priv);
 +	free(pub);
 +	return result;
 +}
@@ -5875,10 +5883,10 @@ index 0000000000..abdee81a91
 +		if (!priv)
 +			goto err;
 +		if (_goboringcrypto_EC_KEY_set_private_key(key, priv) != 1) {
-+			_goboringcrypto_BN_free(priv);
++			_goboringcrypto_BN_clear_free(priv);
 +			goto err;
 +		}
-+		_goboringcrypto_BN_free(priv);
++		_goboringcrypto_BN_clear_free(priv);
 +	} else {
 +		const EC_GROUP *group = _goboringcrypto_EC_KEY_get0_group(key);
 +		EC_POINT *pub;
@@ -7144,11 +7152,11 @@ index cf82f3f64f..0b55cedc91 100644
 
  type sha512Ctx struct {
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index 89a7c86c41..d3e88755be 100644
+index 89a7c86c41..f4f12ecee2 100644
 --- a/src/vendor/modules.txt
 +++ b/src/vendor/modules.txt
 @@ -1,3 +1,6 @@
-+# github.com/golang-fips/openssl-fips v0.0.0-20230323210700-e1541889d8a8
++# github.com/golang-fips/openssl-fips v0.0.0-20230714114059-9051f24728fe
 +## explicit; go 1.18
 +github.com/golang-fips/openssl-fips/openssl
  # golang.org/x/crypto v0.3.1-0.20221117191849-2c476679df9a
