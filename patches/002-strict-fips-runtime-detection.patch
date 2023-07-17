@@ -26,29 +26,51 @@ index 0000000000..6fcd7139c6
 +	return len(data) > 0 && data[0] == '1'
 +}
 diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
-index 15c1ee8cbe..efb7555948 100644
+index a27da89d4d..e1a78a0db3 100644
 --- a/src/crypto/internal/backend/nobackend.go
 +++ b/src/crypto/internal/backend/nobackend.go
-@@ -11,12 +11,17 @@ import (
- 	"crypto"
- 	"crypto/cipher"
- 	"crypto/internal/boring/sig"
--	"math/big"
--	"github.com/golang-fips/openssl-fips/openssl"
- 	"hash"
+@@ -17,6 +17,10 @@ import (
  	"io"
-+	"math/big"
-+
-+	"github.com/golang-fips/openssl-fips/openssl"
  )
  
 +func init() {
-+	strictFIPSNonCompliantBinaryCheck()
++       strictFIPSNonCompliantBinaryCheck()
 +}
 +
  var enabled = false
  
  // Unreachable marks code that should be unreachable
+@@ -43,13 +47,13 @@ func (randReader) Read(b []byte) (int, error) { panic("boringcrypto: not availab
+
+ const RandReader = randReader(0)
+
+-func Enabled() bool   { return false }
+-func NewSHA1() hash.Hash   { panic("boringcrypto: not available") }
+-func NewSHA224() hash.Hash { panic("boringcrypto: not available") }
+-func NewSHA256() hash.Hash { panic("boringcrypto: not available") }
+-func NewSHA384() hash.Hash { panic("boringcrypto: not available") }
+-func NewSHA512() hash.Hash { panic("boringcrypto: not available") }
+-func SHA1(_ []byte) [20]byte { panic("boringcrypto: not available") }
++func Enabled() bool            { return false }
++func NewSHA1() hash.Hash       { panic("boringcrypto: not available") }
++func NewSHA224() hash.Hash     { panic("boringcrypto: not available") }
++func NewSHA256() hash.Hash     { panic("boringcrypto: not available") }
++func NewSHA384() hash.Hash     { panic("boringcrypto: not available") }
++func NewSHA512() hash.Hash     { panic("boringcrypto: not available") }
++func SHA1(_ []byte) [20]byte   { panic("boringcrypto: not available") }
+ func SHA224(_ []byte) [28]byte { panic("boringcrypto: not available") }
+ func SHA256(_ []byte) [32]byte { panic("boringcrypto: not available") }
+ func SHA384(_ []byte) [48]byte { panic("boringcrypto: not available") }
+@@ -86,7 +90,8 @@ func VerifyECDSA(pub *PublicKeyECDSA, hash, sig []byte) bool {
+
+ type PublicKeyECDH struct{ _ int }
+ type PrivateKeyECDH struct{ _ int }
+-func (pc *PublicKeyECDH) Bytes() []byte { panic("boringcrypto: not available") }
++
++func (pc *PublicKeyECDH) Bytes() []byte                       { panic("boringcrypto: not available") }
+ func (pc *PrivateKeyECDH) PublicKey() (*PublicKeyECDH, error) { panic("boringcrypto: not available") }
+
+ func GenerateKeyECDH(curve string) (*PrivateKeyECDH, []byte, error) {
 diff --git a/src/crypto/internal/backend/not_strict_fips.go b/src/crypto/internal/backend/not_strict_fips.go
 new file mode 100644
 index 0000000000..f8e8fd6869
@@ -66,19 +88,16 @@ index 0000000000..f8e8fd6869
 +func strictFIPSNonCompliantBinaryCheck() {
 +}
 diff --git a/src/crypto/internal/backend/openssl.go b/src/crypto/internal/backend/openssl.go
-index 2087c555a4..3e5ee01efc 100644
+index 45862eda3d..f431a7cdf4 100644
 --- a/src/crypto/internal/backend/openssl.go
 +++ b/src/crypto/internal/backend/openssl.go
-@@ -14,6 +14,10 @@ import (
- 	"github.com/golang-fips/openssl-fips/openssl"
- )
+@@ -19,6 +19,7 @@ import (
+ var enabled bool
  
-+func init() {
+ func init() {
 +	strictFIPSOpenSSLRuntimeCheck()
-+}
-+
- // Enabled controls whether FIPS crypto is enabled.
- var Enabled = openssl.Enabled
+ 	enabled = openssl.FIPS()
+ }
  
 diff --git a/src/crypto/internal/backend/strict_fips.go b/src/crypto/internal/backend/strict_fips.go
 new file mode 100644
@@ -144,9 +163,9 @@ index 02e744362c..4ac7f480cf 100644
 --- a/src/internal/goexperiment/flags.go
 +++ b/src/internal/goexperiment/flags.go
 @@ -100,4 +100,6 @@ type Flags struct {
- 	// this compels the Go runtime to write to some arbitrary file, which
- 	// may be exploited.
- 	PageTrace bool
+ 	// CacheProg adds support to cmd/go to use a child process to implement
+ 	// the build cache; see https://github.com/golang/go/issues/59719.
+ 	CacheProg bool
 +
 +	StrictFIPSRuntime bool
  }

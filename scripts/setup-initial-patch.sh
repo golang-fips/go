@@ -37,6 +37,7 @@ shift $((OPTIND-1))
 # Enter the submodule directory.
 cd ./go
 ORIGINAL_GIT_SHA=$(git rev-parse HEAD)
+echo $replacement
 
 "${ROOT}"/scripts/apply-initial-patch.sh
 "${ROOT}"/scripts/create-secondary-patch.sh "${replacement}"
