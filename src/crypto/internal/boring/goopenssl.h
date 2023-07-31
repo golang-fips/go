@@ -686,6 +686,7 @@ typedef EVP_PKEY GO_EVP_PKEY;
 DEFINEFUNC(GO_EVP_PKEY *, EVP_PKEY_new, (void), ())
 DEFINEFUNC(void, EVP_PKEY_free, (GO_EVP_PKEY * arg0), (arg0))
 DEFINEFUNC(int, EVP_PKEY_set1_RSA, (GO_EVP_PKEY * arg0, GO_RSA *arg1), (arg0, arg1))
+DEFINEFUNC(int, EVP_PKEY_set1_EC_KEY, (GO_EVP_PKEY * arg0, GO_EC_KEY *arg1), (arg0, arg1))
 DEFINEFUNC(int, EVP_PKEY_verify,
 	(EVP_PKEY_CTX *ctx, const unsigned char *sig, unsigned int siglen, const unsigned char *tbs, size_t tbslen),
 	(ctx, sig, siglen, tbs, tbslen))

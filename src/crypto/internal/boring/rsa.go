@@ -162,12 +162,23 @@ func setupRSA(withKey func(func(*C.GO_RSA) C.int) C.int,
 			return nil, nil, NewOpenSSLError("EVP_PKEY_set_rsa_oaep_md failed")
 		}
 		// ctx takes ownership of label, so malloc a copy for BoringCrypto to free.
-		clabel := (*C.uint8_t)(C.malloc(C.size_t(len(label))))
-		if clabel == nil {
-			return nil, nil, fail("OPENSSL_malloc")
+		var clabel *C.uint8_t
+		clabel = nil
+		// OpenSSL 1.1.1 does not take ownership of the label if the length is zero.
+		// Depending on the malloc implementation, if clabel is allocated with malloc(0),
+		// metadata for the size-zero allocation is never cleaned up, which is a memory leak.
+		// As such, we must only allocate clabel if the label is of non zero length.
+		if len(label) > 0 {
+			clabel = (*C.uint8_t)(C.malloc(C.size_t(len(label))))
+			if clabel == nil {
+				return nil, nil, fail("OPENSSL_malloc")
+			}
+			copy((*[1 << 30]byte)(unsafe.Pointer(clabel))[:len(label)], label)
 		}
-		copy((*[1 << 30]byte)(unsafe.Pointer(clabel))[:len(label)], label)
-		if C._goboringcrypto_EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, clabel, C.int(len(label))) == 0 {
+		if C._goboringcrypto_EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, clabel, C.int(len(label))) != 1 {
+			if clabel != nil {
+				C.free(unsafe.Pointer(clabel))
+			}
 			return nil, nil, NewOpenSSLError("EVP_PKEY_CTX_set0_rsa_oaep_label failed")
 		}
 	}
