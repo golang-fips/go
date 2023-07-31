@@ -8,10 +8,18 @@ package ecdsa
 
 import (
 	"crypto/elliptic"
+	"crypto/internal/boring"
 	"testing"
 )
 
 func TestNoAsm(t *testing.T) {
+	// Asm code path is not exercised in boring mode.
+	// This test will fail because boringcrypto expects
+	// canonical curve names.
+	if boring.Enabled() {
+	        t.Skip("Not applicable in boring mode.")
+	}
+
 	curves := [...]elliptic.Curve{
 		elliptic.P256(),
 		elliptic.P384(),
