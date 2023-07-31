@@ -20,6 +20,9 @@ import (
 
 // ignoreCN disables interpreting Common Name as a hostname. See issue 24151.
 var ignoreCN = !strings.Contains(os.Getenv("GODEBUG"), "x509ignoreCN=0")
+// if using Common Name as a hostname is enabled via x509ignoreCN=0,
+// warnCN enables a warning whenever Common Name is interpreted as a hostname.
+var warnCN = strings.Contains(os.Getenv("GODEBUG"), "x509warnCN=1")
 
 type InvalidReason int
 
@@ -1078,6 +1081,10 @@ func (c *Certificate) VerifyHostname(h string) error {
 	names := c.DNSNames
 	if c.commonNameAsHostname() {
 		names = []string{c.Subject.CommonName}
+		if warnCN {
+			fmt.Fprintf(os.Stderr, "x509: Warning - certificate relies on legacy Common Name field. " +
+				"Using CN without SAN is deprecated and will not work in future versions.\n")
+		}
 	}
 
 	candidateName := toLowerCaseASCII(h) // Save allocations inside the loop.
