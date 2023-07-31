@@ -19,7 +19,7 @@ int _goboringcrypto_RSA_generate_key_fips(GO_RSA *rsa, int size, GO_BN_GENCB *cb
 	return ret;
 }
 
-int _goboringcrypto_RSA_digest_and_sign_pss_mgf1(GO_RSA *rsa, unsigned int *out_len, uint8_t *out, size_t max_out,
+int _goboringcrypto_RSA_digest_and_sign_pss_mgf1(GO_RSA *rsa, size_t *out_len, uint8_t *out, size_t max_out,
 		const uint8_t *in, size_t in_len, EVP_MD *md, const EVP_MD *mgf1_md, int salt_len)
 {
 	EVP_PKEY_CTX *ctx;
@@ -172,7 +172,7 @@ err:
 	return ret;
 }
 
-int _goboringcrypto_EVP_RSA_sign(EVP_MD *md, const uint8_t *msg, unsigned int msgLen, uint8_t *sig, unsigned int *slen, RSA *rsa)
+int _goboringcrypto_EVP_RSA_sign(EVP_MD *md, const uint8_t *msg, unsigned int msgLen, uint8_t *sig, size_t *slen, RSA *rsa)
 {
 	int result;
 	EVP_PKEY *key = _goboringcrypto_EVP_PKEY_new();
