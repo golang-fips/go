@@ -1,5 +1,5 @@
 {
 	"github.com/golang-fips/go":           "go1.19-fips-release",
-	"github.com/golang-fips/openssl-fips": "41938ace180b2426236eca4cfdef58d415cd70a1",
+	"github.com/golang-fips/openssl-fips": "abb9d5d94ec9168437a2ddb6b1c3db123ddfb8a2",
 	"github.com/golang/go":                "go1.19.10"
 }
