@@ -225,10 +225,10 @@ func closefd(fd int32) int32 {
 }
 func close_trampoline()
 
+// This is exported via linkname to assembly in runtime/cgo.
+//
 //go:nosplit
 //go:cgo_unsafe_args
-//
-// This is exported via linkname to assembly in runtime/cgo.
 //go:linkname exit
 func exit(code int32) {
 	libcCall(unsafe.Pointer(funcPC(exit_trampoline)), unsafe.Pointer(&code))
@@ -367,8 +367,12 @@ func sysctlbyname_trampoline()
 
 //go:nosplit
 //go:cgo_unsafe_args
-func fcntl(fd, cmd, arg int32) int32 {
-	return libcCall(unsafe.Pointer(funcPC(fcntl_trampoline)), unsafe.Pointer(&fd))
+func fcntl(fd, cmd, arg int32) (int32, int32) {
+	res := libcCall(unsafe.Pointer(funcPC(fcntl_trampoline)), unsafe.Pointer(&fd))
+	if res < 0 {
+		return 0, int32(-res)
+	}
+	return res, 0
 }
 func fcntl_trampoline()
 
@@ -470,9 +474,14 @@ func closeonexec(fd int32) {
 
 //go:nosplit
 func setNonblock(fd int32) {
-	flags := fcntl(fd, _F_GETFL, 0)
+	flags, _ := fcntl(fd, _F_GETFL, 0)
 	fcntl(fd, _F_SETFL, flags|_O_NONBLOCK)
 }
+
+func issetugid() int32 {
+	return libcCall(unsafe.Pointer(funcPC(issetugid_trampoline)), nil)
+}
+func issetugid_trampoline()
 
 // Tell the linker that the libc_* functions are to be found
 // in a system library, with the libc_ prefix missing.
@@ -521,3 +530,5 @@ func setNonblock(fd int32) {
 //go:cgo_import_dynamic libc_pthread_cond_wait pthread_cond_wait "/usr/lib/libSystem.B.dylib"
 //go:cgo_import_dynamic libc_pthread_cond_timedwait_relative_np pthread_cond_timedwait_relative_np "/usr/lib/libSystem.B.dylib"
 //go:cgo_import_dynamic libc_pthread_cond_signal pthread_cond_signal "/usr/lib/libSystem.B.dylib"
+
+//go:cgo_import_dynamic libc_issetugid issetugid "/usr/lib/libSystem.B.dylib"

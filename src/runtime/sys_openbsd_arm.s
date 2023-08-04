@@ -433,3 +433,12 @@ TEXT runtime·read_tls_fallback(SB),NOSPLIT|NOFRAME,$0
 	INVOKE_SYSCALL
 	MOVM.IAW (R13), [R1, R2, R3, R12]
 	RET
+
+TEXT runtime·issetugid_trampoline(SB),NOSPLIT,$0
+	MOVW	R13, R9
+	MOVW	R0, R8
+	BIC     $0x7, R13		// align for ELF ABI
+	BL	libc_issetugid(SB)
+	MOVW	R0, 0(R8)
+	MOVW	R9, R13
+	RET
