@@ -405,3 +405,13 @@ TEXT runtime·setNonblock(SB),NOSPLIT,$0-4
 	MOVL	$92, AX // fcntl
 	SYSCALL
 	RET
+
+// func issetugid() int32
+TEXT runtime·issetugid(SB),NOSPLIT,$0
+	MOVQ	$0, DI
+	MOVQ	$0, SI
+	MOVQ	$0, DX
+	MOVL	$253, AX
+	SYSCALL
+	MOVL	AX, ret+0(FP)
+	RET

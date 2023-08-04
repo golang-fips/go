@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+//go:build openbsd && !amd64 && !arm64
 // +build openbsd,!amd64,!arm64
 
 package runtime
@@ -34,6 +35,7 @@ func usleep(usec uint32)
 
 // write calls the write system call.
 // It returns a non-negative number of bytes written or a negative errno value.
+//
 //go:noescape
 func write1(fd uintptr, p unsafe.Pointer, n int32) int32
 
@@ -48,6 +50,8 @@ func madvise(addr unsafe.Pointer, n uintptr, flags int32) int32
 //
 //go:noescape
 func exitThread(wait *uint32)
+
+func issetugid() int32
 
 //go:noescape
 func obsdsigprocmask(how int32, new sigset) sigset
