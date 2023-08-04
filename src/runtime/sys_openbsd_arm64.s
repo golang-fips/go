@@ -446,3 +446,9 @@ TEXT runtime·setNonblock(SB),NOSPLIT|NOFRAME,$0-4
 	MOVD	$92, R8			// sys_fcntl
 	INVOKE_SYSCALL
 	RET
+
+TEXT runtime·issetugid_trampoline(SB),NOSPLIT,$0
+	MOVD	R0, R19			// pointer to args
+	CALL	libc_issetugid(SB)
+	MOVW	R0, 0(R19)		// return value
+	RET

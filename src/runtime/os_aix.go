@@ -375,3 +375,43 @@ func setNonblock(fd int32) {
 	flags := fcntl(fd, _F_GETFL, 0)
 	fcntl(fd, _F_SETFL, flags|_O_NONBLOCK)
 }
+
+//go:nosplit
+func getuid() int32 {
+	r, errno := syscall0(&libc_getuid)
+	if errno != 0 {
+		print("getuid failed ", errno)
+		throw("getuid")
+	}
+	return int32(r)
+}
+
+//go:nosplit
+func geteuid() int32 {
+	r, errno := syscall0(&libc_geteuid)
+	if errno != 0 {
+		print("geteuid failed ", errno)
+		throw("geteuid")
+	}
+	return int32(r)
+}
+
+//go:nosplit
+func getgid() int32 {
+	r, errno := syscall0(&libc_getgid)
+	if errno != 0 {
+		print("getgid failed ", errno)
+		throw("getgid")
+	}
+	return int32(r)
+}
+
+//go:nosplit
+func getegid() int32 {
+	r, errno := syscall0(&libc_getegid)
+	if errno != 0 {
+		print("getegid failed ", errno)
+		throw("getegid")
+	}
+	return int32(r)
+}
