@@ -693,3 +693,7 @@ TEXT runtime·syscall6X(SB),NOSPLIT,$0
 	MOVD	R0, 72(R2)	// save err
 ok:
 	RET
+
+TEXT runtime·issetugid_trampoline(SB),NOSPLIT,$0
+	BL	libc_issetugid(SB)
+	RET

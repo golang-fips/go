@@ -10,6 +10,7 @@ import "unsafe"
 // fn is the raw pc value of the entry point of the desired function.
 // Switches to the system stack, if not already there.
 // Preserves the calling point as the location where a profiler traceback will begin.
+//
 //go:nosplit
 func libcCall(fn, arg unsafe.Pointer) int32 {
 	// Leave caller's PC/SP/G around for traceback.
@@ -49,6 +50,11 @@ func libcCall(fn, arg unsafe.Pointer) int32 {
 	}
 	return res
 }
+
+func issetugid() int32 {
+	return libcCall(unsafe.Pointer(funcPC(issetugid_trampoline)), nil)
+}
+func issetugid_trampoline()
 
 // The X versions of syscall expect the libc call to return a 64-bit result.
 // Otherwise (the non-X version) expects a 32-bit result.
@@ -247,10 +253,10 @@ func closefd(fd int32) int32 {
 }
 func close_trampoline()
 
+// This is exported via linkname to assembly in runtime/cgo.
+//
 //go:nosplit
 //go:cgo_unsafe_args
-//
-// This is exported via linkname to assembly in runtime/cgo.
 //go:linkname exit
 func exit(code int32) {
 	libcCall(unsafe.Pointer(funcPC(exit_trampoline)), unsafe.Pointer(&code))
@@ -360,8 +366,12 @@ func sysctl_trampoline()
 
 //go:nosplit
 //go:cgo_unsafe_args
-func fcntl(fd, cmd, arg int32) int32 {
-	return libcCall(unsafe.Pointer(funcPC(fcntl_trampoline)), unsafe.Pointer(&fd))
+func fcntl(fd, cmd, arg int32) (int32, int32) {
+	res := libcCall(unsafe.Pointer(funcPC(fcntl_trampoline)), unsafe.Pointer(&fd))
+	if res < 0 {
+		return 0, int32(-res)
+	}
+	return res, 0
 }
 func fcntl_trampoline()
 
@@ -440,7 +450,7 @@ func closeonexec(fd int32) {
 
 //go:nosplit
 func setNonblock(fd int32) {
-	flags := fcntl(fd, _F_GETFL, 0)
+	flags, _ := fcntl(fd, _F_GETFL, 0)
 	fcntl(fd, _F_SETFL, flags|_O_NONBLOCK)
 }
 
@@ -495,3 +505,4 @@ func setNonblock(fd int32) {
 //go:cgo_import_dynamic _ _ "/usr/lib/libSystem.B.dylib"
 //go:cgo_import_dynamic _ _ "/System/Library/Frameworks/Security.framework/Versions/A/Security"
 //go:cgo_import_dynamic _ _ "/System/Library/Frameworks/CoreFoundation.framework/Versions/A/CoreFoundation"
+//go:cgo_import_dynamic libc_issetugid issetugid "/usr/lib/libSystem.B.dylib"

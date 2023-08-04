@@ -464,3 +464,10 @@ TEXT runtime·cpuset_getaffinity(SB), NOSPLIT, $0-28
 	RET
 
 GLOBL runtime·tlsoffset(SB),NOPTR,$4
+
+// func issetugid() int32
+TEXT runtime·issetugid(SB),NOSPLIT,$0
+	MOVL	$253, AX
+	INT	$0x80
+	MOVL	AX, ret+0(FP)
+	RET
