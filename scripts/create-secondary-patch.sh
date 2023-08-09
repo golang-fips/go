@@ -54,8 +54,6 @@ fi
 go mod tidy
 go mod vendor
 
-#sed -i -e '1s/^/\/\/+build +cmd_go_bootstrap\n/' src/vendor/github.com/golang-fips/**/*.go
-
 # Generate the final patch.
 git add .
 git diff --cached --binary > ../../patches/001-initial-openssl-for-fips.patch
