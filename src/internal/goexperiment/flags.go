@@ -90,4 +90,6 @@ type Flags struct {
 	// and defer (because the runtime doesn't support passing
 	// register arguments to defer/go).
 	RegabiArgs bool
+
+	StrictFIPSRuntime bool
 }

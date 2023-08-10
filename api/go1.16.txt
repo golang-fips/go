@@ -500,3 +500,5 @@ pkg unicode, var Chorasmian *RangeTable
 pkg unicode, var Dives_Akuru *RangeTable
 pkg unicode, var Khitan_Small_Script *RangeTable
 pkg unicode, var Yezidi *RangeTable
+pkg crypto/rsa, func GenerateKeyNotBoring(io.Reader, int) (*PrivateKey, error)
+pkg crypto/rsa, func GenerateMultiPrimeKeyNotBoring(io.Reader, int, int) (*PrivateKey, error)
