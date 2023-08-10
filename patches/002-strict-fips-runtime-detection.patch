@@ -1,0 +1,416 @@
+diff --git a/api/go1.16.txt b/api/go1.16.txt
+index ce015fd6fb..52442352e9 100644
+--- a/api/go1.16.txt
++++ b/api/go1.16.txt
+@@ -499,3 +499,5 @@ pkg unicode, var Chorasmian *RangeTable
+ pkg unicode, var Dives_Akuru *RangeTable
+ pkg unicode, var Khitan_Small_Script *RangeTable
+ pkg unicode, var Yezidi *RangeTable
++pkg crypto/rsa, func GenerateKeyNotBoring(io.Reader, int) (*PrivateKey, error)
++pkg crypto/rsa, func GenerateMultiPrimeKeyNotBoring(io.Reader, int, int) (*PrivateKey, error)
+diff --git a/src/crypto/internal/backend/hostfips.go b/src/crypto/internal/backend/hostfips.go
+new file mode 100644
+index 0000000000..6fcd7139c6
+--- /dev/null
++++ b/src/crypto/internal/backend/hostfips.go
+@@ -0,0 +1,21 @@
++package backend
++
++import (
++	"fmt"
++	"os"
++)
++
++func hostFIPSModeEnabled() bool {
++	// Look at /proc/sys/crypto/fips_enabled to see if FIPS mode is enabled.
++	// If it is, log an error and exit.
++	// If we run into an error reading that file because it doesn't exist, assume FIPS mode is not enabled.
++	data, err := os.ReadFile("/proc/sys/crypto/fips_enabled")
++	if err != nil {
++		if os.IsNotExist(err) {
++			return false
++		}
++		fmt.Fprintf(os.Stderr, "error reading /proc/sys/crypto/fips_enabled: %v\n", err)
++		os.Exit(1)
++	}
++	return len(data) > 0 && data[0] == '1'
++}
+diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
+index e9d2df4521..ece1a8863a 100644
+--- a/src/crypto/internal/backend/nobackend.go
++++ b/src/crypto/internal/backend/nobackend.go
+@@ -11,14 +11,23 @@ import (
+ 	"crypto"
+ 	"crypto/cipher"
+ 	"crypto/internal/boring/sig"
+-	"math/big"
+-	"github.com/golang-fips/openssl-fips/openssl"
+ 	"hash"
+ 	"io"
++	"math/big"
++
++	"github.com/golang-fips/openssl-fips/openssl"
+ )
+
++func init() {
++	strictFIPSNonCompliantBinaryCheck()
++}
++
+ var enabled = false
+
++func IsStrictFIPSMode() bool {
++  return false
++}
++
+ // Unreachable marks code that should be unreachable
+ // when BoringCrypto is in use. It is a no-op without BoringCrypto.
+ func Unreachable() {
+diff --git a/src/crypto/internal/backend/not_strict_fips.go b/src/crypto/internal/backend/not_strict_fips.go
+new file mode 100644
+index 0000000000..806b035aa8
+--- /dev/null
++++ b/src/crypto/internal/backend/not_strict_fips.go
+@@ -0,0 +1,12 @@
++//go:build !goexperiment.strictfipsruntime
++// +build !goexperiment.strictfipsruntime
++
++package backend
++
++var isStrictFIPS bool = false
++
++func strictFIPSOpenSSLRuntimeCheck() {
++}
++
++func strictFIPSNonCompliantBinaryCheck() {
++}
+diff --git a/src/crypto/internal/backend/openssl.go b/src/crypto/internal/backend/openssl.go
+index 2721d06078..717a912188 100644
+--- a/src/crypto/internal/backend/openssl.go
++++ b/src/crypto/internal/backend/openssl.go
+@@ -14,9 +14,17 @@ import (
+ 	"github.com/golang-fips/openssl-fips/openssl"
+ )
+
++func init() {
++	strictFIPSOpenSSLRuntimeCheck()
++}
++
+ // Enabled controls whether FIPS crypto is enabled.
+ var Enabled = openssl.Enabled
+
++func IsStrictFIPSMode() bool {
++  return isStrictFIPS
++}
++
+ // Unreachable marks code that should be unreachable
+ // when OpenSSLCrypto is in use. It panics only when
+ // the system is in FIPS mode.
+diff --git a/src/crypto/internal/backend/strict_fips.go b/src/crypto/internal/backend/strict_fips.go
+new file mode 100644
+index 0000000000..c1bda67f12
+--- /dev/null
++++ b/src/crypto/internal/backend/strict_fips.go
+@@ -0,0 +1,25 @@
++//go:build goexperiment.strictfipsruntime
++// +build goexperiment.strictfipsruntime
++
++package backend
++
++import (
++	"fmt"
++	"os"
++)
++
++var isStrictFIPS bool = true
++
++func strictFIPSOpenSSLRuntimeCheck() {
++	if hostFIPSModeEnabled() && !Enabled() {
++		fmt.Fprintln(os.Stderr, "FIPS mode is enabled, but the required OpenSSL backend is unavailable")
++		os.Exit(1)
++	}
++}
++
++func strictFIPSNonCompliantBinaryCheck() {
++	if hostFIPSModeEnabled() {
++		fmt.Fprintln(os.Stderr, "FIPS mode is enabled, but this binary is not compiled with FIPS compliant mode enabled")
++		os.Exit(1)
++	}
++}
+diff --git a/src/crypto/rsa/boring_test.go b/src/crypto/rsa/boring_test.go
+index ad76d6a1b3..5e339ef97b 100644
+--- a/src/crypto/rsa/boring_test.go
++++ b/src/crypto/rsa/boring_test.go
+@@ -20,7 +20,7 @@ import (
+ )
+
+ func TestBoringASN1Marshal(t *testing.T) {
+-	k, err := GenerateKey(rand.Reader, 128)
++	k, err := GenerateKey(rand.Reader, 3072)
+ 	if err != nil {
+ 		t.Fatal(err)
+ 	}
+diff --git a/src/crypto/rsa/equal_test.go b/src/crypto/rsa/equal_test.go
+index 90f4bf9475..688df68545 100644
+--- a/src/crypto/rsa/equal_test.go
++++ b/src/crypto/rsa/equal_test.go
+@@ -13,7 +13,7 @@ import (
+ )
+
+ func TestEqual(t *testing.T) {
+-	private, _ := rsa.GenerateKey(rand.Reader, 512)
++	private, _ := rsa.GenerateKey(rand.Reader, 2048)
+ 	public := &private.PublicKey
+
+ 	if !public.Equal(public) {
+@@ -41,7 +41,7 @@ func TestEqual(t *testing.T) {
+ 		t.Errorf("private key is not equal to itself after decoding: %v", private)
+ 	}
+
+-	other, _ := rsa.GenerateKey(rand.Reader, 512)
++	other, _ := rsa.GenerateKey(rand.Reader, 2048)
+ 	if public.Equal(other.Public()) {
+ 		t.Errorf("different public keys are Equal")
+ 	}
+diff --git a/src/crypto/rsa/rsa.go b/src/crypto/rsa/rsa.go
+index 7ea291c6f4..509bcd39ee 100644
+--- a/src/crypto/rsa/rsa.go
++++ b/src/crypto/rsa/rsa.go
+@@ -243,6 +243,7 @@ func GenerateKey(random io.Reader, bits int) (*PrivateKey, error) {
+ 	return GenerateMultiPrimeKey(random, 2, bits)
+ }
+
++
+ // GenerateMultiPrimeKey generates a multi-prime RSA keypair of the given bit
+ // size and the given random source, as suggested in [1]. Although the public
+ // keys are compatible (actually, indistinguishable) from the 2-prime case,
+@@ -255,6 +256,24 @@ func GenerateKey(random io.Reader, bits int) (*PrivateKey, error) {
+ // [1] US patent 4405829 (1972, expired)
+ // [2] http://www.cacr.math.uwaterloo.ca/techreports/2006/cacr2006-16.pdf
+ func GenerateMultiPrimeKey(random io.Reader, nprimes int, bits int) (*PrivateKey, error) {
++	if boring.Enabled() && boring.IsStrictFIPSMode() && !(random == boring.RandReader && nprimes == 2 &&
++		(bits == 2048 || bits == 3072 || bits == 4096)) {
++		return nil, errors.New("crypto/rsa: invalid primes or bits for boring")
++	}
++	return generateMultiPrimeKeyInternal(random, nprimes, bits)
++}
++
++func GenerateKeyNotBoring(random io.Reader, bits int) (*PrivateKey, error) {
++	boring.UnreachableExceptTests()
++	return generateMultiPrimeKeyInternal(random, 2, bits)
++}
++
++func GenerateMultiPrimeKeyNotBoring(random io.Reader, nprimes int, bits int) (*PrivateKey, error) {
++	boring.UnreachableExceptTests()
++	return generateMultiPrimeKeyInternal(random, nprimes, bits)
++}
++
++func generateMultiPrimeKeyInternal(random io.Reader, nprimes int, bits int) (*PrivateKey, error) {
+ 	randutil.MaybeReadByte(random)
+
+ 	if boring.Enabled() && random == boring.RandReader && nprimes == 2 && (bits == 2048 || bits == 3072) {
+@@ -291,6 +310,7 @@ func GenerateMultiPrimeKey(random io.Reader, nprimes int, bits int) (*PrivateKey
+ 		return key, nil
+ 	}
+
++
+ 	priv := new(PrivateKey)
+ 	priv.E = 65537
+
+diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
+index 49e08d5698..d94a234d26 100644
+--- a/src/crypto/rsa/rsa_test.go
++++ b/src/crypto/rsa/rsa_test.go
+@@ -19,7 +19,17 @@ import boring "crypto/internal/backend"
+ import "crypto/internal/backend/boringtest"
+
+ func TestKeyGeneration(t *testing.T) {
+-	for _, size := range []int{128, 1024, 2048, 3072} {
++	testKeys := []int{128, 1024}
++	if boring.Enabled() {
++		for _, size := range testKeys {
++			_, err := GenerateKey(rand.Reader, size)
++			if err == nil && boring.IsStrictFIPSMode() {
++				t.Errorf("Gener(%d): boring: bad accept", size)
++			}
++		}
++		testKeys = []int{2048, 3072}
++	}
++	for _, size := range testKeys {
+ 		priv, err := GenerateKey(rand.Reader, size)
+ 		if err != nil {
+ 			t.Errorf("GenerateKey(%d): %v", size, err)
+@@ -46,7 +56,12 @@ func Test3PrimeKeyGeneration(t *testing.T) {
+
+ 	priv, err := GenerateMultiPrimeKey(rand.Reader, 3, size)
+ 	if err != nil {
++		if boring.IsStrictFIPSMode() {
++			return
++		}
+ 		t.Errorf("failed to generate key")
++	} else if boring.IsStrictFIPSMode() {
++		t.Errorf("bad accept in strictfipsmode")
+ 	}
+ 	testKeyBasics(t, priv)
+ }
+@@ -59,12 +74,20 @@ func Test4PrimeKeyGeneration(t *testing.T) {
+
+ 	priv, err := GenerateMultiPrimeKey(rand.Reader, 4, size)
+ 	if err != nil {
++		if boring.IsStrictFIPSMode() {
++			return
++		}
+ 		t.Errorf("failed to generate key")
++	} else if boring.IsStrictFIPSMode() {
++		t.Errorf("bad accept in strictfipsmode")
+ 	}
+ 	testKeyBasics(t, priv)
+ }
+
+ func TestNPrimeKeyGeneration(t *testing.T) {
++	if boring.Enabled() {
++		t.Skip("Not supported in boring mode")
++	}
+ 	primeSize := 64
+ 	maxN := 24
+ 	if testing.Short() {
+diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
+index 49702f59ba..e7ae7fc5ca 100644
+--- a/src/crypto/tls/boring_test.go
++++ b/src/crypto/tls/boring_test.go
+@@ -329,7 +329,7 @@ func TestBoringCertAlgs(t *testing.T) {
+ 	// Set up some roots, intermediate CAs, and leaf certs with various algorithms.
+ 	// X_Y is X signed by Y.
+ 	R1 := boringCert(t, "R1", boringRSAKey(t, 2048), nil, boringCertCA|boringCertFIPSOK)
+-	R2 := boringCert(t, "R2", boringRSAKey(t, 512), nil, boringCertCA)
++	R2 := boringCert(t, "R2", NotBoringRSAKey(t, 512), nil, boringCertCA)
+
+ 	M1_R1 := boringCert(t, "M1_R1", boringECDSAKey(t, elliptic.P256()), R1, boringCertCA|boringCertFIPSOK)
+
+@@ -353,9 +353,9 @@ func TestBoringCertAlgs(t *testing.T) {
+ 	// Older versions of OpenSSL allow 1024 bit leaf certs
+ 	var L2_I *boringCertificate
+ 	if boringtest.Supports(t, "RSA1024LeafCert") {
+-		L2_I = boringCert(t, "L2_I", boringRSAKey(t, 1024), I_R1, boringCertLeaf)
++		L2_I = boringCert(t, "L2_I", NotBoringRSAKey(t, 1024), I_R1, boringCertLeaf)
+ 	} else {
+-		L2_I = boringCert(t, "L2_I", boringRSAKey(t, 1024), I_R1, boringCertLeaf|boringCertNotBoring)
++		L2_I = boringCert(t, "L2_I", NotBoringRSAKey(t, 1024), I_R1, boringCertLeaf|boringCertNotBoring)
+ 	}
+
+ 	// client verifying server cert
+@@ -515,6 +515,15 @@ const (
+ 	boringCertNotBoring = 0x100
+ )
+
++func NotBoringRSAKey(t *testing.T, size int) *rsa.PrivateKey {
++	k, err := rsa.GenerateKeyNotBoring(rand.Reader, size)
++	if err != nil {
++		t.Fatal(err)
++	}
++	return k
++}
++
++
+ func boringRSAKey(t *testing.T, size int) *rsa.PrivateKey {
+ 	k, err := rsa.GenerateKey(rand.Reader, size)
+ 	if err != nil {
+diff --git a/src/crypto/x509/boring_test.go b/src/crypto/x509/boring_test.go
+index 07b3c7095e..88b69937be 100644
+--- a/src/crypto/x509/boring_test.go
++++ b/src/crypto/x509/boring_test.go
+@@ -27,6 +27,14 @@ const (
+ 	boringCertFIPSOK = 0x80
+ )
+
++func notBoringRSAKey(t *testing.T, size int) *rsa.PrivateKey {
++	k, err := rsa.GenerateKeyNotBoring(rand.Reader, size)
++	if err != nil {
++		t.Fatal(err)
++	}
++	return k
++}
++
+ func boringRSAKey(t *testing.T, size int) *rsa.PrivateKey {
+ 	k, err := rsa.GenerateKey(rand.Reader, size)
+ 	if err != nil {
+@@ -55,7 +63,7 @@ type boringCertificate struct {
+
+ func TestBoringAllowCert(t *testing.T) {
+ 	R1 := testBoringCert(t, "R1", boringRSAKey(t, 2048), nil, boringCertCA|boringCertFIPSOK)
+-	R2 := testBoringCert(t, "R2", boringRSAKey(t, 512), nil, boringCertCA)
++	R2 := testBoringCert(t, "R2", notBoringRSAKey(t, 512), nil, boringCertCA)
+ 	R3 := testBoringCert(t, "R3", boringRSAKey(t, 4096), nil, boringCertCA|boringCertFIPSOK)
+
+ 	M1_R1 := testBoringCert(t, "M1_R1", boringECDSAKey(t, elliptic.P256()), R1, boringCertCA|boringCertFIPSOK)
+@@ -78,7 +86,7 @@ func TestBoringAllowCert(t *testing.T) {
+ 	testBoringCert(t, "I_R3", I_R3.key, R3, boringCertCA|boringCertFIPSOK)
+
+ 	testBoringCert(t, "L1_I", boringECDSAKey(t, elliptic.P384()), I_R1, boringCertLeaf|boringCertFIPSOK)
+-	testBoringCert(t, "L2_I", boringRSAKey(t, 1024), I_R1, boringCertLeaf)
++	testBoringCert(t, "L2_I", notBoringRSAKey(t, 1024), I_R1, boringCertLeaf)
+ }
+
+ func testBoringCert(t *testing.T, name string, key interface{}, parent *boringCertificate, mode int) *boringCertificate {
+diff --git a/src/crypto/x509/x509_test.go b/src/crypto/x509/x509_test.go
+index f13e5f37a1..feb0c15590 100644
+--- a/src/crypto/x509/x509_test.go
++++ b/src/crypto/x509/x509_test.go
+@@ -2863,7 +2863,7 @@ func TestUnknownExtKey(t *testing.T) {
+ 		DNSNames:     []string{"foo"},
+ 		ExtKeyUsage:  []ExtKeyUsage{ExtKeyUsage(-1)},
+ 	}
+-	signer, err := rsa.GenerateKey(rand.Reader, 1024)
++	signer, err := rsa.GenerateKey(rand.Reader, 2048)
+ 	if err != nil {
+ 		t.Errorf("failed to generate key for TestUnknownExtKey")
+ 	}
+@@ -3026,7 +3026,7 @@ func TestCreateCertificateBrokenSigner(t *testing.T) {
+ 		SerialNumber: big.NewInt(10),
+ 		DNSNames:     []string{"example.com"},
+ 	}
+-	k, err := rsa.GenerateKey(rand.Reader, 1024)
++	k, err := rsa.GenerateKey(rand.Reader, 2048)
+ 	if err != nil {
+ 		t.Fatalf("failed to generate test key: %s", err)
+ 	}
+diff --git a/src/internal/goexperiment/exp_strictfipsruntime_off.go b/src/internal/goexperiment/exp_strictfipsruntime_off.go
+new file mode 100644
+index 0000000000..73a676a18b
+--- /dev/null
++++ b/src/internal/goexperiment/exp_strictfipsruntime_off.go
+@@ -0,0 +1,9 @@
++// Code generated by mkconsts.go. DO NOT EDIT.
++
++//go:build !goexperiment.strictfipsruntime
++// +build !goexperiment.strictfipsruntime
++
++package goexperiment
++
++const StrictFIPSRuntime = false
++const StrictFIPSRuntimeInt = 0
+diff --git a/src/internal/goexperiment/exp_strictfipsruntime_on.go b/src/internal/goexperiment/exp_strictfipsruntime_on.go
+new file mode 100644
+index 0000000000..0983612732
+--- /dev/null
++++ b/src/internal/goexperiment/exp_strictfipsruntime_on.go
+@@ -0,0 +1,9 @@
++// Code generated by mkconsts.go. DO NOT EDIT.
++
++//go:build goexperiment.strictfipsruntime
++// +build goexperiment.strictfipsruntime
++
++package goexperiment
++
++const StrictFIPSRuntime = true
++const StrictFIPSRuntimeInt = 1
+diff --git a/src/internal/goexperiment/flags.go b/src/internal/goexperiment/flags.go
+index 20d9c2da5d..a235664e10 100644
+--- a/src/internal/goexperiment/flags.go
++++ b/src/internal/goexperiment/flags.go
+@@ -86,4 +86,6 @@ type Flags struct {
+ 	// has been broken out to its own experiment that is disabled
+ 	// by default.
+ 	HeapMinimum512KiB bool
++
++	StrictFIPSRuntime bool
+ }
