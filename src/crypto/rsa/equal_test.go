@@ -13,7 +13,7 @@ import (
 )
 
 func TestEqual(t *testing.T) {
-	private, _ := rsa.GenerateKey(rand.Reader, 512)
+	private, _ := rsa.GenerateKey(rand.Reader, 2048)
 	public := &private.PublicKey
 
 	if !public.Equal(public) {
@@ -41,7 +41,7 @@ func TestEqual(t *testing.T) {
 		t.Errorf("private key is not equal to itself after decoding: %v", private)
 	}
 
-	other, _ := rsa.GenerateKey(rand.Reader, 512)
+	other, _ := rsa.GenerateKey(rand.Reader, 2048)
 	if public.Equal(other.Public()) {
 		t.Errorf("different public keys are Equal")
 	}

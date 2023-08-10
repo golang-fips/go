@@ -34,8 +34,17 @@ const (
 	OPENSSL_VERSION_3_0_0 = uint64(C.ulong(0x30000000))
 )
 
+func init() {
+	strictFIPSOpenSSLRuntimeCheck()
+}
+
 // Enabled controls whether FIPS crypto is enabled.
 var enabled = false
+
+func IsStrictFIPSMode() bool {
+	return isStrictFIPS
+}
+
 
 // When this variable is true, the go crypto API will panic when a caller
 // tries to use the API in a non-compliant manner.  When this is false, the

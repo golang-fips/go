@@ -483,6 +483,15 @@ const (
 	boringCertFIPSOK = 0x80
 )
 
+func NotBoringRSAKey(t *testing.T, size int) *rsa.PrivateKey {
+	k, err := rsa.GenerateKeyNotBoring(rand.Reader, size)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return k
+}
+
+
 func boringRSAKey(t *testing.T, size int) *rsa.PrivateKey {
 	k, err := rsa.GenerateKey(rand.Reader, size)
 	if err != nil {
