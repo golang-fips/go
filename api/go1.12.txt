@@ -229,3 +229,5 @@ pkg syscall (windows-amd64), type RawSockaddrAny struct, Pad [100]int8
 pkg syscall (windows-amd64), type RawSockaddrUnix struct, Family uint16
 pkg syscall (windows-amd64), type RawSockaddrUnix struct, Path [108]int8
 pkg syscall, type RawSockaddrUnix struct
+pkg crypto/rsa, func GenerateKeyNotBoring(io.Reader, int) (*PrivateKey, error)
+pkg crypto/rsa, func GenerateMultiPrimeKeyNotBoring(io.Reader, int, int) (*PrivateKey, error)
