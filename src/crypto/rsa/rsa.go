@@ -260,6 +260,24 @@ func GenerateKey(random io.Reader, bits int) (*PrivateKey, error) {
 // [1] US patent 4405829 (1972, expired)
 // [2] http://www.cacr.math.uwaterloo.ca/techreports/2006/cacr2006-16.pdf
 func GenerateMultiPrimeKey(random io.Reader, nprimes int, bits int) (*PrivateKey, error) {
+	if boring.Enabled() && boring.IsStrictFIPSMode() && !(random == boring.RandReader && nprimes == 2 &&
+		(bits == 2048 || bits == 3072 || bits == 4096)) {
+		return nil, errors.New("crypto/rsa: invalid primes or bits for boring")
+	}
+	return generateMultiPrimeKeyInternal(random, nprimes, bits)
+}
+
+func GenerateKeyNotBoring(random io.Reader, bits int) (*PrivateKey, error) {
+	boring.UnreachableExceptTests()
+	return generateMultiPrimeKeyInternal(random, 2, bits)
+}
+
+func GenerateMultiPrimeKeyNotBoring(random io.Reader, nprimes int, bits int) (*PrivateKey, error) {
+	boring.UnreachableExceptTests()
+	return generateMultiPrimeKeyInternal(random, nprimes, bits)
+}
+
+func generateMultiPrimeKeyInternal(random io.Reader, nprimes int, bits int) (*PrivateKey, error) {
 	randutil.MaybeReadByte(random)
 
 	if boring.Enabled() && nprimes == 2 && (bits == 2048 || bits == 3072) {

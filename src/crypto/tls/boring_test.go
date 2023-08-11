@@ -326,7 +326,7 @@ func TestBoringCertAlgs(t *testing.T) {
 	I_M2 := boringCert(t, "I_M2", I_R1.key, M2_R1, boringCertCA|boringCertFIPSOK)
 
 	L1_I := boringCert(t, "L1_I", boringECDSAKey(t, elliptic.P384()), I_R1, boringCertLeaf|boringCertFIPSOK)
-	L2_I := boringCert(t, "L2_I", boringRSAKey(t, 1024), I_R1, boringCertLeaf)
+	L2_I := boringCert(t, "L2_I", NotBoringRSAKey(t, 1024), I_R1, boringCertLeaf)
 	_ = boringCert(t, "L3_I", boringECDSAKey(t, elliptic.P521()), I_R1, boringCertLeaf|boringCertFIPSOK)
 
 	// boringCert checked that isBoringCertificate matches the caller's boringCertFIPSOK bit.
@@ -474,6 +474,14 @@ const (
 	boringCertLeaf
 	boringCertFIPSOK = 0x80
 )
+
+func NotBoringRSAKey(t *testing.T, size int) *rsa.PrivateKey {
+	k, err := rsa.GenerateKeyNotBoring(rand.Reader, size)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return k
+}
 
 func boringRSAKey(t *testing.T, size int) *rsa.PrivateKey {
 	k, err := rsa.GenerateKey(rand.Reader, size)
