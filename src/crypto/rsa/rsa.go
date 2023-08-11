@@ -248,7 +248,6 @@ func GenerateKey(random io.Reader, bits int) (*PrivateKey, error) {
 	return GenerateMultiPrimeKey(random, 2, bits)
 }
 
-
 // GenerateMultiPrimeKey generates a multi-prime RSA keypair of the given bit
 // size and the given random source, as suggested in [1]. Although the public
 // keys are compatible (actually, indistinguishable) from the 2-prime case,
@@ -306,7 +305,6 @@ func generateMultiPrimeKeyInternal(random io.Reader, nprimes int, bits int) (*Pr
 		}
 		return key, nil
 	}
-
 
 	priv := new(PrivateKey)
 	priv.E = 65537
