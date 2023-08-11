@@ -21,7 +21,7 @@ import (
 )
 
 func TestBoringASN1Marshal(t *testing.T) {
-	k, err := GenerateKey(rand.Reader, 128)
+	k, err := GenerateKey(rand.Reader, 3072)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -34,7 +34,7 @@ func TestBoringASN1Marshal(t *testing.T) {
 }
 
 func TestBoringDeepEqual(t *testing.T) {
-	k, err := GenerateKey(rand.Reader, 128)
+	k, err := GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -15,7 +15,15 @@ import (
 	"math/big"
 )
 
+func init() {
+	strictFIPSNonCompliantBinaryCheck()
+}
+
 var enabled = false
+
+func IsStrictFIPSMode() bool {
+	return false
+}
 
 // Unreachable marks code that should be unreachable
 // when BoringCrypto is in use. It is a no-op without BoringCrypto.
