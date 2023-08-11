@@ -19,8 +19,6 @@ func init() {
 	strictFIPSNonCompliantBinaryCheck()
 }
 
-
-
 var enabled = false
 
 func IsStrictFIPSMode() bool {

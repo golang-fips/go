@@ -45,7 +45,6 @@ func IsStrictFIPSMode() bool {
 	return isStrictFIPS
 }
 
-
 // When this variable is true, the go crypto API will panic when a caller
 // tries to use the API in a non-compliant manner.  When this is false, the
 // go crytpo API will allow existing go crypto APIs to be used even
