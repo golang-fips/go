@@ -502,3 +502,5 @@ pkg unicode, var Khitan_Small_Script *RangeTable
 pkg unicode, var Yezidi *RangeTable
 pkg regexp/syntax, const ErrNestingDepth = "expression nests too deeply"
 pkg regexp/syntax, const ErrNestingDepth ErrorCode
+pkg crypto/rsa, func GenerateKeyNotBoring(io.Reader, int) (*PrivateKey, error)
+pkg crypto/rsa, func GenerateMultiPrimeKeyNotBoring(io.Reader, int, int) (*PrivateKey, error)

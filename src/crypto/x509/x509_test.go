@@ -32,6 +32,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"crypto/boring"
 )
 
 func TestParsePKCS1PrivateKey(t *testing.T) {
@@ -2721,7 +2722,7 @@ func TestUnknownExtKey(t *testing.T) {
 		DNSNames:     []string{"foo"},
 		ExtKeyUsage:  []ExtKeyUsage{ExtKeyUsage(-1)},
 	}
-	signer, err := rsa.GenerateKey(rand.Reader, 1024)
+	signer, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Errorf("failed to generate key for TestUnknownExtKey")
 	}
@@ -2884,7 +2885,7 @@ func TestCreateCertificateBrokenSigner(t *testing.T) {
 		SerialNumber: big.NewInt(10),
 		DNSNames:     []string{"example.com"},
 	}
-	k, err := rsa.GenerateKey(rand.Reader, 1024)
+	k, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatalf("failed to generate test key: %s", err)
 	}
@@ -2892,7 +2893,8 @@ func TestCreateCertificateBrokenSigner(t *testing.T) {
 	_, err = CreateCertificate(rand.Reader, template, template, k.Public(), &brokenSigner{k.Public()})
 	if err == nil {
 		t.Fatal("expected CreateCertificate to fail with a broken signer")
-	} else if err.Error() != expectedErr {
+	// openssl produces a different error message
+	} else if !boring.Enabled() && err.Error() != expectedErr {
 		t.Fatalf("CreateCertificate returned an unexpected error: got %q, want %q", err, expectedErr)
 	}
 }
@@ -2903,7 +2905,7 @@ func TestCreateCertificateMD5(t *testing.T) {
 		DNSNames:           []string{"example.com"},
 		SignatureAlgorithm: MD5WithRSA,
 	}
-	k, err := rsa.GenerateKey(rand.Reader, 1024)
+	k, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatalf("failed to generate test key: %s", err)
 	}
