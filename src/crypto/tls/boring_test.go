@@ -483,7 +483,6 @@ func NotBoringRSAKey(t *testing.T, size int) *rsa.PrivateKey {
 	return k
 }
 
-
 func boringRSAKey(t *testing.T, size int) *rsa.PrivateKey {
 	k, err := rsa.GenerateKey(rand.Reader, size)
 	if err != nil {
