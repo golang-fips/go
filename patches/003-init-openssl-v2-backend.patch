@@ -4,7 +4,7 @@ index 49bb6da477..69e29d3528 100644
 +++ b/src/crypto/internal/backend/openssl.go
 @@ -11,16 +11,64 @@
  package backend
- 
+
  import (
 -	"os"
 +	"crypto/internal/boring/sig"
@@ -12,10 +12,10 @@ index 49bb6da477..69e29d3528 100644
 +	"os"
 +	"syscall"
  )
- 
+
  // Enabled controls whether FIPS crypto is enabled.
  var enabled bool
- 
+
 +var knownVersions = [...]string{"3", "1.1", "11", "111", "1.0.2", "1.0.0", "10"}
 +
  func init() {
@@ -63,19 +63,19 @@ index 49bb6da477..69e29d3528 100644
 +			if err := openssl.SetFIPS(true); err != nil {
 +				panic("opensslcrypto: can't enable FIPS mode for " + openssl.VersionText() + ": " + err.Error())
 +			}
-+			enabled = true
 +		}
++		enabled = true
 +	}
 +	sig.BoringCrypto()
  }
- 
+
  func Enabled() bool {
 @@ -61,8 +109,6 @@ func UnreachableExceptTests() {
  	}
  }
- 
+
 -
 -
  const RandReader = openssl.RandReader
- 
+
  var NewGCMTLS = openssl.NewGCMTLS
