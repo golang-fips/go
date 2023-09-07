@@ -7,7 +7,6 @@ package runtime
 import (
 	"runtime/internal/atomic"
 	"runtime/internal/sys"
-	"runtime/internal/syscall"
 	"unsafe"
 )
 
@@ -32,12 +31,9 @@ const (
 )
 
 // Atomically,
-//
 //	if(*addr == val) sleep
-//
 // Might be woken up spuriously; that's allowed.
 // Don't sleep longer than ns; ns < 0 means forever.
-//
 //go:nosplit
 func futexsleep(addr *uint32, val uint32, ns int64) {
 	// Some Linux kernels have a bug where futex of
@@ -56,7 +52,6 @@ func futexsleep(addr *uint32, val uint32, ns int64) {
 }
 
 // If any procs are sleeping on addr, wake up at most cnt.
-//
 //go:nosplit
 func futexwakeup(addr *uint32, cnt uint32) {
 	ret := futex(unsafe.Pointer(addr), _FUTEX_WAKE_PRIVATE, cnt, nil, nil, 0)
@@ -141,7 +136,6 @@ const (
 func clone(flags int32, stk, mp, gp, fn unsafe.Pointer) int32
 
 // May run with m.p==nil, so write barriers are not allowed.
-//
 //go:nowritebarrier
 func newosproc(mp *m) {
 	stk := unsafe.Pointer(mp.g0.stack.hi)
@@ -169,7 +163,6 @@ func newosproc(mp *m) {
 }
 
 // Version of newosproc that doesn't require a valid G.
-//
 //go:nosplit
 func newosproc0(stacksize uintptr, fn unsafe.Pointer) {
 	stack := sysAlloc(stacksize, &memstats.stacks_sys)
@@ -191,7 +184,6 @@ const (
 	_AT_NULL   = 0  // End of vector
 	_AT_PAGESZ = 6  // System physical page size
 	_AT_HWCAP  = 16 // hardware capability bit vector
-	_AT_SECURE = 23 // secure mode boolean
 	_AT_RANDOM = 25 // introduced in 2.6.29
 	_AT_HWCAP2 = 26 // hardware capability bit vector 2
 )
@@ -257,9 +249,6 @@ func sysargs(argc int32, argv **byte) {
 	sysauxv(buf[:])
 }
 
-// secureMode holds the value of AT_SECURE passed in the auxiliary vector.
-var secureMode bool
-
 func sysauxv(auxv []uintptr) int {
 	var i int
 	for ; auxv[i] != _AT_NULL; i += 2 {
@@ -272,8 +261,6 @@ func sysauxv(auxv []uintptr) int {
 
 		case _AT_PAGESZ:
 			physPageSize = val
-		case _AT_SECURE:
-			secureMode = val == 1
 		}
 
 		archauxv(tag, val)
@@ -335,7 +322,6 @@ func goenvs() {
 // Called to do synchronous initialization of Go code built with
 // -buildmode=c-archive or -buildmode=c-shared.
 // None of the Go runtime is initialized.
-//
 //go:nosplit
 //go:nowritebarrierrec
 func libpreinit() {
@@ -372,7 +358,6 @@ func minit() {
 }
 
 // Called from dropm to undo the effect of an minit.
-//
 //go:nosplit
 func unminit() {
 	unminitSignals()
@@ -411,12 +396,6 @@ func osyield()
 func pipe() (r, w int32, errno int32)
 func pipe2(flags int32) (r, w int32, errno int32)
 func setNonblock(fd int32)
-
-//go:nosplit
-func fcntl(fd, cmd, arg int32) (ret int32, errno int32) {
-	r, _, err := syscall.Syscall6(syscall.SYS_FCNTL, uintptr(fd), uintptr(cmd), uintptr(arg), 0, 0, 0)
-	return int32(r), int32(err)
-}
 
 //go:nosplit
 //go:nowritebarrierrec
@@ -462,7 +441,6 @@ func getsig(i uint32) uintptr {
 }
 
 // setSignaltstackSP sets the ss_sp field of a stackt.
-//
 //go:nosplit
 func setSignalstackSP(s *stackt, sp uintptr) {
 	*(*uintptr)(unsafe.Pointer(&s.ss_sp)) = sp
@@ -473,7 +451,6 @@ func (c *sigctxt) fixsigcode(sig uint32) {
 }
 
 // sysSigaction calls the rt_sigaction system call.
-//
 //go:nosplit
 func sysSigaction(sig uint32, new, old *sigactiont) {
 	if rt_sigaction(uintptr(sig), new, old, unsafe.Sizeof(sigactiont{}.sa_mask)) != 0 {
@@ -498,7 +475,6 @@ func sysSigaction(sig uint32, new, old *sigactiont) {
 }
 
 // rt_sigaction is implemented in assembly.
-//
 //go:noescape
 func rt_sigaction(sig uintptr, new, old *sigactiont, size uintptr) int32
 

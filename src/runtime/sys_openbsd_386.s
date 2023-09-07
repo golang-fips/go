@@ -458,13 +458,4 @@ TEXT runtime·setNonblock(SB),NOSPLIT,$16-4
 	INT	$0x80
 	RET
 
-TEXT runtime·issetugid_trampoline(SB),NOSPLIT,$0
-	PUSHL	BP
-	CALL	libc_issetugid(SB)
-	NOP	SP			// tell vet SP changed - stop checking offsets
-	MOVL	8(SP), DX		// pointer to return value
-	MOVL	AX, 0(DX)
-	POPL	BP
-	RET
-
 GLOBL runtime·tlsoffset(SB),NOPTR,$4
