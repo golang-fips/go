@@ -119,7 +119,7 @@ index ffe18e9109..0000000000
 -	t.Error("goexperiment.boringcrypto and boringcrypto should be equivalent build tags")
 -}
 diff --git a/src/crypto/ecdh/ecdh.go b/src/crypto/ecdh/ecdh.go
-index 74420559b5..acf71ba580 100644
+index b86f521787..5b48335c69 100644
 --- a/src/crypto/ecdh/ecdh.go
 +++ b/src/crypto/ecdh/ecdh.go
 @@ -8,7 +8,7 @@ package ecdh
@@ -131,7 +131,7 @@ index 74420559b5..acf71ba580 100644
  	"crypto/subtle"
  	"errors"
  	"io"
-@@ -163,7 +163,7 @@ func (k *PrivateKey) PublicKey() *PublicKey {
+@@ -167,7 +167,7 @@ func (k *PrivateKey) PublicKey() *PublicKey {
  			// (We can't return it anyhow.)
  			kpub, err := k.boring.PublicKey()
  			if err != nil {
@@ -255,7 +255,7 @@ index 275c60b4de..58f0034b18 100644
  	"math/big"
  )
 diff --git a/src/crypto/ecdsa/ecdsa.go b/src/crypto/ecdsa/ecdsa.go
-index 03a9a72ddd..4bf497f9cc 100644
+index e1503779ae..00953a453a 100644
 --- a/src/crypto/ecdsa/ecdsa.go
 +++ b/src/crypto/ecdsa/ecdsa.go
 @@ -27,8 +27,8 @@ import (
@@ -269,7 +269,7 @@ index 03a9a72ddd..4bf497f9cc 100644
  	"crypto/internal/nistec"
  	"crypto/internal/randutil"
  	"crypto/sha512"
-@@ -154,7 +154,7 @@ func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOp
+@@ -158,7 +158,7 @@ func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOp
  func GenerateKey(c elliptic.Curve, rand io.Reader) (*PrivateKey, error) {
  	randutil.MaybeReadByte(rand)
 
@@ -278,7 +278,7 @@ index 03a9a72ddd..4bf497f9cc 100644
  		x, y, d, err := boring.GenerateKeyECDSA(c.Params().Name)
  		if err != nil {
  			return nil, err
-@@ -248,7 +248,7 @@ var errNoAsm = errors.New("no assembly implementation available")
+@@ -256,7 +256,7 @@ var errNoAsm = errors.New("no assembly implementation available")
  func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte) ([]byte, error) {
  	randutil.MaybeReadByte(rand)
 
@@ -287,7 +287,7 @@ index 03a9a72ddd..4bf497f9cc 100644
  		b, err := boringPrivateKey(priv)
  		if err != nil {
  			return nil, err
-@@ -458,7 +458,7 @@ func (zr) Read(dst []byte) (n int, err error) {
+@@ -466,7 +466,7 @@ func (zr) Read(dst []byte) (n int, err error) {
  // VerifyASN1 verifies the ASN.1 encoded signature, sig, of hash using the
  // public key, pub. Its return value records whether the signature is valid.
  func VerifyASN1(pub *PublicKey, hash, sig []byte) bool {
@@ -458,7 +458,7 @@ index 8b5c2cc9af..ebbb1c0c07 100644
  	}
  	testenv.SkipIfOptimizationOff(t)
 diff --git a/src/crypto/hmac/hmac.go b/src/crypto/hmac/hmac.go
-index ed3ebc0602..9941228156 100644
+index 35b9d5a17a..5697756a27 100644
 --- a/src/crypto/hmac/hmac.go
 +++ b/src/crypto/hmac/hmac.go
 @@ -22,7 +22,7 @@ timing side-channels:
@@ -1471,7 +1471,7 @@ index 2abc043640..a83be6dfdb 100644
 +	panic("!no_openssl: not available")
  }
 diff --git a/src/crypto/rsa/pkcs1v15.go b/src/crypto/rsa/pkcs1v15.go
-index e51b9d2ca7..2d5f6b5ea9 100644
+index 55fea1ab93..d6eaf7cea8 100644
 --- a/src/crypto/rsa/pkcs1v15.go
 +++ b/src/crypto/rsa/pkcs1v15.go
 @@ -6,7 +6,7 @@ package rsa
@@ -1483,7 +1483,7 @@ index e51b9d2ca7..2d5f6b5ea9 100644
  	"crypto/internal/randutil"
  	"crypto/subtle"
  	"errors"
-@@ -46,7 +46,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
+@@ -49,7 +49,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
  		return nil, ErrMessageTooLong
  	}
 
@@ -1492,7 +1492,7 @@ index e51b9d2ca7..2d5f6b5ea9 100644
  		bkey, err := boringPublicKey(pub)
  		if err != nil {
  			return nil, err
-@@ -66,7 +66,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
+@@ -69,7 +69,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
  	em[len(em)-len(msg)-1] = 0
  	copy(mm, msg)
 
@@ -1501,7 +1501,7 @@ index e51b9d2ca7..2d5f6b5ea9 100644
  		var bkey *boring.PublicKeyRSA
  		bkey, err = boringPublicKey(pub)
  		if err != nil {
-@@ -91,7 +91,7 @@ func DecryptPKCS1v15(random io.Reader, priv *PrivateKey, ciphertext []byte) ([]b
+@@ -94,7 +94,7 @@ func DecryptPKCS1v15(random io.Reader, priv *PrivateKey, ciphertext []byte) ([]b
  		return nil, err
  	}
 
@@ -1510,7 +1510,7 @@ index e51b9d2ca7..2d5f6b5ea9 100644
  		bkey, err := boringPrivateKey(priv)
  		if err != nil {
  			return nil, err
-@@ -170,7 +170,7 @@ func decryptPKCS1v15(priv *PrivateKey, ciphertext []byte) (valid int, em []byte,
+@@ -188,7 +188,7 @@ func decryptPKCS1v15(priv *PrivateKey, ciphertext []byte) (valid int, em []byte,
  		return
  	}
 
@@ -1519,7 +1519,7 @@ index e51b9d2ca7..2d5f6b5ea9 100644
  		var bkey *boring.PrivateKeyRSA
  		bkey, err = boringPrivateKey(priv)
  		if err != nil {
-@@ -278,12 +278,12 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
+@@ -296,12 +296,12 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
  		return nil, ErrMessageTooLong
  	}
 
@@ -1534,7 +1534,7 @@ index e51b9d2ca7..2d5f6b5ea9 100644
  	}
 
  	// EM = 0x00 || 0x01 || PS || 0x00 || T
-@@ -304,12 +304,12 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
+@@ -322,12 +322,12 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
  // returning a nil error. If hash is zero then hashed is used directly. This
  // isn't advisable except for interoperability.
  func VerifyPKCS1v15(pub *PublicKey, hash crypto.Hash, hashed []byte, sig []byte) error {
@@ -1608,7 +1608,7 @@ index 39a4fc184a..0853178e3a 100644
  	}
 
 diff --git a/src/crypto/rsa/pss.go b/src/crypto/rsa/pss.go
-index f7d23b55ef..3c822aa587 100644
+index 3a377cc9db..ce78a13d6f 100644
 --- a/src/crypto/rsa/pss.go
 +++ b/src/crypto/rsa/pss.go
 @@ -9,7 +9,7 @@ package rsa
@@ -1629,16 +1629,16 @@ index f7d23b55ef..3c822aa587 100644
  		bkey, err := boringPrivateKey(priv)
  		if err != nil {
  			return nil, err
-@@ -286,7 +286,7 @@ var invalidSaltLenErr = errors.New("crypto/rsa: PSSOptions.SaltLength cannot be
- // function. The opts argument may be nil, in which case sensible defaults are
- // used. If opts.Hash is set, it overrides hash.
- func SignPSS(rand io.Reader, priv *PrivateKey, hash crypto.Hash, digest []byte, opts *PSSOptions) ([]byte, error) {
+@@ -296,7 +296,7 @@ func SignPSS(rand io.Reader, priv *PrivateKey, hash crypto.Hash, digest []byte,
+ 	// well-specified number of random bytes is included in the signature, in a
+ 	// well-specified way.
+
 -	if boring.Enabled && rand == boring.RandReader {
 +	if boring.Enabled() && rand == boring.RandReader {
  		bkey, err := boringPrivateKey(priv)
  		if err != nil {
  			return nil, err
-@@ -329,7 +329,7 @@ func SignPSS(rand io.Reader, priv *PrivateKey, hash crypto.Hash, digest []byte,
+@@ -339,7 +339,7 @@ func SignPSS(rand io.Reader, priv *PrivateKey, hash crypto.Hash, digest []byte,
  // argument may be nil, in which case sensible defaults are used. opts.Hash is
  // ignored.
  func VerifyPSS(pub *PublicKey, hash crypto.Hash, digest []byte, sig []byte, opts *PSSOptions) error {
@@ -1679,7 +1679,7 @@ index 1226149321..befd1612b5 100644
  	}
 
 diff --git a/src/crypto/rsa/rsa.go b/src/crypto/rsa/rsa.go
-index ab56ccd1ed..dd79dc5439 100644
+index ad860d7f0c..86f700bee2 100644
 --- a/src/crypto/rsa/rsa.go
 +++ b/src/crypto/rsa/rsa.go
 @@ -28,8 +28,8 @@ package rsa
@@ -1693,7 +1693,7 @@ index ab56ccd1ed..dd79dc5439 100644
  	"crypto/internal/randutil"
  	"crypto/rand"
  	"crypto/subtle"
-@@ -286,7 +286,7 @@ func GenerateKey(random io.Reader, bits int) (*PrivateKey, error) {
+@@ -294,7 +294,7 @@ func GenerateKey(random io.Reader, bits int) (*PrivateKey, error) {
  func GenerateMultiPrimeKey(random io.Reader, nprimes int, bits int) (*PrivateKey, error) {
  	randutil.MaybeReadByte(random)
 
@@ -1702,7 +1702,7 @@ index ab56ccd1ed..dd79dc5439 100644
  		(bits == 2048 || bits == 3072 || bits == 4096) {
  		bN, bE, bD, bP, bQ, bDp, bDq, bQinv, err := boring.GenerateKeyRSA(bits)
  		if err != nil {
-@@ -504,7 +504,7 @@ func EncryptOAEP(hash hash.Hash, random io.Reader, pub *PublicKey, msg []byte, l
+@@ -529,7 +529,7 @@ func EncryptOAEP(hash hash.Hash, random io.Reader, pub *PublicKey, msg []byte, l
  		return nil, ErrMessageTooLong
  	}
 
@@ -1711,7 +1711,7 @@ index ab56ccd1ed..dd79dc5439 100644
  		bkey, err := boringPublicKey(pub)
  		if err != nil {
  			return nil, err
-@@ -533,7 +533,7 @@ func EncryptOAEP(hash hash.Hash, random io.Reader, pub *PublicKey, msg []byte, l
+@@ -558,7 +558,7 @@ func EncryptOAEP(hash hash.Hash, random io.Reader, pub *PublicKey, msg []byte, l
  	mgf1XOR(db, hash, seed)
  	mgf1XOR(seed, hash, db)
 
@@ -1720,7 +1720,7 @@ index ab56ccd1ed..dd79dc5439 100644
  		var bkey *boring.PublicKeyRSA
  		bkey, err = boringPublicKey(pub)
  		if err != nil {
-@@ -675,7 +675,7 @@ func decryptOAEP(hash, mgfHash hash.Hash, random io.Reader, priv *PrivateKey, ci
+@@ -719,7 +719,7 @@ func decryptOAEP(hash, mgfHash hash.Hash, random io.Reader, priv *PrivateKey, ci
  		return nil, ErrDecryption
  	}
 
@@ -2181,7 +2181,7 @@ index 7bfe3f9417..49702f59ba 100644
  						}
  						if reachableFIPS[c.org] && c.fipsOK {
 diff --git a/src/crypto/tls/cipher_suites.go b/src/crypto/tls/cipher_suites.go
-index b6ed936cd1..f411ee80ee 100644
+index 669208bb86..15a44e8cf6 100644
 --- a/src/crypto/tls/cipher_suites.go
 +++ b/src/crypto/tls/cipher_suites.go
 @@ -10,7 +10,7 @@ import (
@@ -2193,7 +2193,7 @@ index b6ed936cd1..f411ee80ee 100644
  	"crypto/rc4"
  	"crypto/sha1"
  	"crypto/sha256"
-@@ -430,7 +430,7 @@ func macSHA1(key []byte) hash.Hash {
+@@ -422,7 +422,7 @@ func macSHA1(key []byte) hash.Hash {
  	h := sha1.New
  	// The BoringCrypto SHA1 does not have a constant-time
  	// checksum function, so don't try to use it.
@@ -2202,7 +2202,7 @@ index b6ed936cd1..f411ee80ee 100644
  		h = newConstantTimeHash(h)
  	}
  	return hmac.New(h, key)
-@@ -522,7 +522,7 @@ func aeadAESGCM(key, noncePrefix []byte) aead {
+@@ -514,7 +514,7 @@ func aeadAESGCM(key, noncePrefix []byte) aead {
  		panic(err)
  	}
  	var aead cipher.AEAD
@@ -2212,7 +2212,7 @@ index b6ed936cd1..f411ee80ee 100644
  	} else {
  		boring.Unreachable()
 diff --git a/src/crypto/tls/common.go b/src/crypto/tls/common.go
-index db4e2dbf60..8d887ba0fe 100644
+index 5edbd19995..a72d4855c1 100644
 --- a/src/crypto/tls/common.go
 +++ b/src/crypto/tls/common.go
 @@ -12,7 +12,7 @@ import (
@@ -2224,7 +2224,7 @@ index db4e2dbf60..8d887ba0fe 100644
  	"crypto/rand"
  	"crypto/rsa"
  	"crypto/sha512"
-@@ -995,7 +995,7 @@ const roleServer = false
+@@ -1032,7 +1032,7 @@ const roleServer = false
  func (c *Config) supportedVersions(isClient bool) []uint16 {
  	versions := make([]uint16, 0, len(supportedVersions))
  	for _, v := range supportedVersions {
@@ -2234,7 +2234,7 @@ index db4e2dbf60..8d887ba0fe 100644
  		}
  		if needFIPS() && (v < fipsMinVersion(c) || v > fipsMaxVersion(c)) {
 diff --git a/src/crypto/tls/key_schedule.go b/src/crypto/tls/key_schedule.go
-index 30a8450f40..a8a6655c34 100644
+index e7a360fdd4..9ea9eed2fb 100644
 --- a/src/crypto/tls/key_schedule.go
 +++ b/src/crypto/tls/key_schedule.go
 @@ -7,7 +7,7 @@ package tls
@@ -2246,7 +2246,7 @@ index 30a8450f40..a8a6655c34 100644
  	"errors"
  	"fmt"
  	"hash"
-@@ -59,7 +59,7 @@ func (c *cipherSuiteTLS13) expandLabel(secret []byte, label string, context []by
+@@ -60,7 +60,7 @@ func (c *cipherSuiteTLS13) expandLabel(secret []byte, label string, context []by
  		panic(fmt.Errorf("failed to construct HKDF label: %s", err))
  	}
  	out := make([]byte, length)
@@ -2255,7 +2255,7 @@ index 30a8450f40..a8a6655c34 100644
  		reader, err := boring.ExpandHKDF(c.hash.New, secret, hkdfLabelBytes)
  		if err != nil {
  			panic("tls: HKDF-Expand-Label invocation failed unexpectedly")
-@@ -90,7 +90,7 @@ func (c *cipherSuiteTLS13) extract(newSecret, currentSecret []byte) []byte {
+@@ -91,7 +91,7 @@ func (c *cipherSuiteTLS13) extract(newSecret, currentSecret []byte) []byte {
  	if newSecret == nil {
  		newSecret = make([]byte, c.hash.Size())
  	}
@@ -2317,7 +2317,7 @@ index c83a7272c9..0c7dea2f1f 100644
  package x509
 
 diff --git a/src/crypto/x509/x509_test.go b/src/crypto/x509/x509_test.go
-index 8734dd03c1..22a104f338 100644
+index 0c2cbf3182..e01c24292e 100644
 --- a/src/crypto/x509/x509_test.go
 +++ b/src/crypto/x509/x509_test.go
 @@ -12,7 +12,7 @@ import (
@@ -2338,7 +2338,7 @@ index 8734dd03c1..22a104f338 100644
  			key, _ := test.priv.(*rsa.PrivateKey)
  			if key.PublicKey.N.BitLen() < 2048 {
  				t.Logf("skipping short key with BoringCrypto: %d", key.PublicKey.N.BitLen())
-@@ -3641,7 +3641,7 @@ func TestRevocationListCheckSignatureFrom(t *testing.T) {
+@@ -3716,7 +3716,7 @@ func TestRevocationListCheckSignatureFrom(t *testing.T) {
  	var testCurve elliptic.Curve
  	// If OpenSSL supports P224, use the default upstream behavior,
  	// otherwise test with P384
@@ -2348,27 +2348,27 @@ index 8734dd03c1..22a104f338 100644
  	} else {
  		testCurve = elliptic.P384()
 diff --git a/src/go.mod b/src/go.mod
-index 4697da201c..791a04b0e5 100644
+index 25829e17f2..e19ef07e84 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -3,6 +3,7 @@ module std
- go 1.20
+ go 1.21
 
  require (
 +	github.com/golang-fips/openssl-fips v0.0.0-20230801192317-b175be2ccd46
- 	golang.org/x/crypto v0.3.1-0.20221117191849-2c476679df9a
- 	golang.org/x/net v0.4.1-0.20230214201333-88ed8ca3307d
+ 	golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d
+ 	golang.org/x/net v0.12.1-0.20230712162946-57553cbff163
  )
 diff --git a/src/go.sum b/src/go.sum
-index 625f2070b3..8cbd8cfb33 100644
+index e474b8be31..0dab3e78f9 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,3 +1,5 @@
 +github.com/golang-fips/openssl-fips v0.0.0-20230801192317-b175be2ccd46 h1:1oaM7kpYYlqwc6sIROINgj5fUW4CGZGEBwfzIc+TnJI=
 +github.com/golang-fips/openssl-fips v0.0.0-20230801192317-b175be2ccd46/go.mod h1:V2IU8imz/VkScnIbTOrdYsZ5R88ZFypCE0LzhRJ3HsI=
- golang.org/x/crypto v0.3.1-0.20221117191849-2c476679df9a h1:diz9pEYuTIuLMJLs3rGDkeaTsNyRs6duYdFyPAxzE/U=
- golang.org/x/crypto v0.3.1-0.20221117191849-2c476679df9a/go.mod h1:hebNnKkNXi2UzZN1eVRvBB7co0a+JxK6XbPiWVs/3J4=
- golang.org/x/net v0.4.1-0.20230214201333-88ed8ca3307d h1:KHU/KRz6+/yWyRHEC24m7T5gou5VSh62duch955ktBY=
+ golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d h1:LiA25/KWKuXfIq5pMIBq1s5hz3HQxhJJSu/SUGlD+SM=
+ golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d/go.mod h1:xgJhtzW8F9jGdVFWZESrid1U1bjeNy4zgy5cRr/CIio=
+ golang.org/x/net v0.12.1-0.20230712162946-57553cbff163 h1:1EDKNuaCsog7zGLEml1qRuO4gt23jORUQX2f0IKZ860=
 diff --git a/src/vendor/github.com/golang-fips/openssl-fips/LICENSE b/src/vendor/github.com/golang-fips/openssl-fips/LICENSE
 new file mode 100644
 index 0000000000..97e8515401
@@ -4818,8 +4818,9 @@ index 1c5e4c742d..2fa4a38e44 100644
  }
 -func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte) ([]byte, error) {
 +func SignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) (r, s BigInt, err error) {
-+	panic("boringcrypto: not available")
-+}
+ 	panic("boringcrypto: not available")
+ }
+-func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, sig []byte) bool {
 +func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) ([]byte, error) {
 +	panic("boringcrypto: not available")
 +}
@@ -4840,9 +4841,8 @@ index 1c5e4c742d..2fa4a38e44 100644
 +	panic("boringcrypto: not available")
 +}
 +func ECDH(priv *PrivateKeyECDH, pub *PublicKeyECDH) ([]byte, error) {
- 	panic("boringcrypto: not available")
- }
--func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, sig []byte) bool {
++	panic("boringcrypto: not available")
++}
 +func GenerateKeyECDH(curve string) (*PrivateKeyECDH, []byte, error) {
  	panic("boringcrypto: not available")
  }
@@ -6480,7 +6480,8 @@ index fa693ea319..75ba7a8a59 100644
  	key := C._goboringcrypto_RSA_new()
  	if key == nil {
 -		return nil, fail("RSA_new")
--	}
++		return nil, NewOpenSSLError("RSA_new failed")
+ 	}
 -	if !bigToBn(&key.n, N) ||
 -		!bigToBn(&key.e, E) ||
 -		!bigToBn(&key.d, D) ||
@@ -6490,8 +6491,6 @@ index fa693ea319..75ba7a8a59 100644
 -		!bigToBn(&key.dmq1, Dq) ||
 -		!bigToBn(&key.iqmp, Qinv) {
 -		return nil, fail("BN_bin2bn")
-+		return nil, NewOpenSSLError("RSA_new failed")
-+	}
 +	var n, e, d, p, q, dp, dq, qinv *C.GO_BIGNUM
 +	n = bigToBN(N)
 +	e = bigToBN(E)
@@ -6687,14 +6686,6 @@ index fa693ea319..75ba7a8a59 100644
 -	// it, and lengths < -2, before we convert to the BoringSSL sentinel values.
 -	if saltLen <= -2 {
 -		return nil, invalidSaltLenErr
--	}
--
--	// BoringSSL uses sentinel salt length values like we do, but the values don't
--	// fully match what we use. We both use -1 for salt length equal to hash length,
--	// but BoringSSL uses -2 to mean maximal size where we use 0. In the latter
--	// case convert to the BoringSSL version.
--	if saltLen == 0 {
--		saltLen = -2
 +	switch saltLen {
 +	case saltLengthAuto:
 +		saltLen = C.GO_RSA_PSS_SALTLEN_AUTO
@@ -6707,6 +6698,14 @@ index fa693ea319..75ba7a8a59 100644
 +			return nil, invalidSaltLenErr
 +		}
  	}
+-
+-	// BoringSSL uses sentinel salt length values like we do, but the values don't
+-	// fully match what we use. We both use -1 for salt length equal to hash length,
+-	// but BoringSSL uses -2 to mean maximal size where we use 0. In the latter
+-	// case convert to the BoringSSL version.
+-	if saltLen == 0 {
+-		saltLen = -2
+-	}
 -
  	var out []byte
 -	var outLen C.size_t
@@ -6729,14 +6728,6 @@ index fa693ea319..75ba7a8a59 100644
 -	// it, and lengths < -2, before we convert to the BoringSSL sentinel values.
 -	if saltLen <= -2 {
 -		return invalidSaltLenErr
--	}
--
--	// BoringSSL uses sentinel salt length values like we do, but the values don't
--	// fully match what we use. We both use -1 for salt length equal to hash length,
--	// but BoringSSL uses -2 to mean maximal size where we use 0. In the latter
--	// case convert to the BoringSSL version.
--	if saltLen == 0 {
--		saltLen = -2
 +	switch saltLen {
 +	case saltLengthAuto:
 +		saltLen = C.GO_RSA_PSS_SALTLEN_AUTO
@@ -6749,6 +6740,14 @@ index fa693ea319..75ba7a8a59 100644
 +			return invalidSaltLenErr
 +		}
  	}
+-
+-	// BoringSSL uses sentinel salt length values like we do, but the values don't
+-	// fully match what we use. We both use -1 for salt length equal to hash length,
+-	// but BoringSSL uses -2 to mean maximal size where we use 0. In the latter
+-	// case convert to the BoringSSL version.
+-	if saltLen == 0 {
+-		saltLen = -2
+-	}
 -
  	if pub.withKey(func(key *C.GO_RSA) C.int {
 -		return C._goboringcrypto_RSA_verify_pss_mgf1(key, base(hashed), C.size_t(len(hashed)),
@@ -6793,9 +6792,6 @@ index fa693ea319..75ba7a8a59 100644
  		return out[:outLen], nil
  	}
 
--	md := cryptoHashToMD(h)
--	if md == nil {
--		return nil, errors.New("crypto/rsa: unsupported hash function: " + strconv.Itoa(int(h)))
 +	var out []byte
 +	var outLen C.size_t
 +
@@ -6803,45 +6799,44 @@ index fa693ea319..75ba7a8a59 100644
 +		return C._goboringcrypto_EVP_RSA_sign(md, base(msg), C.uint(len(msg)), base(out), &outLen, key)
 +	}) == 0 {
 +		return nil, NewOpenSSLError("RSA_sign")
- 	}
--	nid := C._goboringcrypto_EVP_MD_type(md)
++	}
 +	return out[:outLen], nil
 +}
 +
 +func signRSAPKCS1v15Raw(priv *PrivateKeyRSA, msg []byte, md *C.GO_EVP_MD) ([]byte, error) {
- 	var out []byte
--	var outLen C.uint
++	var out []byte
 +	var outLen C.size_t
 +	PanicIfStrictFIPS("You must provide a raw unhashed message for PKCS1v15 signing and use HashSignPKCS1v15 instead of SignPKCS1v15")
 +
- 	if priv.withKey(func(key *C.GO_RSA) C.int {
- 		out = make([]byte, C._goboringcrypto_RSA_size(key))
--		return C._goboringcrypto_RSA_sign(nid, base(hashed), C.uint(len(hashed)),
--			base(out), &outLen, key)
++	if priv.withKey(func(key *C.GO_RSA) C.int {
++		out = make([]byte, C._goboringcrypto_RSA_size(key))
 +		outLen = C.size_t(len(out))
 +		return C._goboringcrypto_EVP_sign_raw(md, nil, base(msg),
 +			C.size_t(len(msg)), base(out), &outLen, key)
- 	}) == 0 {
--		return nil, fail("RSA_sign")
++	}) == 0 {
 +		return nil, NewOpenSSLError("RSA_sign")
- 	}
++	}
 +	runtime.KeepAlive(priv)
- 	return out[:outLen], nil
- }
-
--func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte) error {
--	if h == 0 {
--		var out []byte
--		var outLen C.size_t
++	return out[:outLen], nil
++}
++
 +func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, msg, sig []byte, msgIsHashed bool) error {
 +	if h == 0 && ExecutingTest() {
 +		return verifyRSAPKCS1v15Raw(pub, msg, sig)
 +	}
 +
-+	md := cryptoHashToMD(h)
-+	if md == nil {
+ 	md := cryptoHashToMD(h)
+ 	if md == nil {
+-		return nil, errors.New("crypto/rsa: unsupported hash function: " + strconv.Itoa(int(h)))
 +		return errors.New("crypto/rsa: unsupported hash function")
-+	}
+ 	}
+-	nid := C._goboringcrypto_EVP_MD_type(md)
+-	var out []byte
+-	var outLen C.uint
+-	if priv.withKey(func(key *C.GO_RSA) C.int {
+-		out = make([]byte, C._goboringcrypto_RSA_size(key))
+-		return C._goboringcrypto_RSA_sign(nid, base(hashed), C.uint(len(hashed)),
+-			base(out), &outLen, key)
 +
 +	if pub.withKey(func(key *C.GO_RSA) C.int {
 +		size := int(C._goboringcrypto_RSA_size(key))
@@ -6849,10 +6844,17 @@ index fa693ea319..75ba7a8a59 100644
 +			return 0
 +		}
 +		return 1
-+	}) == 0 {
+ 	}) == 0 {
+-		return nil, fail("RSA_sign")
 +		return errors.New("crypto/rsa: verification error")
-+	}
-+
+ 	}
+-	return out[:outLen], nil
+-}
+
+-func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte) error {
+-	if h == 0 {
+-		var out []byte
+-		var outLen C.size_t
 +	if msgIsHashed {
 +		PanicIfStrictFIPS("You must provide a raw unhashed message for PKCS1v15 verification and use HashVerifyPKCS1v15 instead of VerifyPKCS1v15")
 +		nid := C._goboringcrypto_EVP_MD_type(md)
@@ -7164,13 +7166,13 @@ index cf82f3f64f..0b55cedc91 100644
 
  type sha512Ctx struct {
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index 89a7c86c41..ced961d73d 100644
+index 2b5f965f8f..25143a6ab0 100644
 --- a/src/vendor/modules.txt
 +++ b/src/vendor/modules.txt
 @@ -1,3 +1,6 @@
 +# github.com/golang-fips/openssl-fips v0.0.0-20230801192317-b175be2ccd46
 +## explicit; go 1.18
 +github.com/golang-fips/openssl-fips/openssl
- # golang.org/x/crypto v0.3.1-0.20221117191849-2c476679df9a
+ # golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d
  ## explicit; go 1.17
  golang.org/x/crypto/chacha20

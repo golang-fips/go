@@ -1289,9 +1289,9 @@ index 63d86b9f3a..a8ee915041 100644
 --- a/src/crypto/tls/handshake_client.go
 +++ b/src/crypto/tls/handshake_client.go
 @@ -127,7 +127,9 @@ func (c *Conn) makeClientHello() (*clientHelloMsg, *ecdh.PrivateKey, error) {
-
- 	var key *ecdh.PrivateKey
- 	if hello.supportedVersions[0] == VersionTLS13 {
+ 		if len(hello.supportedVersions) == 1 {
+ 			hello.cipherSuites = nil
+ 		}
 -		if hasAESGCMHardwareSupport {
 +		if needFIPS() {
 +			hello.cipherSuites = append(hello.cipherSuites, defaultFIPSCipherSuitesTLS13...)
