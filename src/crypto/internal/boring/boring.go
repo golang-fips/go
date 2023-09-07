@@ -34,9 +34,6 @@ const (
 	OPENSSL_VERSION_3_0_0 = uint64(C.ulong(0x30000000))
 )
 
-func init() {
-	strictFIPSOpenSSLRuntimeCheck()
-}
 
 // Enabled controls whether FIPS crypto is enabled.
 var enabled = false
@@ -58,6 +55,7 @@ func init() {
 
 	// Check if we can `dlopen` OpenSSL
 	if C._goboringcrypto_DLOPEN_OPENSSL() == C.NULL {
+		strictFIPSOpenSSLRuntimeCheck()
 		return
 	}
 
