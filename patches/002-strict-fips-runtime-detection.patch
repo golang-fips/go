@@ -1,6 +1,6 @@
 diff --git a/src/crypto/internal/backend/hostfips.go b/src/crypto/internal/backend/hostfips.go
 new file mode 100644
-index 0000000000..6fcd7139c6
+index 0000000000..a0e0778f97
 --- /dev/null
 +++ b/src/crypto/internal/backend/hostfips.go
 @@ -0,0 +1,21 @@
@@ -9,41 +9,90 @@ index 0000000000..6fcd7139c6
 +import (
 +	"fmt"
 +	"os"
++	"io/fs"
 +)
 +
-+func hostFIPSModeEnabled() bool {
++func hostFIPSModeEnabled(fsys fs.FS) bool {
 +	// Look at /proc/sys/crypto/fips_enabled to see if FIPS mode is enabled.
 +	// If it is, log an error and exit.
 +	// If we run into an error reading that file because it doesn't exist, assume FIPS mode is not enabled.
-+	data, err := os.ReadFile("/proc/sys/crypto/fips_enabled")
++	data, err := fs.ReadFile(fsys, "fips_enabled")
 +	if err != nil {
 +		if os.IsNotExist(err) {
 +			return false
 +		}
-+		fmt.Fprintf(os.Stderr, "error reading /proc/sys/crypto/fips_enabled: %v\n", err)
-+		os.Exit(1)
++		panic(fmt.Sprintf("error reading /proc/sys/crypto/fips_enabled: %v\n", err))
 +	}
 +	return len(data) > 0 && data[0] == '1'
 +}
+diff --git a/src/crypto/internal/backend/hostfips_test.go b/src/crypto/internal/backend/hostfips_test.go
+new file mode 100644
+index 0000000000..20d853cf3a
+--- /dev/null
++++ b/src/crypto/internal/backend/hostfips_test.go
+@@ -0,0 +1,32 @@
++package backend
++
++import (
++	"testing"
++	"testing/fstest"
++)
++
++func TestHostFIPSNotEnabled(t *testing.T) {
++	fs := fstest.MapFS{
++		"fips_enabed": {
++			Data: []byte("0"),
++		 },
++	}
++	expected := false
++	actual := hostFIPSModeEnabled(fs)
++ 	if actual != expected {
++		 t.Fatalf("expected %v got %v", expected, actual)
++	}
++}
++
++func TestHostFIPSEnabled(t *testing.T) {
++	fs := fstest.MapFS{
++		"fips_enabed": {
++			Data: []byte("1"),
++		 },
++	}
++	expected := false
++	actual := hostFIPSModeEnabled(fs)
++ 	if actual != expected {
++		 t.Fatalf("expected %v got %v", expected, actual)
++	}
++}
+\ No newline at end of file
 diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
-index 15c1ee8cbe..efb7555948 100644
+index 15c1ee8cbe..a2a061ea38 100644
 --- a/src/crypto/internal/backend/nobackend.go
 +++ b/src/crypto/internal/backend/nobackend.go
-@@ -11,12 +11,17 @@ import (
+@@ -11,12 +11,27 @@ import (
  	"crypto"
  	"crypto/cipher"
  	"crypto/internal/boring/sig"
 -	"math/big"
 -	"github.com/golang-fips/openssl-fips/openssl"
++	"fmt"
  	"hash"
  	"io"
 +	"math/big"
++	"os"
 +
 +	"github.com/golang-fips/openssl-fips/openssl"
  )
  
 +func init() {
-+	strictFIPSNonCompliantBinaryCheck()
++	defer func() {
++		if r := recover(); r != nil {
++			fmt.Fprintln(os.Stderr, r)
++			os.Exit(1)
++		}
++	}()
++	fsys := os.DirFS("/proc/sys/crypto")
++	hostFips := hostFIPSModeEnabled(fsys)
++	strictFIPSNonCompliantBinaryCheck(hostFips)
 +}
 +
  var enabled = false
@@ -51,7 +100,7 @@ index 15c1ee8cbe..efb7555948 100644
  // Unreachable marks code that should be unreachable
 diff --git a/src/crypto/internal/backend/not_strict_fips.go b/src/crypto/internal/backend/not_strict_fips.go
 new file mode 100644
-index 0000000000..f8e8fd6869
+index 0000000000..9e64b73cc1
 --- /dev/null
 +++ b/src/crypto/internal/backend/not_strict_fips.go
 @@ -0,0 +1,10 @@
@@ -60,21 +109,35 @@ index 0000000000..f8e8fd6869
 +
 +package backend
 +
-+func strictFIPSOpenSSLRuntimeCheck() {
++func strictFIPSOpenSSLRuntimeCheck(_ bool) {
 +}
 +
-+func strictFIPSNonCompliantBinaryCheck() {
++func strictFIPSNonCompliantBinaryCheck(_ bool) {
 +}
 diff --git a/src/crypto/internal/backend/openssl.go b/src/crypto/internal/backend/openssl.go
-index 2087c555a4..3e5ee01efc 100644
+index 2087c555a4..91f3255ad3 100644
 --- a/src/crypto/internal/backend/openssl.go
 +++ b/src/crypto/internal/backend/openssl.go
-@@ -14,6 +14,10 @@ import (
+@@ -11,9 +11,24 @@
+ package backend
+
+ import (
++	"os"
++	"fmt"
++
  	"github.com/golang-fips/openssl-fips/openssl"
  )
  
 +func init() {
-+	strictFIPSOpenSSLRuntimeCheck()
++	defer func() {
++		if r := recover(); r != nil {
++			fmt.Fprintln(os.Stderr, r)
++			os.Exit(1)
++		}
++	}()
++	fsys := os.DirFS("/proc/sys/crypto")
++	hostFips := hostFIPSModeEnabled(fsys)
++	strictFIPSOpenSSLRuntimeCheck(hostFips)
 +}
 +
  // Enabled controls whether FIPS crypto is enabled.
@@ -82,32 +145,88 @@ index 2087c555a4..3e5ee01efc 100644
  
 diff --git a/src/crypto/internal/backend/strict_fips.go b/src/crypto/internal/backend/strict_fips.go
 new file mode 100644
-index 0000000000..894eeca942
+index 0000000000..d3c8b1df22
 --- /dev/null
 +++ b/src/crypto/internal/backend/strict_fips.go
-@@ -0,0 +1,23 @@
+@@ -0,0 +1,16 @@
 +//go:build goexperiment.strictfipsruntime
 +// +build goexperiment.strictfipsruntime
 +
 +package backend
 +
-+import (
-+	"fmt"
-+	"os"
-+)
-+
-+func strictFIPSOpenSSLRuntimeCheck() {
-+	if hostFIPSModeEnabled() && !Enabled() {
-+		fmt.Fprintln(os.Stderr, "FIPS mode is enabled, but the required OpenSSL backend is unavailable")
-+		os.Exit(1)
++func strictFIPSOpenSSLRuntimeCheck(hostFIPS bool) {
++	if hostFIPS && !Enabled() {
++		panic("FIPS mode is enabled, but the required OpenSSL backend is unavailable")
 +	}
 +}
 +
-+func strictFIPSNonCompliantBinaryCheck() {
-+	if hostFIPSModeEnabled() {
-+		fmt.Fprintln(os.Stderr, "FIPS mode is enabled, but this binary is not compiled with FIPS compliant mode enabled")
-+		os.Exit(1)
++func strictFIPSNonCompliantBinaryCheck(hostFIPS bool) {
++	if hostFIPS {
++		panic("FIPS mode is enabled, but this binary is not compiled with FIPS compliant mode enabled")
 +	}
++}
+diff --git a/src/crypto/internal/backend/strict_fips_test.go b/src/crypto/internal/backend/strict_fips_test.go
+new file mode 100644
+index 0000000000..6fb6db5d8a
+--- /dev/null
++++ b/src/crypto/internal/backend/strict_fips_test.go
+@@ -0,0 +1,57 @@
++//go:build goexperiment.strictfipsruntime
++// +build goexperiment.strictfipsruntime
++
++package backend
++
++import "testing"
++
++func TestStrictFIPSOpenSSLRuntimeCheckHostDisabled(t *testing.T) {
++	defer func() {
++  		if r := recover(); r != nil {
++       		t.Fatalf("expected no panic, got: %v", r)
++		}
++	}()
++	strictFIPSOpenSSLRuntimeCheck(false)
++}
++
++func TestStrictFIPSOpenSSLRuntimeCheckHostEnabled(t *testing.T) {
++	origEnabled := Enabled
++	defer func() {
++		Enabled = origEnabled
++		if r := recover(); r == nil {
++       		t.Fatal("expected panic got nil")
++		}
++	}()
++	Enabled = func() bool { return false }
++	strictFIPSOpenSSLRuntimeCheck(true)
++}
++
++func TestStrictFIPSOpenSSLRuntimeCheckHostBothEnabled(t *testing.T) {
++	origEnabled := Enabled
++	defer func() {
++		Enabled = origEnabled
++  		if r := recover(); r != nil {
++       		t.Fatalf("expected no panic, got: %v", r)
++		}
++	}()
++	Enabled = func() bool { return true }
++	strictFIPSOpenSSLRuntimeCheck(true)
++}
++
++func TestStrictFIPSNonCompliantBinaryCheckHostEnabled(t *testing.T) {
++	defer func() {
++		if r := recover(); r == nil {
++       		t.Fatal("expected panic got nil")
++		}
++	}()
++	strictFIPSNonCompliantBinaryCheck(true)
++}
++
++func TestStrictFIPSNonCompliantBinaryCheckHostDisabled(t *testing.T) {
++	defer func() {
++  		if r := recover(); r != nil {
++       		t.Fatalf("expected no panic, got: %v", r)
++		}
++	}()
++	strictFIPSNonCompliantBinaryCheck(false)
 +}
 diff --git a/src/internal/goexperiment/exp_strictfipsruntime_off.go b/src/internal/goexperiment/exp_strictfipsruntime_off.go
 new file mode 100644
@@ -140,10 +259,10 @@ index 0000000000..0983612732
 +const StrictFIPSRuntime = true
 +const StrictFIPSRuntimeInt = 1
 diff --git a/src/internal/goexperiment/flags.go b/src/internal/goexperiment/flags.go
-index 02e744362c..4ac7f480cf 100644
+index ae3cbaf89f..63d358d405 100644
 --- a/src/internal/goexperiment/flags.go
 +++ b/src/internal/goexperiment/flags.go
-@@ -100,4 +100,6 @@ type Flags struct {
+@@ -109,4 +109,6 @@ type Flags struct {
  	// CacheProg adds support to cmd/go to use a child process to implement
  	// the build cache; see https://github.com/golang/go/issues/59719.
  	CacheProg bool
