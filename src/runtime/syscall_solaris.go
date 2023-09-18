@@ -22,7 +22,6 @@ var (
 	libc_setuid,
 	libc_setpgid,
 	libc_syscall,
-	libc_issetugid,
 	libc_wait4 libcFunc
 )
 
