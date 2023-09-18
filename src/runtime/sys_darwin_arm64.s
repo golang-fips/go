@@ -755,7 +755,3 @@ TEXT runtime·syscallNoErr(SB),NOSPLIT,$0
 	ADD	$16, RSP
 	MOVD	R0, 56(R2)	// save r1
 	RET
-
-TEXT runtime·issetugid_trampoline(SB),NOSPLIT,$0
-	BL	libc_issetugid(SB)
-	RET

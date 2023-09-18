@@ -398,10 +398,3 @@ TEXT runtime·setNonblock(SB),NOSPLIT|NOFRAME,$0-4
 	MOVV	$92, R2			// sys_fcntl
 	SYSCALL
 	RET
-
-// func issetugid() int32
-TEXT runtime·issetugid(SB),NOSPLIT,$0
-	MOVV	$253, R2	// sys_issetugid
-	SYSCALL
-	MOVW	R2, ret+0(FP)
-	RET
