@@ -33,7 +33,6 @@
 #define SYS_fcntl		92
 #define SYS___sysctl		202
 #define SYS_nanosleep		240
-#define SYS_issetugid		253
 #define SYS_clock_gettime	232
 #define SYS_sched_yield		331
 #define SYS_sigprocmask		340
@@ -536,11 +535,4 @@ TEXT runtime·getpfr0(SB),NOSPLIT,$0
 	// get Processor Feature Register 0 into R0
 	MRS	ID_AA64PFR0_EL1, R0
 	MOVD	R0, ret+0(FP)
-	RET
-
-// func issetugid() int32
-TEXT runtime·issetugid(SB),NOSPLIT|NOFRAME,$0
-	MOVD $SYS_issetugid, R8
-	SVC
-	MOVW	R0, ret+0(FP)
 	RET

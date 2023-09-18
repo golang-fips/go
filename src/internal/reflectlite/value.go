@@ -456,7 +456,6 @@ func arrayAt(p unsafe.Pointer, i int, eltSize uintptr, whySafe string) unsafe.Po
 func ifaceE2I(t *rtype, src interface{}, dst unsafe.Pointer)
 
 // typedmemmove copies a value of type t to dst from src.
-//
 //go:noescape
 func typedmemmove(t *rtype, dst, src unsafe.Pointer)
 
