@@ -2,7 +2,7 @@ name: Build and test
 on:
   pull_request:
     branches:
-      - go1.18-openssl-fips
+#      - go1.18-openssl-fips
 env:
   GOROOT_BOOTSTRAP: "/"
   GOROOT_FINAL: "/usr/lib/golang"

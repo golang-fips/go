@@ -1,0 +1,33 @@
+name: "Test Pull Request"
+
+on:
+  pull_request:
+    branches:
+      - 'main'
+      - 'go1.*-fips-release'
+      - 'go1.*-openssl-fips'
+
+# https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
+permissions:
+  actions: none
+  checks: read
+  contents: none
+  deployments: none
+  id-token: none
+  issues: read
+  discussions: read
+  packages: none
+  pages: none
+  pull-requests: read
+  repository-projects: none
+  security-events: none
+  statuses: none
+
+jobs:
+  test_pr:
+  # Look up the images for each selected compose
+    name: "Test Pull Request"
+    uses: golang-fips/release/.github/workflows/test-ubi-centos.yml@main
+    with:
+      go_fips_ref: ${{ github.event.pull_request.head.sha }}
+      composes: "ubi7,ubi8,ubi9,c8s,c9s"
