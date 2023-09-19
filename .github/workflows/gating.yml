@@ -27,7 +27,7 @@ jobs:
   test_pr:
   # Look up the images for each selected compose
     name: "Test Pull Request"
-    uses: dbenoit17/golang-fips-release/.github/workflows/test-ubi-centos.yml@main
+    uses: golang-fips/release/.github/workflows/test-ubi-centos.yml@main
     with:
       go_fips_ref: ${{ github.event.pull_request.head.sha }}
-      composes: "ubi7,ubi8,ubi9,c8s,c9s"
+      composes: "ubi8,ubi9,c8s,c9s"
