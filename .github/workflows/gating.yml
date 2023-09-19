@@ -5,6 +5,7 @@ on:
     branches:
       - 'main'
       - 'go1.*-fips-release'
+      - 'go1.*-openssl-fips'
 
 # https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions
 permissions:
@@ -29,4 +30,4 @@ jobs:
     uses: golang-fips/release/.github/workflows/test-ubi-centos.yml@main
     with:
       go_fips_ref: ${{ github.event.pull_request.head.sha }}
-      composes: "ubi7,ubi8,ubi9,c8s,c9s"
+      composes: "ubi8,ubi9,c8s,c9s"
