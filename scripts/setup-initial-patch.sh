@@ -38,6 +38,12 @@ shift $((OPTIND-1))
 cd ./go
 ORIGINAL_GIT_SHA=$(git rev-parse HEAD)
 
+# Build the Go toolchain before applying patches. This allows us to use this toolchain in later steps
+# when running `go mod` commands.
+pushd ./src
+./make.bash
+popd
+
 "${ROOT}"/scripts/apply-initial-patch.sh
 "${ROOT}"/scripts/create-secondary-patch.sh "${replacement}"
 
