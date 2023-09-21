@@ -1,5 +1,5 @@
 diff --git a/src/cmd/api/boring_test.go b/src/cmd/api/boring_test.go
-index a9ec6e6bfe..7111867b66 100644
+index f0e3575637..a4139169b8 100644
 --- a/src/cmd/api/boring_test.go
 +++ b/src/cmd/api/boring_test.go
 @@ -2,7 +2,7 @@
@@ -9,7 +9,7 @@ index a9ec6e6bfe..7111867b66 100644
 -//go:build boringcrypto
 +//go:build !no_openssl
 
- package api
+ package main
 
 @@ -12,6 +12,6 @@ import (
  )
