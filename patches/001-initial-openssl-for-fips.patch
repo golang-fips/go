@@ -4818,9 +4818,8 @@ index 1c5e4c742d..2fa4a38e44 100644
  }
 -func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte) ([]byte, error) {
 +func SignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) (r, s BigInt, err error) {
- 	panic("boringcrypto: not available")
- }
--func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, sig []byte) bool {
++	panic("boringcrypto: not available")
++}
 +func SignMarshalECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) ([]byte, error) {
 +	panic("boringcrypto: not available")
 +}
@@ -4841,8 +4840,9 @@ index 1c5e4c742d..2fa4a38e44 100644
 +	panic("boringcrypto: not available")
 +}
 +func ECDH(priv *PrivateKeyECDH, pub *PublicKeyECDH) ([]byte, error) {
-+	panic("boringcrypto: not available")
-+}
+ 	panic("boringcrypto: not available")
+ }
+-func VerifyECDSA(pub *PublicKeyECDSA, hash []byte, sig []byte) bool {
 +func GenerateKeyECDH(curve string) (*PrivateKeyECDH, []byte, error) {
  	panic("boringcrypto: not available")
  }
@@ -6480,8 +6480,7 @@ index fa693ea319..75ba7a8a59 100644
  	key := C._goboringcrypto_RSA_new()
  	if key == nil {
 -		return nil, fail("RSA_new")
-+		return nil, NewOpenSSLError("RSA_new failed")
- 	}
+-	}
 -	if !bigToBn(&key.n, N) ||
 -		!bigToBn(&key.e, E) ||
 -		!bigToBn(&key.d, D) ||
@@ -6491,6 +6490,8 @@ index fa693ea319..75ba7a8a59 100644
 -		!bigToBn(&key.dmq1, Dq) ||
 -		!bigToBn(&key.iqmp, Qinv) {
 -		return nil, fail("BN_bin2bn")
++		return nil, NewOpenSSLError("RSA_new failed")
++	}
 +	var n, e, d, p, q, dp, dq, qinv *C.GO_BIGNUM
 +	n = bigToBN(N)
 +	e = bigToBN(E)
@@ -6686,6 +6687,14 @@ index fa693ea319..75ba7a8a59 100644
 -	// it, and lengths < -2, before we convert to the BoringSSL sentinel values.
 -	if saltLen <= -2 {
 -		return nil, invalidSaltLenErr
+-	}
+-
+-	// BoringSSL uses sentinel salt length values like we do, but the values don't
+-	// fully match what we use. We both use -1 for salt length equal to hash length,
+-	// but BoringSSL uses -2 to mean maximal size where we use 0. In the latter
+-	// case convert to the BoringSSL version.
+-	if saltLen == 0 {
+-		saltLen = -2
 +	switch saltLen {
 +	case saltLengthAuto:
 +		saltLen = C.GO_RSA_PSS_SALTLEN_AUTO
@@ -6698,14 +6707,6 @@ index fa693ea319..75ba7a8a59 100644
 +			return nil, invalidSaltLenErr
 +		}
  	}
--
--	// BoringSSL uses sentinel salt length values like we do, but the values don't
--	// fully match what we use. We both use -1 for salt length equal to hash length,
--	// but BoringSSL uses -2 to mean maximal size where we use 0. In the latter
--	// case convert to the BoringSSL version.
--	if saltLen == 0 {
--		saltLen = -2
--	}
 -
  	var out []byte
 -	var outLen C.size_t
@@ -6728,6 +6729,14 @@ index fa693ea319..75ba7a8a59 100644
 -	// it, and lengths < -2, before we convert to the BoringSSL sentinel values.
 -	if saltLen <= -2 {
 -		return invalidSaltLenErr
+-	}
+-
+-	// BoringSSL uses sentinel salt length values like we do, but the values don't
+-	// fully match what we use. We both use -1 for salt length equal to hash length,
+-	// but BoringSSL uses -2 to mean maximal size where we use 0. In the latter
+-	// case convert to the BoringSSL version.
+-	if saltLen == 0 {
+-		saltLen = -2
 +	switch saltLen {
 +	case saltLengthAuto:
 +		saltLen = C.GO_RSA_PSS_SALTLEN_AUTO
@@ -6740,14 +6749,6 @@ index fa693ea319..75ba7a8a59 100644
 +			return invalidSaltLenErr
 +		}
  	}
--
--	// BoringSSL uses sentinel salt length values like we do, but the values don't
--	// fully match what we use. We both use -1 for salt length equal to hash length,
--	// but BoringSSL uses -2 to mean maximal size where we use 0. In the latter
--	// case convert to the BoringSSL version.
--	if saltLen == 0 {
--		saltLen = -2
--	}
 -
  	if pub.withKey(func(key *C.GO_RSA) C.int {
 -		return C._goboringcrypto_RSA_verify_pss_mgf1(key, base(hashed), C.size_t(len(hashed)),
@@ -6792,6 +6793,9 @@ index fa693ea319..75ba7a8a59 100644
  		return out[:outLen], nil
  	}
 
+-	md := cryptoHashToMD(h)
+-	if md == nil {
+-		return nil, errors.New("crypto/rsa: unsupported hash function: " + strconv.Itoa(int(h)))
 +	var out []byte
 +	var outLen C.size_t
 +
@@ -6799,44 +6803,45 @@ index fa693ea319..75ba7a8a59 100644
 +		return C._goboringcrypto_EVP_RSA_sign(md, base(msg), C.uint(len(msg)), base(out), &outLen, key)
 +	}) == 0 {
 +		return nil, NewOpenSSLError("RSA_sign")
-+	}
+ 	}
+-	nid := C._goboringcrypto_EVP_MD_type(md)
 +	return out[:outLen], nil
 +}
 +
 +func signRSAPKCS1v15Raw(priv *PrivateKeyRSA, msg []byte, md *C.GO_EVP_MD) ([]byte, error) {
-+	var out []byte
+ 	var out []byte
+-	var outLen C.uint
 +	var outLen C.size_t
 +	PanicIfStrictFIPS("You must provide a raw unhashed message for PKCS1v15 signing and use HashSignPKCS1v15 instead of SignPKCS1v15")
 +
-+	if priv.withKey(func(key *C.GO_RSA) C.int {
-+		out = make([]byte, C._goboringcrypto_RSA_size(key))
+ 	if priv.withKey(func(key *C.GO_RSA) C.int {
+ 		out = make([]byte, C._goboringcrypto_RSA_size(key))
+-		return C._goboringcrypto_RSA_sign(nid, base(hashed), C.uint(len(hashed)),
+-			base(out), &outLen, key)
 +		outLen = C.size_t(len(out))
 +		return C._goboringcrypto_EVP_sign_raw(md, nil, base(msg),
 +			C.size_t(len(msg)), base(out), &outLen, key)
-+	}) == 0 {
+ 	}) == 0 {
+-		return nil, fail("RSA_sign")
 +		return nil, NewOpenSSLError("RSA_sign")
-+	}
+ 	}
 +	runtime.KeepAlive(priv)
-+	return out[:outLen], nil
-+}
-+
+ 	return out[:outLen], nil
+ }
+
+-func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte) error {
+-	if h == 0 {
+-		var out []byte
+-		var outLen C.size_t
 +func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, msg, sig []byte, msgIsHashed bool) error {
 +	if h == 0 && ExecutingTest() {
 +		return verifyRSAPKCS1v15Raw(pub, msg, sig)
 +	}
 +
- 	md := cryptoHashToMD(h)
- 	if md == nil {
--		return nil, errors.New("crypto/rsa: unsupported hash function: " + strconv.Itoa(int(h)))
++	md := cryptoHashToMD(h)
++	if md == nil {
 +		return errors.New("crypto/rsa: unsupported hash function")
- 	}
--	nid := C._goboringcrypto_EVP_MD_type(md)
--	var out []byte
--	var outLen C.uint
--	if priv.withKey(func(key *C.GO_RSA) C.int {
--		out = make([]byte, C._goboringcrypto_RSA_size(key))
--		return C._goboringcrypto_RSA_sign(nid, base(hashed), C.uint(len(hashed)),
--			base(out), &outLen, key)
++	}
 +
 +	if pub.withKey(func(key *C.GO_RSA) C.int {
 +		size := int(C._goboringcrypto_RSA_size(key))
@@ -6844,17 +6849,10 @@ index fa693ea319..75ba7a8a59 100644
 +			return 0
 +		}
 +		return 1
- 	}) == 0 {
--		return nil, fail("RSA_sign")
++	}) == 0 {
 +		return errors.New("crypto/rsa: verification error")
- 	}
--	return out[:outLen], nil
--}
-
--func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte) error {
--	if h == 0 {
--		var out []byte
--		var outLen C.size_t
++	}
++
 +	if msgIsHashed {
 +		PanicIfStrictFIPS("You must provide a raw unhashed message for PKCS1v15 verification and use HashVerifyPKCS1v15 instead of VerifyPKCS1v15")
 +		nid := C._goboringcrypto_EVP_MD_type(md)
