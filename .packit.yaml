@@ -1,0 +1,61 @@
+# This file is used by the Packit service.
+# Currently it is used for the gating of pull requests.
+#
+# See the documentation for more information:
+# https://packit.dev/docs/configuration/
+
+# We need a specfile to build the RPM package.
+# But instead of storing it in this repository,
+# we use the one that exists already in src.fedoraproject.org/rpms/golang.
+# In particular, we use the specfile from the branch `eln`.
+# We'll create the temporary folder .packit_rpm to store the content of the
+# Fedora repository.
+specfile_path: .packit_rpm/golang.spec
+
+# We need to tell Packit which files to sync from the upstream repository.
+files_to_sync:
+  - .packit.yaml
+  - ./scripts/packit.sh
+  - src: .packit_rpm/golang.spec
+    dest: golang.spec
+
+srpm_build_deps:
+  - golang
+  - net-tools
+  - openssl-devel
+  - glibc-static
+  - perl-interpreter
+  - procps-ng
+
+# The name of the package in the upstream repository.
+upstream_package_name: golang
+# The name of the package in Fedora.
+downstream_package_name: golang
+# Use a different tag template for the upstream repository.
+#upstream_tag_template: "v{version}"
+
+actions:
+  create-archive:
+    - "bash ./scripts/packit.sh create-archive"
+  post-upstream-clone:
+    # Use the Fedora ELN package.
+    - "git clone https://src.fedoraproject.org/rpms/golang.git .packit_rpm --branch eln"
+  fix-spec-file:
+    # Fix the specfile by running the ./scripts/packit.sh script
+    # We cannot put the content of the script inside the yaml due to limitations of the format
+    - "bash ./scripts/packit.sh"
+
+jobs:
+    # Build the package in Fedora ELN when a pull request is opened.
+    # It can be requested by adding a comment with the text: /packit copr-build
+    # This will run the job in the Copr project `alexsaezm/golang-fips`.
+  - job: copr_build
+    trigger: pull_request
+    owner: alexsaezm
+    project: go-fips
+    targets:
+    - fedora-eln-aarch64
+    - fedora-eln-ppc64le
+    - fedora-eln-s390x
+    - fedora-eln-x86_64
+
