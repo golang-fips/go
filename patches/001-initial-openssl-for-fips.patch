@@ -3727,6 +3727,7 @@ index 0c2cbf3182..e01c24292e 100644
 diff --git a/src/go.mod b/src/go.mod
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 index 3b24053b94..c4bc3c1e96 100644
 =======
 <<<<<<< HEAD
@@ -3742,17 +3743,21 @@ index 25829e17f2..c6a0d5eb02 100644
 =======
 index 25829e17f2..c6a0d5eb02 100644
 >>>>>>> 3004231545 (fix config, regen 001)
+=======
+index 25829e17f2..21cbbd3616 100644
+>>>>>>> bde9f663d9 (pass crypto tests)
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -3,6 +3,7 @@ module std
  go 1.21
  
  require (
-+	github.com/golang-fips/openssl/v2 v2.0.0-rc.2.0.20230825145541-7544e9a0711b
++	github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20231108174110-41b6eb24da28
  	golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d
  	golang.org/x/net v0.12.1-0.20231027154334-5ca955b1789c
  )
 diff --git a/src/go.sum b/src/go.sum
+<<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
 index caf8ff010d..16a5d8c7da 100644
@@ -3780,11 +3785,14 @@ index e474b8be31..3f33a5d91d 100644
 =======
 >>>>>>> 3004231545 (fix config, regen 001)
 index e474b8be31..0c87e9b273 100644
+=======
+index e474b8be31..09a44760af 100644
+>>>>>>> bde9f663d9 (pass crypto tests)
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,3 +1,5 @@
-+github.com/golang-fips/openssl/v2 v2.0.0-rc.2.0.20230825145541-7544e9a0711b h1:tMz1iZ8n4ppQW9SOPzA1/7TcI5sixnWGSOra+R1qiic=
-+github.com/golang-fips/openssl/v2 v2.0.0-rc.2.0.20230825145541-7544e9a0711b/go.mod h1:7tuBqX2Zov8Yq5mJ2yzlKhpnxOnWyEzi38AzeWRuQdg=
++github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20231108174110-41b6eb24da28 h1:tFlW5hU9m5kkVIShxa1FFNLe9gwoygZFHw/d/60VE7s=
++github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20231108174110-41b6eb24da28/go.mod h1:7tuBqX2Zov8Yq5mJ2yzlKhpnxOnWyEzi38AzeWRuQdg=
  golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d h1:LiA25/KWKuXfIq5pMIBq1s5hz3HQxhJJSu/SUGlD+SM=
  golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d/go.mod h1:xgJhtzW8F9jGdVFWZESrid1U1bjeNy4zgy5cRr/CIio=
  golang.org/x/net v0.12.1-0.20230712162946-57553cbff163 h1:1EDKNuaCsog7zGLEml1qRuO4gt23jORUQX2f0IKZ860=
@@ -3832,10 +3840,10 @@ index 0000000000..97e8515401
 \ No newline at end of file
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/README.md b/src/vendor/github.com/golang-fips/openssl/v2/README.md
 new file mode 100644
-index 0000000000..e12474e6b5
+index 0000000000..ba6289ecff
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/README.md
-@@ -0,0 +1,62 @@
+@@ -0,0 +1,66 @@
 +# Go OpenSSL bindings for FIPS compliance
 +
 +[![Go Reference](https://pkg.go.dev/badge/github.com/golang-fips/openssl.svg)](https://pkg.go.dev/github.com/golang-fips/openssl)
@@ -3898,12 +3906,16 @@ index 0000000000..e12474e6b5
 +- All crypto stubs are a mirror of Google's [dev.boringcrypto branch](https://github.com/golang/go/tree/dev.boringcrypto) and the release branch ports of that branch.
 +- The mapping between BoringSSL and OpenSSL APIs is taken from the former [Red Hat Go fork](https://pagure.io/go).
 +- The portable OpenSSL implementation is ported from Microsoft's [.NET runtime](https://github.com/dotnet/runtime) cryptography module.
++
++## Code of Conduct
++
++This project adopts the Go code of conduct: https://go.dev/conduct.
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/aes.go b/src/vendor/github.com/golang-fips/openssl/v2/aes.go
 new file mode 100644
-index 0000000000..a7c3aea683
+index 0000000000..1fc11f00cd
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/aes.go
-@@ -0,0 +1,552 @@
+@@ -0,0 +1,90 @@
 +//go:build !cmd_go_bootstrap
 +
 +package openssl
@@ -3912,92 +3924,8 @@ index 0000000000..a7c3aea683
 +import "C"
 +import (
 +	"crypto/cipher"
-+	"encoding/binary"
 +	"errors"
-+	"runtime"
-+	"strconv"
-+	"sync"
-+	"unsafe"
 +)
-+
-+type cipherKind int8
-+
-+const (
-+	cipherAES128_ECB cipherKind = iota
-+	cipherAES192_ECB
-+	cipherAES256_ECB
-+	cipherAES128_CBC
-+	cipherAES192_CBC
-+	cipherAES256_CBC
-+	cipherAES128_CTR
-+	cipherAES192_CTR
-+	cipherAES256_CTR
-+	cipherAES128_GCM
-+	cipherAES192_GCM
-+	cipherAES256_GCM
-+)
-+
-+// cacheCipher is a cache of cipherKind to GO_EVP_CIPHER_PTR.
-+var cacheCipher sync.Map
-+
-+// newCipher returns a cipher object for the given k.
-+func newCipher(k cipherKind) (cipher C.GO_EVP_CIPHER_PTR) {
-+	if v, ok := cacheCipher.Load(k); ok {
-+		return v.(C.GO_EVP_CIPHER_PTR)
-+	}
-+	defer func() {
-+		if cipher != nil && vMajor == 3 {
-+			// On OpenSSL 3, directly operating on a EVP_CIPHER object
-+			// not created by EVP_CIPHER has negative performance
-+			// implications, as cipher operations will have
-+			// to fetch it on every call. Better to just fetch it once here.
-+			cipher = C.go_openssl_EVP_CIPHER_fetch(nil, C.go_openssl_EVP_CIPHER_get0_name(cipher), nil)
-+		}
-+		cacheCipher.Store(k, cipher)
-+	}()
-+	switch k {
-+	case cipherAES128_CBC:
-+		cipher = C.go_openssl_EVP_aes_128_cbc()
-+	case cipherAES192_CBC:
-+		cipher = C.go_openssl_EVP_aes_192_cbc()
-+	case cipherAES256_CBC:
-+		cipher = C.go_openssl_EVP_aes_256_cbc()
-+	case cipherAES128_ECB:
-+		cipher = C.go_openssl_EVP_aes_128_ecb()
-+	case cipherAES192_ECB:
-+		cipher = C.go_openssl_EVP_aes_192_ecb()
-+	case cipherAES256_ECB:
-+		cipher = C.go_openssl_EVP_aes_256_ecb()
-+	case cipherAES128_CTR:
-+		cipher = C.go_openssl_EVP_aes_128_ctr()
-+	case cipherAES192_CTR:
-+		cipher = C.go_openssl_EVP_aes_192_ctr()
-+	case cipherAES256_CTR:
-+		cipher = C.go_openssl_EVP_aes_256_ctr()
-+	case cipherAES128_GCM:
-+		cipher = C.go_openssl_EVP_aes_128_gcm()
-+	case cipherAES192_GCM:
-+		cipher = C.go_openssl_EVP_aes_192_gcm()
-+	case cipherAES256_GCM:
-+		cipher = C.go_openssl_EVP_aes_256_gcm()
-+	}
-+	return cipher
-+}
-+
-+type aesKeySizeError int
-+
-+func (k aesKeySizeError) Error() string {
-+	return "crypto/aes: invalid key size " + strconv.Itoa(int(k))
-+}
-+
-+const aesBlockSize = 16
-+
-+type aesCipher struct {
-+	key     []byte
-+	enc_ctx C.GO_EVP_CIPHER_CTX_PTR
-+	dec_ctx C.GO_EVP_CIPHER_CTX_PTR
-+	kind    cipherKind
-+}
 +
 +type extraModes interface {
 +	// Copied out of crypto/aes/modes.go.
@@ -4013,267 +3941,22 @@ index 0000000000..a7c3aea683
 +var _ extraModes = (*aesCipher)(nil)
 +
 +func NewAESCipher(key []byte) (cipher.Block, error) {
-+	c := &aesCipher{key: make([]byte, len(key))}
-+	copy(c.key, key)
-+
-+	switch len(c.key) * 8 {
++	var kind cipherKind
++	switch len(key) * 8 {
 +	case 128:
-+		c.kind = cipherAES128_ECB
++		kind = cipherAES128
 +	case 192:
-+		c.kind = cipherAES192_ECB
++		kind = cipherAES192
 +	case 256:
-+		c.kind = cipherAES256_ECB
++		kind = cipherAES256
 +	default:
-+		return nil, errors.New("crypto/cipher: Invalid key size")
++		return nil, errors.New("crypto/aes: invalid key size")
 +	}
-+
-+	runtime.SetFinalizer(c, (*aesCipher).finalize)
-+
-+	return c, nil
-+}
-+
-+func (c *aesCipher) finalize() {
-+	if c.enc_ctx != nil {
-+		C.go_openssl_EVP_CIPHER_CTX_free(c.enc_ctx)
-+	}
-+	if c.dec_ctx != nil {
-+		C.go_openssl_EVP_CIPHER_CTX_free(c.dec_ctx)
-+	}
-+}
-+
-+func (c *aesCipher) BlockSize() int { return aesBlockSize }
-+
-+func (c *aesCipher) Encrypt(dst, src []byte) {
-+	if len(src) < aesBlockSize {
-+		panic("crypto/aes: input not full block")
-+	}
-+	if len(dst) < aesBlockSize {
-+		panic("crypto/aes: output not full block")
-+	}
-+	// Only check for overlap between the parts of src and dst that will actually be used.
-+	// This matches Go standard library behavior.
-+	if inexactOverlap(dst[:aesBlockSize], src[:aesBlockSize]) {
-+		panic("crypto/cipher: invalid buffer overlap")
-+	}
-+	if c.enc_ctx == nil {
-+		var err error
-+		c.enc_ctx, err = newCipherCtx(c.kind, C.GO_AES_ENCRYPT, c.key, nil)
-+		if err != nil {
-+			panic(err)
-+		}
-+	}
-+
-+	if C.go_openssl_EVP_EncryptUpdate_wrapper(c.enc_ctx, base(dst), base(src), aesBlockSize) != 1 {
-+		panic("crypto/cipher: EncryptUpdate failed")
-+	}
-+	runtime.KeepAlive(c)
-+}
-+
-+func (c *aesCipher) Decrypt(dst, src []byte) {
-+	if len(src) < aesBlockSize {
-+		panic("crypto/aes: input not full block")
-+	}
-+	if len(dst) < aesBlockSize {
-+		panic("crypto/aes: output not full block")
-+	}
-+	// Only check for overlap between the parts of src and dst that will actually be used.
-+	// This matches Go standard library behavior.
-+	if inexactOverlap(dst[:aesBlockSize], src[:aesBlockSize]) {
-+		panic("crypto/cipher: invalid buffer overlap")
-+	}
-+	if c.dec_ctx == nil {
-+		var err error
-+		c.dec_ctx, err = newCipherCtx(c.kind, C.GO_AES_DECRYPT, c.key, nil)
-+		if err != nil {
-+			panic(err)
-+		}
-+		if C.go_openssl_EVP_CIPHER_CTX_set_padding(c.dec_ctx, 0) != 1 {
-+			panic("crypto/cipher: could not disable cipher padding")
-+		}
-+	}
-+
-+	C.go_openssl_EVP_DecryptUpdate_wrapper(c.dec_ctx, base(dst), base(src), aesBlockSize)
-+	runtime.KeepAlive(c)
-+}
-+
-+type aesCBC struct {
-+	ctx C.GO_EVP_CIPHER_CTX_PTR
-+}
-+
-+func (x *aesCBC) BlockSize() int { return aesBlockSize }
-+
-+func (x *aesCBC) CryptBlocks(dst, src []byte) {
-+	if inexactOverlap(dst, src) {
-+		panic("crypto/cipher: invalid buffer overlap")
-+	}
-+	if len(src)%aesBlockSize != 0 {
-+		panic("crypto/cipher: input not full blocks")
-+	}
-+	if len(dst) < len(src) {
-+		panic("crypto/cipher: output smaller than input")
-+	}
-+	if len(src) > 0 {
-+		if C.go_openssl_EVP_CipherUpdate_wrapper(x.ctx, base(dst), base(src), C.int(len(src))) != 1 {
-+			panic("crypto/cipher: CipherUpdate failed")
-+		}
-+		runtime.KeepAlive(x)
-+	}
-+}
-+
-+func (x *aesCBC) SetIV(iv []byte) {
-+	if len(iv) != aesBlockSize {
-+		panic("cipher: incorrect length IV")
-+	}
-+	if C.go_openssl_EVP_CipherInit_ex(x.ctx, nil, nil, nil, base(iv), -1) != 1 {
-+		panic("cipher: unable to initialize EVP cipher ctx")
-+	}
-+}
-+
-+func (c *aesCipher) NewCBCEncrypter(iv []byte) cipher.BlockMode {
-+	x := new(aesCBC)
-+
-+	var cipher cipherKind
-+	switch len(c.key) * 8 {
-+	case 128:
-+		cipher = cipherAES128_CBC
-+	case 192:
-+		cipher = cipherAES192_CBC
-+	case 256:
-+		cipher = cipherAES256_CBC
-+	default:
-+		panic("openssl: unsupported key length")
-+	}
-+	var err error
-+	x.ctx, err = newCipherCtx(cipher, C.GO_AES_ENCRYPT, c.key, iv)
++	c, err := newEVPCipher(key, kind)
 +	if err != nil {
-+		panic(err)
++		return nil, err
 +	}
-+
-+	runtime.SetFinalizer(x, (*aesCBC).finalize)
-+
-+	if C.go_openssl_EVP_CIPHER_CTX_set_padding(x.ctx, 0) != 1 {
-+		panic("cipher: unable to set padding")
-+	}
-+	return x
-+}
-+
-+func (c *aesCBC) finalize() {
-+	C.go_openssl_EVP_CIPHER_CTX_free(c.ctx)
-+}
-+
-+func (c *aesCipher) NewCBCDecrypter(iv []byte) cipher.BlockMode {
-+	x := new(aesCBC)
-+
-+	var cipher cipherKind
-+	switch len(c.key) * 8 {
-+	case 128:
-+		cipher = cipherAES128_CBC
-+	case 192:
-+		cipher = cipherAES192_CBC
-+	case 256:
-+		cipher = cipherAES256_CBC
-+	default:
-+		panic("openssl: unsupported key length")
-+	}
-+
-+	var err error
-+	x.ctx, err = newCipherCtx(cipher, C.GO_AES_DECRYPT, c.key, iv)
-+	if err != nil {
-+		panic(err)
-+	}
-+
-+	runtime.SetFinalizer(x, (*aesCBC).finalize)
-+
-+	if C.go_openssl_EVP_CIPHER_CTX_set_padding(x.ctx, 0) != 1 {
-+		panic("cipher: unable to set padding")
-+	}
-+	return x
-+}
-+
-+type aesCTR struct {
-+	ctx C.GO_EVP_CIPHER_CTX_PTR
-+}
-+
-+func (x *aesCTR) XORKeyStream(dst, src []byte) {
-+	if inexactOverlap(dst, src) {
-+		panic("crypto/cipher: invalid buffer overlap")
-+	}
-+	if len(dst) < len(src) {
-+		panic("crypto/cipher: output smaller than input")
-+	}
-+	if len(src) == 0 {
-+		return
-+	}
-+	if C.go_openssl_EVP_EncryptUpdate_wrapper(x.ctx, base(dst), base(src), C.int(len(src))) != 1 {
-+		panic("crypto/cipher: EncryptUpdate failed")
-+	}
-+	runtime.KeepAlive(x)
-+}
-+
-+func (c *aesCipher) NewCTR(iv []byte) cipher.Stream {
-+	x := new(aesCTR)
-+
-+	var cipher cipherKind
-+	switch len(c.key) * 8 {
-+	case 128:
-+		cipher = cipherAES128_CTR
-+	case 192:
-+		cipher = cipherAES192_CTR
-+	case 256:
-+		cipher = cipherAES256_CTR
-+	default:
-+		panic("openssl: unsupported key length")
-+	}
-+	var err error
-+	x.ctx, err = newCipherCtx(cipher, C.GO_AES_ENCRYPT, c.key, iv)
-+	if err != nil {
-+		panic(err)
-+	}
-+
-+	runtime.SetFinalizer(x, (*aesCTR).finalize)
-+
-+	return x
-+}
-+
-+func (c *aesCTR) finalize() {
-+	C.go_openssl_EVP_CIPHER_CTX_free(c.ctx)
-+}
-+
-+type aesGCM struct {
-+	ctx          C.GO_EVP_CIPHER_CTX_PTR
-+	tls          bool
-+	minNextNonce uint64
-+}
-+
-+const (
-+	gcmTagSize           = 16
-+	gcmStandardNonceSize = 12
-+	gcmTlsAddSize        = 13
-+	gcmTlsFixedNonceSize = 4
-+)
-+
-+type aesNonceSizeError int
-+
-+func (n aesNonceSizeError) Error() string {
-+	return "crypto/aes: invalid GCM nonce size " + strconv.Itoa(int(n))
-+}
-+
-+type noGCM struct {
-+	cipher.Block
-+}
-+
-+func (c *aesCipher) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
-+	if nonceSize != gcmStandardNonceSize && tagSize != gcmTagSize {
-+		return nil, errors.New("crypto/aes: GCM tag and nonce sizes can't be non-standard at the same time")
-+	}
-+	// Fall back to standard library for GCM with non-standard nonce or tag size.
-+	if nonceSize != gcmStandardNonceSize {
-+		return cipher.NewGCMWithNonceSize(&noGCM{c}, nonceSize)
-+	}
-+	if tagSize != gcmTagSize {
-+		return cipher.NewGCMWithTagSize(&noGCM{c}, tagSize)
-+	}
-+	return c.newGCM(false)
++	return &aesCipher{c}, nil
 +}
 +
 +// NewGCMTLS returns a GCM cipher specific to TLS
@@ -4282,179 +3965,46 @@ index 0000000000..a7c3aea683
 +	return c.(*aesCipher).NewGCMTLS()
 +}
 +
++type aesCipher struct {
++	*evpCipher
++}
++
++func (c *aesCipher) BlockSize() int {
++	return c.blockSize
++}
++
++func (c *aesCipher) Encrypt(dst, src []byte) {
++	if err := c.encrypt(dst, src); err != nil {
++		// crypto/aes expects that the panic message starts with "crypto/aes: ".
++		panic("crypto/aes: " + err.Error())
++	}
++}
++
++func (c *aesCipher) Decrypt(dst, src []byte) {
++	if err := c.decrypt(dst, src); err != nil {
++		// crypto/aes expects that the panic message starts with "crypto/aes: ".
++		panic("crypto/aes: " + err.Error())
++	}
++}
++
++func (c *aesCipher) NewCBCEncrypter(iv []byte) cipher.BlockMode {
++	return c.newCBC(iv, cipherOpEncrypt)
++}
++
++func (c *aesCipher) NewCBCDecrypter(iv []byte) cipher.BlockMode {
++	return c.newCBC(iv, cipherOpDecrypt)
++}
++
++func (c *aesCipher) NewCTR(iv []byte) cipher.Stream {
++	return c.newCTR(iv)
++}
++
++func (c *aesCipher) NewGCM(nonceSize, tagSize int) (cipher.AEAD, error) {
++	return c.newGCMChecked(nonceSize, tagSize)
++}
++
 +func (c *aesCipher) NewGCMTLS() (cipher.AEAD, error) {
 +	return c.newGCM(true)
-+}
-+
-+func (c *aesCipher) newGCM(tls bool) (cipher.AEAD, error) {
-+	var cipher cipherKind
-+	switch len(c.key) * 8 {
-+	case 128:
-+		cipher = cipherAES128_GCM
-+	case 192:
-+		cipher = cipherAES192_GCM
-+	case 256:
-+		cipher = cipherAES256_GCM
-+	default:
-+		panic("openssl: unsupported key length")
-+	}
-+	ctx, err := newCipherCtx(cipher, -1, c.key, nil)
-+	if err != nil {
-+		return nil, err
-+	}
-+	g := &aesGCM{ctx: ctx, tls: tls}
-+	runtime.SetFinalizer(g, (*aesGCM).finalize)
-+	return g, nil
-+}
-+
-+func (g *aesGCM) finalize() {
-+	C.go_openssl_EVP_CIPHER_CTX_free(g.ctx)
-+}
-+
-+func (g *aesGCM) NonceSize() int {
-+	return gcmStandardNonceSize
-+}
-+
-+func (g *aesGCM) Overhead() int {
-+	return gcmTagSize
-+}
-+
-+func (g *aesGCM) Seal(dst, nonce, plaintext, additionalData []byte) []byte {
-+	if len(nonce) != gcmStandardNonceSize {
-+		panic("cipher: incorrect nonce length given to GCM")
-+	}
-+	if uint64(len(plaintext)) > ((1<<32)-2)*aesBlockSize || len(plaintext)+gcmTagSize < len(plaintext) {
-+		panic("cipher: message too large for GCM")
-+	}
-+	if len(dst)+len(plaintext)+gcmTagSize < len(dst) {
-+		panic("cipher: message too large for buffer")
-+	}
-+	if g.tls {
-+		if len(additionalData) != gcmTlsAddSize {
-+			panic("cipher: incorrect additional data length given to GCM TLS")
-+		}
-+		// BoringCrypto enforces strictly monotonically increasing explicit nonces
-+		// and to fail after 2^64 - 1 keys as per FIPS 140-2 IG A.5,
-+		// but OpenSSL does not perform this check, so it is implemented here.
-+		const maxUint64 = 1<<64 - 1
-+		counter := binary.BigEndian.Uint64(nonce[gcmTlsFixedNonceSize:])
-+		if counter == maxUint64 {
-+			panic("cipher: nonce counter must be less than 2^64 - 1")
-+		}
-+		if counter < g.minNextNonce {
-+			panic("cipher: nonce counter must be strictly monotonically increasing")
-+		}
-+		defer func() {
-+			g.minNextNonce = counter + 1
-+		}()
-+	}
-+
-+	// Make room in dst to append plaintext+overhead.
-+	ret, out := sliceForAppend(dst, len(plaintext)+gcmTagSize)
-+
-+	// Check delayed until now to make sure len(dst) is accurate.
-+	if inexactOverlap(out, plaintext) {
-+		panic("cipher: invalid buffer overlap")
-+	}
-+
-+	// Encrypt additional data.
-+	// When sealing a TLS payload, OpenSSL app sets the additional data using
-+	// 'EVP_CIPHER_CTX_ctrl(g.ctx, C.EVP_CTRL_AEAD_TLS1_AAD, C.EVP_AEAD_TLS1_AAD_LEN, base(additionalData))'.
-+	// This makes the explicit nonce component to monotonically increase on every Seal operation without
-+	// relying in the explicit nonce being securely set externally,
-+	// and it also gives some interesting speed gains.
-+	// Unfortunately we can't use it because Go expects AEAD.Seal to honor the provided nonce.
-+	if C.go_openssl_EVP_CIPHER_CTX_seal_wrapper(g.ctx, base(out), base(nonce),
-+		base(plaintext), C.int(len(plaintext)),
-+		base(additionalData), C.int(len(additionalData))) != 1 {
-+
-+		panic(fail("EVP_CIPHER_CTX_seal"))
-+	}
-+	runtime.KeepAlive(g)
-+	return ret
-+}
-+
-+var errOpen = errors.New("cipher: message authentication failed")
-+
-+func (g *aesGCM) Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, error) {
-+	if len(nonce) != gcmStandardNonceSize {
-+		panic("cipher: incorrect nonce length given to GCM")
-+	}
-+	if len(ciphertext) < gcmTagSize {
-+		return nil, errOpen
-+	}
-+	if uint64(len(ciphertext)) > ((1<<32)-2)*aesBlockSize+gcmTagSize {
-+		return nil, errOpen
-+	}
-+	// BoringCrypto does not do any TLS check when decrypting, neither do we.
-+
-+	tag := ciphertext[len(ciphertext)-gcmTagSize:]
-+	ciphertext = ciphertext[:len(ciphertext)-gcmTagSize]
-+
-+	// Make room in dst to append ciphertext without tag.
-+	ret, out := sliceForAppend(dst, len(ciphertext))
-+
-+	// Check delayed until now to make sure len(dst) is accurate.
-+	if inexactOverlap(out, ciphertext) {
-+		panic("cipher: invalid buffer overlap")
-+	}
-+
-+	ok := C.go_openssl_EVP_CIPHER_CTX_open_wrapper(
-+		g.ctx, base(out), base(nonce),
-+		base(ciphertext), C.int(len(ciphertext)),
-+		base(additionalData), C.int(len(additionalData)), base(tag))
-+	runtime.KeepAlive(g)
-+	if ok == 0 {
-+		// Zero output buffer on error.
-+		for i := range out {
-+			out[i] = 0
-+		}
-+		return nil, errOpen
-+	}
-+	return ret, nil
-+}
-+
-+// sliceForAppend is a mirror of crypto/cipher.sliceForAppend.
-+func sliceForAppend(in []byte, n int) (head, tail []byte) {
-+	if total := len(in) + n; cap(in) >= total {
-+		head = in[:total]
-+	} else {
-+		head = make([]byte, total)
-+		copy(head, in)
-+	}
-+	tail = head[len(in):]
-+	return
-+}
-+
-+func newCipherCtx(kind cipherKind, mode C.int, key, iv []byte) (C.GO_EVP_CIPHER_CTX_PTR, error) {
-+	cipher := newCipher(kind)
-+	if cipher == nil {
-+		panic("openssl: unsupported cipher: " + strconv.Itoa(int(kind)))
-+	}
-+	ctx := C.go_openssl_EVP_CIPHER_CTX_new()
-+	if ctx == nil {
-+		return nil, fail("unable to create EVP cipher ctx")
-+	}
-+	if C.go_openssl_EVP_CipherInit_ex(ctx, cipher, nil, base(key), base(iv), mode) != 1 {
-+		C.go_openssl_EVP_CIPHER_CTX_free(ctx)
-+		return nil, fail("unable to initialize EVP cipher ctx")
-+	}
-+	return ctx, nil
-+}
-+
-+// The following two functions are a mirror of golang.org/x/crypto/internal/subtle.
-+
-+func anyOverlap(x, y []byte) bool {
-+	return len(x) > 0 && len(y) > 0 &&
-+		uintptr(unsafe.Pointer(&x[0])) <= uintptr(unsafe.Pointer(&y[len(y)-1])) &&
-+		uintptr(unsafe.Pointer(&y[0])) <= uintptr(unsafe.Pointer(&x[len(x)-1]))
-+}
-+
-+func inexactOverlap(x, y []byte) bool {
-+	if len(x) == 0 || len(y) == 0 || &x[0] == &y[0] {
-+		return false
-+	}
-+	return anyOverlap(x, y)
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/bbig/big.go b/src/vendor/github.com/golang-fips/openssl/v2/bbig/big.go
 new file mode 100644
@@ -4516,6 +4066,665 @@ index 0000000000..6461f241f8
 +// This definition allows us to avoid importing math/big.
 +// Conversion between BigInt and *big.Int is in openssl/bbig.
 +type BigInt []uint
+diff --git a/src/vendor/github.com/golang-fips/openssl/v2/cipher.go b/src/vendor/github.com/golang-fips/openssl/v2/cipher.go
+new file mode 100644
+index 0000000000..b56de6a74e
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl/v2/cipher.go
+@@ -0,0 +1,534 @@
++//go:build !cmd_go_bootstrap
++
++package openssl
++
++// #include "goopenssl.h"
++import "C"
++import (
++	"crypto/cipher"
++	"encoding/binary"
++	"errors"
++	"runtime"
++	"strconv"
++	"sync"
++	"unsafe"
++)
++
++type cipherKind int8
++
++const (
++	cipherAES128 cipherKind = iota
++	cipherAES192
++	cipherAES256
++	cipherDES
++	cipherDES3
++	cipherRC4
++)
++
++func (c cipherKind) String() string {
++	switch c {
++	case cipherAES128:
++		return "AES-128"
++	case cipherAES192:
++		return "AES-192"
++	case cipherAES256:
++		return "AES-256"
++	case cipherDES:
++		return "DES"
++	case cipherDES3:
++		return "DES3"
++	case cipherRC4:
++		return "RC4"
++	default:
++		panic("unknown cipher kind: " + strconv.Itoa(int(c)))
++	}
++}
++
++type cipherMode int8
++
++const (
++	cipherModeNone cipherMode = -1
++	cipherModeECB  cipherMode = iota
++	cipherModeCBC
++	cipherModeCTR
++	cipherModeGCM
++)
++
++// cipherOp is the allowed operations for a cipher,
++// as documented in [EVP_CipherInit_ex].
++//
++// [EVP_CipherInit_ex]: https://www.openssl.org/docs/man3.0/man3/EVP_CipherInit_ex.html
++type cipherOp int8
++
++const (
++	cipherOpNone    cipherOp = -1 // leaves the value of the previous call, if any.
++	cipherOpDecrypt cipherOp = 0
++	cipherOpEncrypt cipherOp = 1
++)
++
++// cacheCipher is a cache of cipherKind to GO_EVP_CIPHER_PTR.
++var cacheCipher sync.Map
++
++type cacheCipherKey struct {
++	kind cipherKind
++	mode cipherMode
++}
++
++// loadCipher returns a cipher object for the given k.
++func loadCipher(k cipherKind, mode cipherMode) (cipher C.GO_EVP_CIPHER_PTR) {
++	if v, ok := cacheCipher.Load(cacheCipherKey{k, mode}); ok {
++		return v.(C.GO_EVP_CIPHER_PTR)
++	}
++	defer func() {
++		if cipher != nil && vMajor == 3 {
++			// On OpenSSL 3, directly operating on a EVP_CIPHER object
++			// not created by EVP_CIPHER has negative performance
++			// implications, as cipher operations will have
++			// to fetch it on every call. Better to just fetch it once here.
++			cipher = C.go_openssl_EVP_CIPHER_fetch(nil, C.go_openssl_EVP_CIPHER_get0_name(cipher), nil)
++		}
++		cacheCipher.Store(cacheCipherKey{k, mode}, cipher)
++	}()
++	switch k {
++	case cipherAES128:
++		switch mode {
++		case cipherModeECB:
++			cipher = C.go_openssl_EVP_aes_128_ecb()
++		case cipherModeCBC:
++			cipher = C.go_openssl_EVP_aes_128_cbc()
++		case cipherModeCTR:
++			cipher = C.go_openssl_EVP_aes_128_ctr()
++		case cipherModeGCM:
++			cipher = C.go_openssl_EVP_aes_128_gcm()
++		}
++	case cipherAES192:
++		switch mode {
++		case cipherModeECB:
++			cipher = C.go_openssl_EVP_aes_192_ecb()
++		case cipherModeCBC:
++			cipher = C.go_openssl_EVP_aes_192_cbc()
++		case cipherModeCTR:
++			cipher = C.go_openssl_EVP_aes_192_ctr()
++		case cipherModeGCM:
++			cipher = C.go_openssl_EVP_aes_192_gcm()
++		}
++	case cipherAES256:
++		switch mode {
++		case cipherModeECB:
++			cipher = C.go_openssl_EVP_aes_256_ecb()
++		case cipherModeCBC:
++			cipher = C.go_openssl_EVP_aes_256_cbc()
++		case cipherModeCTR:
++			cipher = C.go_openssl_EVP_aes_256_ctr()
++		case cipherModeGCM:
++			cipher = C.go_openssl_EVP_aes_256_gcm()
++		}
++	case cipherDES:
++		switch mode {
++		case cipherModeECB:
++			cipher = C.go_openssl_EVP_des_ecb()
++		case cipherModeCBC:
++			cipher = C.go_openssl_EVP_des_cbc()
++		}
++	case cipherDES3:
++		switch mode {
++		case cipherModeECB:
++			cipher = C.go_openssl_EVP_des_ede3_ecb()
++		case cipherModeCBC:
++			cipher = C.go_openssl_EVP_des_ede3_cbc()
++		}
++	case cipherRC4:
++		cipher = C.go_openssl_EVP_rc4()
++	}
++	return cipher
++}
++
++type evpCipher struct {
++	key       []byte
++	enc_ctx   C.GO_EVP_CIPHER_CTX_PTR
++	dec_ctx   C.GO_EVP_CIPHER_CTX_PTR
++	kind      cipherKind
++	blockSize int
++}
++
++func newEVPCipher(key []byte, kind cipherKind) (*evpCipher, error) {
++	cipher := loadCipher(kind, cipherModeECB)
++	if cipher == nil {
++		return nil, errors.New("crypto/cipher: unsupported cipher: " + kind.String())
++	}
++	c := &evpCipher{key: make([]byte, len(key)), kind: kind}
++	copy(c.key, key)
++	c.blockSize = int(C.go_openssl_EVP_CIPHER_get_block_size(cipher))
++	runtime.SetFinalizer(c, (*evpCipher).finalize)
++	return c, nil
++}
++
++func (c *evpCipher) finalize() {
++	if c.enc_ctx != nil {
++		C.go_openssl_EVP_CIPHER_CTX_free(c.enc_ctx)
++	}
++	if c.dec_ctx != nil {
++		C.go_openssl_EVP_CIPHER_CTX_free(c.dec_ctx)
++	}
++}
++
++func (c *evpCipher) encrypt(dst, src []byte) error {
++	if len(src) < c.blockSize {
++		return errors.New("input not full block")
++	}
++	if len(dst) < c.blockSize {
++		return errors.New("output not full block")
++	}
++	// Only check for overlap between the parts of src and dst that will actually be used.
++	// This matches Go standard library behavior.
++	if inexactOverlap(dst[:c.blockSize], src[:c.blockSize]) {
++		return errors.New("invalid buffer overlap")
++	}
++	if c.enc_ctx == nil {
++		var err error
++		c.enc_ctx, err = newCipherCtx(c.kind, cipherModeECB, cipherOpEncrypt, c.key, nil)
++		if err != nil {
++			return err
++		}
++	}
++
++	if C.go_openssl_EVP_EncryptUpdate_wrapper(c.enc_ctx, base(dst), base(src), C.int(c.blockSize)) != 1 {
++		return errors.New("EncryptUpdate failed")
++	}
++	runtime.KeepAlive(c)
++	return nil
++}
++
++func (c *evpCipher) decrypt(dst, src []byte) error {
++	if len(src) < c.blockSize {
++		return errors.New("input not full block")
++	}
++	if len(dst) < c.blockSize {
++		return errors.New("output not full block")
++	}
++	// Only check for overlap between the parts of src and dst that will actually be used.
++	// This matches Go standard library behavior.
++	if inexactOverlap(dst[:c.blockSize], src[:c.blockSize]) {
++		return errors.New("invalid buffer overlap")
++	}
++	if c.dec_ctx == nil {
++		var err error
++		c.dec_ctx, err = newCipherCtx(c.kind, cipherModeECB, cipherOpDecrypt, c.key, nil)
++		if err != nil {
++			return err
++		}
++		if C.go_openssl_EVP_CIPHER_CTX_set_padding(c.dec_ctx, 0) != 1 {
++			return errors.New("could not disable cipher padding")
++		}
++	}
++
++	C.go_openssl_EVP_DecryptUpdate_wrapper(c.dec_ctx, base(dst), base(src), C.int(c.blockSize))
++	runtime.KeepAlive(c)
++	return nil
++}
++
++type cipherCBC struct {
++	ctx       C.GO_EVP_CIPHER_CTX_PTR
++	blockSize int
++}
++
++func (c *cipherCBC) finalize() {
++	C.go_openssl_EVP_CIPHER_CTX_free(c.ctx)
++}
++
++func (x *cipherCBC) BlockSize() int { return x.blockSize }
++
++func (x *cipherCBC) CryptBlocks(dst, src []byte) {
++	if inexactOverlap(dst, src) {
++		panic("crypto/cipher: invalid buffer overlap")
++	}
++	if len(src)%x.blockSize != 0 {
++		panic("crypto/cipher: input not full blocks")
++	}
++	if len(dst) < len(src) {
++		panic("crypto/cipher: output smaller than input")
++	}
++	if len(src) > 0 {
++		if C.go_openssl_EVP_CipherUpdate_wrapper(x.ctx, base(dst), base(src), C.int(len(src))) != 1 {
++			panic("crypto/cipher: CipherUpdate failed")
++		}
++		runtime.KeepAlive(x)
++	}
++}
++
++func (x *cipherCBC) SetIV(iv []byte) {
++	if len(iv) != x.blockSize {
++		panic("cipher: incorrect length IV")
++	}
++	if C.go_openssl_EVP_CipherInit_ex(x.ctx, nil, nil, nil, base(iv), C.int(cipherOpNone)) != 1 {
++		panic("cipher: unable to initialize EVP cipher ctx")
++	}
++}
++
++func (c *evpCipher) newCBC(iv []byte, op cipherOp) cipher.BlockMode {
++	ctx, err := newCipherCtx(c.kind, cipherModeCBC, op, c.key, iv)
++	if err != nil {
++		panic(err)
++	}
++	x := &cipherCBC{ctx: ctx, blockSize: c.blockSize}
++	runtime.SetFinalizer(x, (*cipherCBC).finalize)
++	if C.go_openssl_EVP_CIPHER_CTX_set_padding(x.ctx, 0) != 1 {
++		panic("cipher: unable to set padding")
++	}
++	return x
++}
++
++type cipherCTR struct {
++	ctx C.GO_EVP_CIPHER_CTX_PTR
++}
++
++func (x *cipherCTR) XORKeyStream(dst, src []byte) {
++	if inexactOverlap(dst, src) {
++		panic("crypto/cipher: invalid buffer overlap")
++	}
++	if len(dst) < len(src) {
++		panic("crypto/cipher: output smaller than input")
++	}
++	if len(src) == 0 {
++		return
++	}
++	if C.go_openssl_EVP_EncryptUpdate_wrapper(x.ctx, base(dst), base(src), C.int(len(src))) != 1 {
++		panic("crypto/cipher: EncryptUpdate failed")
++	}
++	runtime.KeepAlive(x)
++}
++
++func (c *evpCipher) newCTR(iv []byte) cipher.Stream {
++	ctx, err := newCipherCtx(c.kind, cipherModeCTR, cipherOpEncrypt, c.key, iv)
++	if err != nil {
++		panic(err)
++	}
++	x := &cipherCTR{ctx: ctx}
++	runtime.SetFinalizer(x, (*cipherCTR).finalize)
++	return x
++}
++
++func (c *cipherCTR) finalize() {
++	C.go_openssl_EVP_CIPHER_CTX_free(c.ctx)
++}
++
++type cipherGCM struct {
++	ctx          C.GO_EVP_CIPHER_CTX_PTR
++	tls          bool
++	minNextNonce uint64
++	blockSize    int
++}
++
++const (
++	gcmTagSize           = 16
++	gcmStandardNonceSize = 12
++	gcmTlsAddSize        = 13
++	gcmTlsFixedNonceSize = 4
++)
++
++type noGCM struct {
++	*evpCipher
++}
++
++func (g *noGCM) BlockSize() int {
++	return g.blockSize
++}
++
++func (g *noGCM) Encrypt(dst, src []byte) {
++	g.encrypt(dst, src)
++}
++
++func (g *noGCM) Decrypt(dst, src []byte) {
++	g.decrypt(dst, src)
++}
++
++func (c *evpCipher) newGCMChecked(nonceSize, tagSize int) (cipher.AEAD, error) {
++	if nonceSize != gcmStandardNonceSize && tagSize != gcmTagSize {
++		return nil, errors.New("crypto/cipher: GCM tag and nonce sizes can't be non-standard at the same time")
++	}
++	// Fall back to standard library for GCM with non-standard nonce or tag size.
++	if nonceSize != gcmStandardNonceSize {
++		return cipher.NewGCMWithNonceSize(&noGCM{c}, nonceSize)
++	}
++	if tagSize != gcmTagSize {
++		return cipher.NewGCMWithTagSize(&noGCM{c}, tagSize)
++	}
++	return c.newGCM(false)
++}
++
++func (c *evpCipher) newGCM(tls bool) (cipher.AEAD, error) {
++	ctx, err := newCipherCtx(c.kind, cipherModeGCM, cipherOpNone, c.key, nil)
++	if err != nil {
++		return nil, err
++	}
++	g := &cipherGCM{ctx: ctx, tls: tls, blockSize: c.blockSize}
++	runtime.SetFinalizer(g, (*cipherGCM).finalize)
++	return g, nil
++}
++
++func (g *cipherGCM) finalize() {
++	C.go_openssl_EVP_CIPHER_CTX_free(g.ctx)
++}
++
++func (g *cipherGCM) NonceSize() int {
++	return gcmStandardNonceSize
++}
++
++func (g *cipherGCM) Overhead() int {
++	return gcmTagSize
++}
++
++func (g *cipherGCM) Seal(dst, nonce, plaintext, additionalData []byte) []byte {
++	if len(nonce) != gcmStandardNonceSize {
++		panic("cipher: incorrect nonce length given to GCM")
++	}
++	if uint64(len(plaintext)) > ((1<<32)-2)*uint64(g.blockSize) || len(plaintext)+gcmTagSize < len(plaintext) {
++		panic("cipher: message too large for GCM")
++	}
++	if len(dst)+len(plaintext)+gcmTagSize < len(dst) {
++		panic("cipher: message too large for buffer")
++	}
++	if g.tls {
++		if len(additionalData) != gcmTlsAddSize {
++			panic("cipher: incorrect additional data length given to GCM TLS")
++		}
++		// BoringCrypto enforces strictly monotonically increasing explicit nonces
++		// and to fail after 2^64 - 1 keys as per FIPS 140-2 IG A.5,
++		// but OpenSSL does not perform this check, so it is implemented here.
++		const maxUint64 = 1<<64 - 1
++		counter := binary.BigEndian.Uint64(nonce[gcmTlsFixedNonceSize:])
++		if counter == maxUint64 {
++			panic("cipher: nonce counter must be less than 2^64 - 1")
++		}
++		if counter < g.minNextNonce {
++			panic("cipher: nonce counter must be strictly monotonically increasing")
++		}
++		defer func() {
++			g.minNextNonce = counter + 1
++		}()
++	}
++
++	// Make room in dst to append plaintext+overhead.
++	ret, out := sliceForAppend(dst, len(plaintext)+gcmTagSize)
++
++	// Check delayed until now to make sure len(dst) is accurate.
++	if inexactOverlap(out, plaintext) {
++		panic("cipher: invalid buffer overlap")
++	}
++
++	// Encrypt additional data.
++	// When sealing a TLS payload, OpenSSL app sets the additional data using
++	// 'EVP_CIPHER_CTX_ctrl(g.ctx, C.EVP_CTRL_AEAD_TLS1_AAD, C.EVP_AEAD_TLS1_AAD_LEN, base(additionalData))'.
++	// This makes the explicit nonce component to monotonically increase on every Seal operation without
++	// relying in the explicit nonce being securely set externally,
++	// and it also gives some interesting speed gains.
++	// Unfortunately we can't use it because Go expects AEAD.Seal to honor the provided nonce.
++	if C.go_openssl_EVP_CIPHER_CTX_seal_wrapper(g.ctx, base(out), base(nonce),
++		base(plaintext), C.int(len(plaintext)),
++		base(additionalData), C.int(len(additionalData))) != 1 {
++
++		panic(fail("EVP_CIPHER_CTX_seal"))
++	}
++	runtime.KeepAlive(g)
++	return ret
++}
++
++var errOpen = errors.New("cipher: message authentication failed")
++
++func (g *cipherGCM) Open(dst, nonce, ciphertext, additionalData []byte) ([]byte, error) {
++	if len(nonce) != gcmStandardNonceSize {
++		panic("cipher: incorrect nonce length given to GCM")
++	}
++	if len(ciphertext) < gcmTagSize {
++		return nil, errOpen
++	}
++	if uint64(len(ciphertext)) > ((1<<32)-2)*uint64(g.blockSize)+gcmTagSize {
++		return nil, errOpen
++	}
++	// BoringCrypto does not do any TLS check when decrypting, neither do we.
++
++	tag := ciphertext[len(ciphertext)-gcmTagSize:]
++	ciphertext = ciphertext[:len(ciphertext)-gcmTagSize]
++
++	// Make room in dst to append ciphertext without tag.
++	ret, out := sliceForAppend(dst, len(ciphertext))
++
++	// Check delayed until now to make sure len(dst) is accurate.
++	if inexactOverlap(out, ciphertext) {
++		panic("cipher: invalid buffer overlap")
++	}
++
++	ok := C.go_openssl_EVP_CIPHER_CTX_open_wrapper(
++		g.ctx, base(out), base(nonce),
++		base(ciphertext), C.int(len(ciphertext)),
++		base(additionalData), C.int(len(additionalData)), base(tag))
++	runtime.KeepAlive(g)
++	if ok == 0 {
++		// Zero output buffer on error.
++		for i := range out {
++			out[i] = 0
++		}
++		return nil, errOpen
++	}
++	return ret, nil
++}
++
++// sliceForAppend is a mirror of crypto/cipher.sliceForAppend.
++func sliceForAppend(in []byte, n int) (head, tail []byte) {
++	if total := len(in) + n; cap(in) >= total {
++		head = in[:total]
++	} else {
++		head = make([]byte, total)
++		copy(head, in)
++	}
++	tail = head[len(in):]
++	return
++}
++
++func newCipherCtx(kind cipherKind, mode cipherMode, encrypt cipherOp, key, iv []byte) (ctx C.GO_EVP_CIPHER_CTX_PTR, err error) {
++	cipher := loadCipher(kind, mode)
++	if cipher == nil {
++		panic("crypto/cipher: unsupported cipher: " + kind.String())
++	}
++	ctx = C.go_openssl_EVP_CIPHER_CTX_new()
++	if ctx == nil {
++		return nil, fail("unable to create EVP cipher ctx")
++	}
++	defer func() {
++		if err != nil {
++			C.go_openssl_EVP_CIPHER_CTX_free(ctx)
++		}
++	}()
++	if kind == cipherRC4 {
++		// RC4 cipher supports a variable key length.
++		// We need to set the key length before setting the key,
++		// and to do so we need to have an initialized cipher ctx.
++		if C.go_openssl_EVP_CipherInit_ex(ctx, cipher, nil, nil, nil, C.int(encrypt)) != 1 {
++			return nil, newOpenSSLError("EVP_CipherInit_ex")
++		}
++		if C.go_openssl_EVP_CIPHER_CTX_set_key_length(ctx, C.int(len(key))) != 1 {
++			return nil, newOpenSSLError("EVP_CIPHER_CTX_set_key_length")
++		}
++		// Pass nil to the next call to EVP_CipherInit_ex to avoid resetting ctx's cipher.
++		cipher = nil
++	}
++	if C.go_openssl_EVP_CipherInit_ex(ctx, cipher, nil, base(key), base(iv), C.int(encrypt)) != 1 {
++		return nil, newOpenSSLError("unable to initialize EVP cipher ctx")
++	}
++	return ctx, nil
++}
++
++// The following two functions are a mirror of golang.org/x/crypto/internal/subtle.
++
++func anyOverlap(x, y []byte) bool {
++	return len(x) > 0 && len(y) > 0 &&
++		uintptr(unsafe.Pointer(&x[0])) <= uintptr(unsafe.Pointer(&y[len(y)-1])) &&
++		uintptr(unsafe.Pointer(&y[0])) <= uintptr(unsafe.Pointer(&x[len(x)-1]))
++}
++
++func inexactOverlap(x, y []byte) bool {
++	if len(x) == 0 || len(y) == 0 || &x[0] == &y[0] {
++		return false
++	}
++	return anyOverlap(x, y)
++}
+diff --git a/src/vendor/github.com/golang-fips/openssl/v2/des.go b/src/vendor/github.com/golang-fips/openssl/v2/des.go
+new file mode 100644
+index 0000000000..71b13333a2
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl/v2/des.go
+@@ -0,0 +1,113 @@
++//go:build !cmd_go_bootstrap
++
++package openssl
++
++// #include "goopenssl.h"
++import "C"
++import (
++	"crypto/cipher"
++	"errors"
++)
++
++// SupportsDESCipher returns true if NewDESCipher is supported,
++// which uses ECB mode.
++// If CBC is also supported, then the returned cipher.Block
++// will also implement NewCBCEncrypter and NewCBCDecrypter.
++func SupportsDESCipher() bool {
++	// True for stock OpenSSL 1 w/o FIPS.
++	// False for stock OpenSSL 3 unless the legacy provider is available.
++	return (versionAtOrAbove(1, 1, 0) || !FIPS()) && loadCipher(cipherDES, cipherModeECB) != nil
++}
++
++// SupportsTripleDESCipher returns true if NewTripleDESCipher is supported,
++// which uses ECB mode.
++// If CBC is also supported, then the returned cipher.Block
++// will also implement NewCBCEncrypter and NewCBCDecrypter.
++func SupportsTripleDESCipher() bool {
++	// Should always be true for stock OpenSSL,
++	// even when using the FIPS provider.
++	return loadCipher(cipherDES3, cipherModeECB) != nil
++}
++
++func NewDESCipher(key []byte) (cipher.Block, error) {
++	if len(key) != 8 {
++		return nil, errors.New("crypto/des: invalid key size")
++	}
++	c, err := newEVPCipher(key, cipherDES)
++	if err != nil {
++		return nil, err
++	}
++	// Should always be true for stock OpenSSL.
++	if loadCipher(cipherDES, cipherModeCBC) == nil {
++		return &desCipherWithoutCBC{c}, nil
++	}
++	return &desCipher{c}, nil
++}
++
++func NewTripleDESCipher(key []byte) (cipher.Block, error) {
++	if len(key) != 24 {
++		return nil, errors.New("crypto/des: invalid key size")
++	}
++	c, err := newEVPCipher(key, cipherDES3)
++	if err != nil {
++		return nil, err
++	}
++	// Should always be true for stock OpenSSL.
++	if loadCipher(cipherDES, cipherModeCBC) != nil {
++		return &desCipherWithoutCBC{c}, nil
++	}
++	return &desCipher{c}, nil
++}
++
++type desExtraModes interface {
++	NewCBCEncrypter(iv []byte) cipher.BlockMode
++	NewCBCDecrypter(iv []byte) cipher.BlockMode
++}
++
++var _ desExtraModes = (*desCipher)(nil)
++
++type desCipher struct {
++	*evpCipher
++}
++
++func (c *desCipher) BlockSize() int {
++	return c.blockSize
++}
++
++func (c *desCipher) Encrypt(dst, src []byte) {
++	if err := c.encrypt(dst, src); err != nil {
++		// crypto/des expects that the panic message starts with "crypto/des: ".
++		panic("crypto/des: " + err.Error())
++	}
++}
++
++func (c *desCipher) Decrypt(dst, src []byte) {
++	if err := c.decrypt(dst, src); err != nil {
++		// crypto/des expects that the panic message starts with "crypto/des: ".
++		panic("crypto/des: " + err.Error())
++	}
++}
++
++func (c *desCipher) NewCBCEncrypter(iv []byte) cipher.BlockMode {
++	return c.newCBC(iv, cipherOpEncrypt)
++}
++
++func (c *desCipher) NewCBCDecrypter(iv []byte) cipher.BlockMode {
++	return c.newCBC(iv, cipherOpDecrypt)
++}
++
++type desCipherWithoutCBC struct {
++	*evpCipher
++}
++
++func (c *desCipherWithoutCBC) BlockSize() int {
++	return c.blockSize
++}
++
++func (c *desCipherWithoutCBC) Encrypt(dst, src []byte) {
++	c.encrypt(dst, src)
++}
++
++func (c *desCipherWithoutCBC) Decrypt(dst, src []byte) {
++	c.decrypt(dst, src)
++}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/ec.go b/src/vendor/github.com/golang-fips/openssl/v2/ec.go
 new file mode 100644
 index 0000000000..eac2f8bbee
@@ -5133,12 +5342,236 @@ index 0000000000..46b16abf48
 +	defer C.go_openssl_OSSL_PARAM_free(params)
 +	return newEvpFromParams(C.GO_EVP_PKEY_EC, selection, params)
 +}
+diff --git a/src/vendor/github.com/golang-fips/openssl/v2/ed25519.go b/src/vendor/github.com/golang-fips/openssl/v2/ed25519.go
+new file mode 100644
+index 0000000000..f66a2a1deb
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl/v2/ed25519.go
+@@ -0,0 +1,218 @@
++//go:build !cmd_go_bootstrap
++
++package openssl
++
++// #include "goopenssl.h"
++import "C"
++import (
++	"errors"
++	"runtime"
++	"strconv"
++	"sync"
++	"unsafe"
++)
++
++const (
++	// publicKeySizeEd25519 is the size, in bytes, of public keys as used in crypto/ed25519.
++	publicKeySizeEd25519 = 32
++	// privateKeySizeEd25519 is the size, in bytes, of private keys as used in crypto/ed25519.
++	privateKeySizeEd25519 = 64
++	// signatureSizeEd25519 is the size, in bytes, of signatures generated and verified by crypto/ed25519.
++	signatureSizeEd25519 = 64
++	// seedSizeEd25519 is the size, in bytes, of private key seeds. These are the private key representations used by RFC 8032.
++	seedSizeEd25519 = 32
++)
++
++// TODO: Add support for Ed25519ph and Ed25519ctx when OpenSSL supports them,
++// which will probably be in 3.2.0 (https://github.com/openssl/openssl/issues/20418).
++
++var (
++	onceSupportsEd25519 sync.Once
++	supportsEd25519     bool
++)
++
++// SupportsEd25519 returns true if the current OpenSSL version supports
++// GenerateKeyEd25519, NewKeyFromSeedEd25519, SignEd25519 and VerifyEd25519.
++func SupportsEd25519() bool {
++	onceSupportsEd25519.Do(func() {
++		switch vMajor {
++		case 1:
++			supportsEd25519 = versionAtOrAbove(1, 1, 1)
++		case 3:
++			name := C.CString("ED25519")
++			defer C.free(unsafe.Pointer(name))
++			sig := C.go_openssl_EVP_SIGNATURE_fetch(nil, name, nil)
++			if sig != nil {
++				C.go_openssl_EVP_SIGNATURE_free(sig)
++				supportsEd25519 = true
++			}
++		}
++	})
++	return supportsEd25519
++}
++
++type PublicKeyEd25519 struct {
++	_pkey C.GO_EVP_PKEY_PTR
++}
++
++func (k *PublicKeyEd25519) finalize() {
++	C.go_openssl_EVP_PKEY_free(k._pkey)
++}
++
++func (k *PublicKeyEd25519) Bytes() ([]byte, error) {
++	defer runtime.KeepAlive(k)
++	pub := make([]byte, publicKeySizeEd25519)
++	if err := extractPKEYPubEd25519(k._pkey, pub); err != nil {
++		return nil, err
++	}
++	return pub, nil
++}
++
++type PrivateKeyEd25519 struct {
++	_pkey C.GO_EVP_PKEY_PTR
++}
++
++func (k *PrivateKeyEd25519) finalize() {
++	C.go_openssl_EVP_PKEY_free(k._pkey)
++}
++
++func (k *PrivateKeyEd25519) Bytes() ([]byte, error) {
++	defer runtime.KeepAlive(k)
++	priv := make([]byte, privateKeySizeEd25519)
++	if err := extractPKEYPrivEd25519(k._pkey, priv); err != nil {
++		return nil, err
++	}
++	return priv, nil
++}
++
++func (k *PrivateKeyEd25519) Public() (*PublicKeyEd25519, error) {
++	pub := make([]byte, publicKeySizeEd25519)
++	if err := extractPKEYPubEd25519(k._pkey, pub); err != nil {
++		return nil, err
++	}
++	pubk, err := NewPublicKeyEd25119(pub)
++	if err != nil {
++		return nil, err
++	}
++	return pubk, nil
++}
++
++// GenerateKeyEd25519 generates a private key.
++func GenerateKeyEd25519() (*PrivateKeyEd25519, error) {
++	pkeyPriv, err := generateEVPPKey(C.GO_EVP_PKEY_ED25519, 0, "")
++	if err != nil {
++		return nil, err
++	}
++	priv := &PrivateKeyEd25519{_pkey: pkeyPriv}
++	runtime.SetFinalizer(priv, (*PrivateKeyEd25519).finalize)
++	return priv, nil
++}
++
++func NewPrivateKeyEd25119(priv []byte) (*PrivateKeyEd25519, error) {
++	if len(priv) != privateKeySizeEd25519 {
++		panic("ed25519: bad private key length: " + strconv.Itoa(len(priv)))
++	}
++	return NewPrivateKeyEd25519FromSeed(priv[:seedSizeEd25519])
++}
++
++func NewPublicKeyEd25119(pub []byte) (*PublicKeyEd25519, error) {
++	if len(pub) != publicKeySizeEd25519 {
++		panic("ed25519: bad public key length: " + strconv.Itoa(len(pub)))
++	}
++	pkey := C.go_openssl_EVP_PKEY_new_raw_public_key(C.GO_EVP_PKEY_ED25519, nil, base(pub), C.size_t(len(pub)))
++	if pkey == nil {
++		return nil, newOpenSSLError("EVP_PKEY_new_raw_public_key")
++	}
++	pubk := &PublicKeyEd25519{_pkey: pkey}
++	runtime.SetFinalizer(pubk, (*PublicKeyEd25519).finalize)
++	return pubk, nil
++}
++
++// NewPrivateKeyEd25519FromSeed calculates a private key from a seed. It will panic if
++// len(seed) is not [SeedSize]. RFC 8032's private keys correspond to seeds in this
++// package.
++func NewPrivateKeyEd25519FromSeed(seed []byte) (*PrivateKeyEd25519, error) {
++	if len(seed) != seedSizeEd25519 {
++		panic("ed25519: bad seed length: " + strconv.Itoa(len(seed)))
++	}
++	pkey := C.go_openssl_EVP_PKEY_new_raw_private_key(C.GO_EVP_PKEY_ED25519, nil, base(seed), C.size_t(len(seed)))
++	if pkey == nil {
++		return nil, newOpenSSLError("EVP_PKEY_new_raw_private_key")
++	}
++	priv := &PrivateKeyEd25519{_pkey: pkey}
++	runtime.SetFinalizer(priv, (*PrivateKeyEd25519).finalize)
++	return priv, nil
++}
++
++func extractPKEYPubEd25519(pkey C.GO_EVP_PKEY_PTR, pub []byte) error {
++	pubSize := C.size_t(publicKeySizeEd25519)
++	if C.go_openssl_EVP_PKEY_get_raw_public_key(pkey, base(pub), &pubSize) != 1 {
++		return newOpenSSLError("EVP_PKEY_get_raw_public_key")
++	}
++	if pubSize != publicKeySizeEd25519 {
++		return errors.New("ed25519: bad public key length: " + strconv.Itoa(int(pubSize)))
++	}
++	return nil
++}
++
++func extractPKEYPrivEd25519(pkey C.GO_EVP_PKEY_PTR, priv []byte) error {
++	if err := extractPKEYPubEd25519(pkey, priv[seedSizeEd25519:]); err != nil {
++		return err
++	}
++	privSize := C.size_t(seedSizeEd25519)
++	if C.go_openssl_EVP_PKEY_get_raw_private_key(pkey, base(priv), &privSize) != 1 {
++		return newOpenSSLError("EVP_PKEY_get_raw_private_key")
++	}
++	if privSize != seedSizeEd25519 {
++		return errors.New("ed25519: bad private key length: " + strconv.Itoa(int(privSize)))
++	}
++	return nil
++}
++
++// SignEd25519 signs the message with priv and returns a signature.
++func SignEd25519(priv *PrivateKeyEd25519, message []byte) (sig []byte, err error) {
++	// Outline the function body so that the returned key can be stack-allocated.
++	sig = make([]byte, signatureSizeEd25519)
++	err = signEd25519(priv, sig, message)
++	if err != nil {
++		return nil, err
++	}
++	return sig, err
++}
++
++func signEd25519(priv *PrivateKeyEd25519, sig, message []byte) error {
++	defer runtime.KeepAlive(priv)
++	ctx := C.go_openssl_EVP_MD_CTX_new()
++	if ctx == nil {
++		return newOpenSSLError("EVP_MD_CTX_new")
++	}
++	defer C.go_openssl_EVP_MD_CTX_free(ctx)
++	if C.go_openssl_EVP_DigestSignInit(ctx, nil, nil, nil, priv._pkey) != 1 {
++		return newOpenSSLError("EVP_DigestSignInit")
++	}
++	siglen := C.size_t(signatureSizeEd25519)
++	if C.go_openssl_EVP_DigestSign(ctx, base(sig), &siglen, base(message), C.size_t(len(message))) != 1 {
++		return newOpenSSLError("EVP_DigestSign")
++	}
++	if siglen != signatureSizeEd25519 {
++		return errors.New("ed25519: bad signature length: " + strconv.Itoa(int(siglen)))
++	}
++	return nil
++}
++
++// VerifyEd25519 reports whether sig is a valid signature of message by pub.
++func VerifyEd25519(pub *PublicKeyEd25519, message, sig []byte) error {
++	defer runtime.KeepAlive(pub)
++	ctx := C.go_openssl_EVP_MD_CTX_new()
++	if ctx == nil {
++		return newOpenSSLError("EVP_MD_CTX_new")
++	}
++	defer C.go_openssl_EVP_MD_CTX_free(ctx)
++	if C.go_openssl_EVP_DigestVerifyInit(ctx, nil, nil, nil, pub._pkey) != 1 {
++		return newOpenSSLError("EVP_DigestVerifyInit")
++	}
++	if C.go_openssl_EVP_DigestVerify(ctx, base(sig), C.size_t(len(sig)), base(message), C.size_t(len(message))) != 1 {
++		return errors.New("ed25519: invalid signature")
++	}
++	return nil
++}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/evp.go b/src/vendor/github.com/golang-fips/openssl/v2/evp.go
 new file mode 100644
-index 0000000000..da71d9b389
+index 0000000000..b2886e6906
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/evp.go
-@@ -0,0 +1,455 @@
+@@ -0,0 +1,471 @@
 +//go:build !cmd_go_bootstrap
 +
 +package openssl
@@ -5201,23 +5634,25 @@ index 0000000000..da71d9b389
 +		}
 +		cacheMD.Store(ch, md)
 +	}()
-+	// SupportsHash returns false for MD5 and MD5SHA1 because we don't
-+	// provide a hash.Hash implementation for them. Yet, they can
++	// SupportsHash returns false for MD5SHA1 because we don't
++	// provide a hash.Hash implementation for it. Yet, it can
 +	// still be used when signing/verifying with an RSA key.
-+	switch ch {
-+	case crypto.MD5:
-+		return C.go_openssl_EVP_md5()
-+	case crypto.MD5SHA1:
++	if ch == crypto.MD5SHA1 {
 +		if vMajor == 1 && vMinor == 0 {
 +			return C.go_openssl_EVP_md5_sha1_backport()
 +		} else {
 +			return C.go_openssl_EVP_md5_sha1()
 +		}
 +	}
-+	if !SupportsHash(ch) {
-+		return nil
-+	}
 +	switch ch {
++	case crypto.MD4:
++		if versionAtOrAbove(1, 1, 0) || !FIPS() {
++			return C.go_openssl_EVP_md4()
++		}
++	case crypto.MD5:
++		if versionAtOrAbove(1, 1, 0) || !FIPS() {
++			return C.go_openssl_EVP_md5()
++		}
 +	case crypto.SHA1:
 +		return C.go_openssl_EVP_sha1()
 +	case crypto.SHA224:
@@ -5229,19 +5664,27 @@ index 0000000000..da71d9b389
 +	case crypto.SHA512:
 +		return C.go_openssl_EVP_sha512()
 +	case crypto.SHA3_224:
-+		return C.go_openssl_EVP_sha3_224()
++		if versionAtOrAbove(1, 1, 1) {
++			return C.go_openssl_EVP_sha3_224()
++		}
 +	case crypto.SHA3_256:
-+		return C.go_openssl_EVP_sha3_256()
++		if versionAtOrAbove(1, 1, 1) {
++			return C.go_openssl_EVP_sha3_256()
++		}
 +	case crypto.SHA3_384:
-+		return C.go_openssl_EVP_sha3_384()
++		if versionAtOrAbove(1, 1, 1) {
++			return C.go_openssl_EVP_sha3_384()
++		}
 +	case crypto.SHA3_512:
-+		return C.go_openssl_EVP_sha3_512()
++		if versionAtOrAbove(1, 1, 1) {
++			return C.go_openssl_EVP_sha3_512()
++		}
 +	}
 +	return nil
 +}
 +
 +func generateEVPPKey(id C.int, bits int, curve string) (C.GO_EVP_PKEY_PTR, error) {
-+	if (bits == 0 && curve == "") || (bits != 0 && curve != "") {
++	if bits != 0 && curve != "" {
 +		return nil, fail("incorrect generateEVPPKey parameters")
 +	}
 +	ctx := C.go_openssl_EVP_PKEY_CTX_new_id(id, nil)
@@ -5344,16 +5787,22 @@ index 0000000000..da71d9b389
 +		if len(label) > 0 {
 +			clabel = (*C.uchar)(cryptoMalloc(len(label)))
 +			copy((*[1 << 30]byte)(unsafe.Pointer(clabel))[:len(label)], label)
-+		}
-+		var ret C.int
-+		if vMajor == 3 {
-+			ret = C.go_openssl_EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, unsafe.Pointer(clabel), C.int(len(label)))
-+		} else {
-+			ret = C.go_openssl_EVP_PKEY_CTX_ctrl(ctx, C.GO_EVP_PKEY_RSA, -1, C.GO_EVP_PKEY_CTRL_RSA_OAEP_LABEL, C.int(len(label)), unsafe.Pointer(clabel))
-+		}
-+		if ret != 1 {
-+			cryptoFree(unsafe.Pointer(clabel))
-+			return nil, newOpenSSLError("EVP_PKEY_CTX_ctrl failed")
++			var err error
++			if vMajor == 3 {
++				ret := C.go_openssl_EVP_PKEY_CTX_set0_rsa_oaep_label(ctx, unsafe.Pointer(clabel), C.int(len(label)))
++				if ret != 1 {
++					err = newOpenSSLError("EVP_PKEY_CTX_set0_rsa_oaep_label failed")
++				}
++			} else {
++				ret := C.go_openssl_EVP_PKEY_CTX_ctrl(ctx, C.GO_EVP_PKEY_RSA, -1, C.GO_EVP_PKEY_CTRL_RSA_OAEP_LABEL, C.int(len(label)), unsafe.Pointer(clabel))
++				if ret != 1 {
++					err = newOpenSSLError("EVP_PKEY_CTX_ctrl failed")
++				}
++			}
++			if err != nil {
++				cryptoFree(unsafe.Pointer(clabel))
++				return nil, err
++			}
 +		}
 +	case C.GO_RSA_PKCS1_PSS_PADDING:
 +		md := cryptoHashToMD(ch)
@@ -5596,7 +6045,7 @@ index 0000000000..da71d9b389
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/goopenssl.c b/src/vendor/github.com/golang-fips/openssl/v2/goopenssl.c
 new file mode 100644
-index 0000000000..ec4adc1539
+index 0000000000..1e428d5269
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/goopenssl.c
 @@ -0,0 +1,218 @@
@@ -5662,12 +6111,12 @@ index 0000000000..ec4adc1539
 +// and assign them to their corresponding function pointer
 +// defined in goopenssl.h.
 +void
-+go_openssl_load_functions(void* handle, int major, int minor, int patch)
++go_openssl_load_functions(void* handle, unsigned int major, unsigned int minor, unsigned int patch)
 +{
 +#define DEFINEFUNC_INTERNAL(name, func)                                                                         \
 +    _g_##name = dlsym(handle, func);                                                                            \
 +    if (_g_##name == NULL) {                                                                                    \
-+        fprintf(stderr, "Cannot get required symbol " #func " from libcrypto version %d.%d\n", major, minor);   \
++        fprintf(stderr, "Cannot get required symbol " #func " from libcrypto version %u.%u\n", major, minor);   \
 +        abort();                                                                                                \
 +    }
 +#define DEFINEFUNC(ret, func, args, argscall) \
@@ -5820,10 +6269,10 @@ index 0000000000..ec4adc1539
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/goopenssl.h b/src/vendor/github.com/golang-fips/openssl/v2/goopenssl.h
 new file mode 100644
-index 0000000000..dc2ce35cd7
+index 0000000000..a0e2b623a5
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/goopenssl.h
-@@ -0,0 +1,183 @@
+@@ -0,0 +1,201 @@
 +// This header file describes the OpenSSL ABI as built for use in Go.
 +
 +#include <stdlib.h> // size_t
@@ -5850,7 +6299,7 @@ index 0000000000..dc2ce35cd7
 +int go_openssl_version_minor(void* handle);
 +int go_openssl_version_patch(void* handle);
 +int go_openssl_thread_setup(void);
-+void go_openssl_load_functions(void* handle, int major, int minor, int patch);
++void go_openssl_load_functions(void* handle, unsigned int major, unsigned int minor, unsigned int patch);
 +const GO_EVP_MD_PTR go_openssl_EVP_md5_sha1_backport(void);
 +
 +// Define pointers to all the used OpenSSL functions.
@@ -5892,14 +6341,14 @@ index 0000000000..dc2ce35cd7
 +#undef DEFINEFUNC_RENAMED_1_1
 +#undef DEFINEFUNC_RENAMED_3_0
 +
-+// go_sha_sum copies ctx into ctx2 and calls EVP_DigestFinal using ctx2.
++// go_hash_sum copies ctx into ctx2 and calls EVP_DigestFinal using ctx2.
 +// This is necessary because Go hash.Hash mandates that Sum has no effect
 +// on the underlying stream. In particular it is OK to Sum, then Write more,
 +// then Sum again, and the second Sum acts as if the first didn't happen.
 +// It is written in C because Sum() tend to be in the hot path,
 +// and doing one cgo call instead of two is a significant performance win.
 +static inline int
-+go_sha_sum(GO_EVP_MD_CTX_PTR ctx, GO_EVP_MD_CTX_PTR ctx2, unsigned char *out)
++go_hash_sum(GO_EVP_MD_CTX_PTR ctx, GO_EVP_MD_CTX_PTR ctx2, unsigned char *out)
 +{
 +    if (go_openssl_EVP_MD_CTX_copy(ctx2, ctx) != 1)
 +        return 0;
@@ -5945,7 +6394,7 @@ index 0000000000..dc2ce35cd7
 +    if (in_len == 0) in = (const unsigned char *)"";
 +    if (aad_len == 0) aad = (const unsigned char *)"";
 +
-+    if (go_openssl_EVP_CipherInit_ex(ctx, NULL, NULL, NULL, nonce, GO_AES_ENCRYPT) != 1)
++    if (go_openssl_EVP_EncryptInit_ex(ctx, NULL, NULL, NULL, nonce) != 1)
 +        return 0;
 +
 +    int discard_len, out_len;
@@ -5970,10 +6419,31 @@ index 0000000000..dc2ce35cd7
 +                                       const unsigned char *aad, int aad_len,
 +                                       const unsigned char *tag)
 +{
-+    if (in_len == 0) in = (const unsigned char *)"";
++    if (in_len == 0) {
++        in = (const unsigned char *)"";
++        // OpenSSL 1.0.2 in FIPS mode contains a bug: it will fail to verify
++        // unless EVP_DecryptUpdate is called at least once with a non-NULL
++        // output buffer.  OpenSSL will not dereference the output buffer when
++        // the input length is zero, so set it to an arbitrary non-NULL pointer
++        // to satisfy OpenSSL when the caller only has authenticated additional
++        // data (AAD) to verify. While a stack-allocated buffer could be used,
++        // that would risk a stack-corrupting buffer overflow if OpenSSL
++        // unexpectedly dereferenced it. Instead pass a value which would
++        // segfault if dereferenced on any modern platform where a NULL-pointer
++        // dereference would also segfault.
++        if (out == NULL) out = (unsigned char *)1;
++    }
 +    if (aad_len == 0) aad = (const unsigned char *)"";
 +
-+    if (go_openssl_EVP_CipherInit_ex(ctx, NULL, NULL, NULL, nonce, GO_AES_DECRYPT) != 1)
++    if (go_openssl_EVP_DecryptInit_ex(ctx, NULL, NULL, NULL, nonce) != 1)
++        return 0;
++
++    // OpenSSL 1.0.x FIPS Object Module 2.0 versions below 2.0.5 require that
++    // the tag be set before the ciphertext, otherwise EVP_DecryptUpdate returns
++    // an error. At least one extant commercially-supported, FIPS validated
++    // build of OpenSSL 1.0.2 uses FIPS module version 2.0.1. Set the tag first
++    // to maximize compatibility with all OpenSSL version combinations.
++    if (go_openssl_EVP_CIPHER_CTX_ctrl(ctx, GO_EVP_CTRL_GCM_SET_TAG, 16, (unsigned char *)(tag)) != 1)
 +        return 0;
 +
 +    int discard_len, out_len;
@@ -5982,9 +6452,6 @@ index 0000000000..dc2ce35cd7
 +    {
 +        return 0;
 +    }
-+
-+    if (go_openssl_EVP_CIPHER_CTX_ctrl(ctx, GO_EVP_CTRL_GCM_SET_TAG, 16, (unsigned char *)(tag)) != 1)
-+        return 0;
 +
 +    if (go_openssl_EVP_DecryptFinal_ex(ctx, out + out_len, &discard_len) != 1)
 +        return 0;
@@ -6008,12 +6475,811 @@ index 0000000000..dc2ce35cd7
 +    ((void (*)(void *))_g_CRYPTO_free)(str);
 +}
 \ No newline at end of file
+diff --git a/src/vendor/github.com/golang-fips/openssl/v2/hash.go b/src/vendor/github.com/golang-fips/openssl/v2/hash.go
+new file mode 100644
+index 0000000000..646b4ce295
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl/v2/hash.go
+@@ -0,0 +1,793 @@
++//go:build !cmd_go_bootstrap
++
++package openssl
++
++// #include "goopenssl.h"
++import "C"
++import (
++	"crypto"
++	"errors"
++	"hash"
++	"runtime"
++	"strconv"
++	"unsafe"
++)
++
++// NOTE: Implementation ported from https://go-review.googlesource.com/c/go/+/404295.
++// The cgo calls in this file are arranged to avoid marking the parameters as escaping.
++// To do that, we call noescape (including via addr).
++// We must also make sure that the data pointer arguments have the form unsafe.Pointer(&...)
++// so that cgo does not annotate them with cgoCheckPointer calls. If it did that, it might look
++// beyond the byte slice and find Go pointers in unprocessed parts of a larger allocation.
++// To do both of these simultaneously, the idiom is unsafe.Pointer(&*addr(p)),
++// where addr returns the base pointer of p, substituting a non-nil pointer for nil,
++// and applying a noescape along the way.
++// This is all to preserve compatibility with the allocation behavior of the non-openssl implementations.
++
++func hashOneShot(ch crypto.Hash, p []byte, sum []byte) bool {
++	return C.go_openssl_EVP_Digest(unsafe.Pointer(&*addr(p)), C.size_t(len(p)), (*C.uchar)(unsafe.Pointer(&*addr(sum))), nil, cryptoHashToMD(ch), nil) != 0
++}
++
++func MD4(p []byte) (sum [16]byte) {
++	if !hashOneShot(crypto.MD4, p, sum[:]) {
++		panic("openssl: MD4 failed")
++	}
++	return
++}
++
++func MD5(p []byte) (sum [16]byte) {
++	if !hashOneShot(crypto.MD5, p, sum[:]) {
++		panic("openssl: MD5 failed")
++	}
++	return
++}
++
++func SHA1(p []byte) (sum [20]byte) {
++	if !hashOneShot(crypto.SHA1, p, sum[:]) {
++		panic("openssl: SHA1 failed")
++	}
++	return
++}
++
++func SHA224(p []byte) (sum [28]byte) {
++	if !hashOneShot(crypto.SHA224, p, sum[:]) {
++		panic("openssl: SHA224 failed")
++	}
++	return
++}
++
++func SHA256(p []byte) (sum [32]byte) {
++	if !hashOneShot(crypto.SHA256, p, sum[:]) {
++		panic("openssl: SHA256 failed")
++	}
++	return
++}
++
++func SHA384(p []byte) (sum [48]byte) {
++	if !hashOneShot(crypto.SHA384, p, sum[:]) {
++		panic("openssl: SHA384 failed")
++	}
++	return
++}
++
++func SHA512(p []byte) (sum [64]byte) {
++	if !hashOneShot(crypto.SHA512, p, sum[:]) {
++		panic("openssl: SHA512 failed")
++	}
++	return
++}
++
++// SupportsHash returns true if a hash.Hash implementation is supported for h.
++func SupportsHash(h crypto.Hash) bool {
++	return cryptoHashToMD(h) != nil
++}
++
++func SHA3_224(p []byte) (sum [28]byte) {
++	if !hashOneShot(crypto.SHA3_224, p, sum[:]) {
++		panic("openssl: SHA3_224 failed")
++	}
++	return
++}
++
++func SHA3_256(p []byte) (sum [32]byte) {
++	if !hashOneShot(crypto.SHA3_256, p, sum[:]) {
++		panic("openssl: SHA3_256 failed")
++	}
++	return
++}
++
++func SHA3_384(p []byte) (sum [48]byte) {
++	if !hashOneShot(crypto.SHA3_384, p, sum[:]) {
++		panic("openssl: SHA3_384 failed")
++	}
++	return
++}
++
++func SHA3_512(p []byte) (sum [64]byte) {
++	if !hashOneShot(crypto.SHA3_512, p, sum[:]) {
++		panic("openssl: SHA3_512 failed")
++	}
++	return
++}
++
++// evpHash implements generic hash methods.
++type evpHash struct {
++	ctx C.GO_EVP_MD_CTX_PTR
++	// ctx2 is used in evpHash.sum to avoid changing
++	// the state of ctx. Having it here allows reusing the
++	// same allocated object multiple times.
++	ctx2      C.GO_EVP_MD_CTX_PTR
++	size      int
++	blockSize int
++}
++
++func newEvpHash(ch crypto.Hash, size, blockSize int) *evpHash {
++	md := cryptoHashToMD(ch)
++	if md == nil {
++		panic("openssl: unsupported hash function: " + strconv.Itoa(int(ch)))
++	}
++	ctx := C.go_openssl_EVP_MD_CTX_new()
++	if C.go_openssl_EVP_DigestInit_ex(ctx, md, nil) != 1 {
++		C.go_openssl_EVP_MD_CTX_free(ctx)
++		panic(newOpenSSLError("EVP_DigestInit_ex"))
++	}
++	ctx2 := C.go_openssl_EVP_MD_CTX_new()
++	h := &evpHash{
++		ctx:       ctx,
++		ctx2:      ctx2,
++		size:      size,
++		blockSize: blockSize,
++	}
++	runtime.SetFinalizer(h, (*evpHash).finalize)
++	return h
++}
++
++func (h *evpHash) finalize() {
++	C.go_openssl_EVP_MD_CTX_free(h.ctx)
++	C.go_openssl_EVP_MD_CTX_free(h.ctx2)
++}
++
++func (h *evpHash) Reset() {
++	// There is no need to reset h.ctx2 because it is always reset after
++	// use in evpHash.sum.
++	if C.go_openssl_EVP_DigestInit_ex(h.ctx, nil, nil) != 1 {
++		panic(newOpenSSLError("EVP_DigestInit_ex"))
++	}
++	runtime.KeepAlive(h)
++}
++
++func (h *evpHash) Write(p []byte) (int, error) {
++	if len(p) > 0 && C.go_openssl_EVP_DigestUpdate(h.ctx, unsafe.Pointer(&*addr(p)), C.size_t(len(p))) != 1 {
++		panic(newOpenSSLError("EVP_DigestUpdate"))
++	}
++	runtime.KeepAlive(h)
++	return len(p), nil
++}
++
++func (h *evpHash) WriteString(s string) (int, error) {
++	if len(s) > 0 && C.go_openssl_EVP_DigestUpdate(h.ctx, unsafe.Pointer(unsafe.StringData(s)), C.size_t(len(s))) == 0 {
++		panic("openssl: EVP_DigestUpdate failed")
++	}
++	runtime.KeepAlive(h)
++	return len(s), nil
++}
++
++func (h *evpHash) WriteByte(c byte) error {
++	if C.go_openssl_EVP_DigestUpdate(h.ctx, unsafe.Pointer(&c), 1) == 0 {
++		panic("openssl: EVP_DigestUpdate failed")
++	}
++	runtime.KeepAlive(h)
++	return nil
++}
++
++func (h *evpHash) Size() int {
++	return h.size
++}
++
++func (h *evpHash) BlockSize() int {
++	return h.blockSize
++}
++
++func (h *evpHash) sum(out []byte) {
++	if C.go_hash_sum(h.ctx, h.ctx2, base(out)) != 1 {
++		panic(newOpenSSLError("go_hash_sum"))
++	}
++	runtime.KeepAlive(h)
++}
++
++// hashState returns a pointer to the internal hash structure.
++//
++// The EVP_MD_CTX memory layout has changed in OpenSSL 3
++// and the property holding the internal structure is no longer md_data but algctx.
++func (h *evpHash) hashState() unsafe.Pointer {
++	switch vMajor {
++	case 1:
++		// https://github.com/openssl/openssl/blob/0418e993c717a6863f206feaa40673a261de7395/crypto/evp/evp_local.h#L12.
++		type mdCtx struct {
++			_       [2]unsafe.Pointer
++			_       C.ulong
++			md_data unsafe.Pointer
++		}
++		return (*mdCtx)(unsafe.Pointer(h.ctx)).md_data
++	case 3:
++		// https://github.com/openssl/openssl/blob/5675a5aaf6a2e489022bcfc18330dae9263e598e/crypto/evp/evp_local.h#L16.
++		type mdCtx struct {
++			_      [3]unsafe.Pointer
++			_      C.ulong
++			_      [3]unsafe.Pointer
++			algctx unsafe.Pointer
++		}
++		return (*mdCtx)(unsafe.Pointer(h.ctx)).algctx
++	default:
++		panic(errUnsupportedVersion())
++	}
++}
++
++// NewMD4 returns a new MD4 hash.
++// The returned hash doesn't implement encoding.BinaryMarshaler and
++// encoding.BinaryUnmarshaler.
++func NewMD4() hash.Hash {
++	return &md4Hash{
++		evpHash: newEvpHash(crypto.MD4, 16, 64),
++	}
++}
++
++type md4Hash struct {
++	*evpHash
++	out [16]byte
++}
++
++func (h *md4Hash) Sum(in []byte) []byte {
++	h.sum(h.out[:])
++	return append(in, h.out[:]...)
++}
++
++// NewMD5 returns a new MD5 hash.
++func NewMD5() hash.Hash {
++	return &md5Hash{
++		evpHash: newEvpHash(crypto.MD5, 16, 64),
++	}
++}
++
++// md5State layout is taken from
++// https://github.com/openssl/openssl/blob/0418e993c717a6863f206feaa40673a261de7395/include/openssl/md5.h#L33.
++type md5State struct {
++	h      [4]uint32
++	nl, nh uint32
++	x      [64]byte
++	nx     uint32
++}
++
++type md5Hash struct {
++	*evpHash
++	out [16]byte
++}
++
++func (h *md5Hash) Sum(in []byte) []byte {
++	h.sum(h.out[:])
++	return append(in, h.out[:]...)
++}
++
++const (
++	md5Magic         = "md5\x01"
++	md5MarshaledSize = len(md5Magic) + 4*4 + 64 + 8
++)
++
++func (h *md5Hash) MarshalBinary() ([]byte, error) {
++	d := (*md5State)(h.hashState())
++	if d == nil {
++		return nil, errors.New("crypto/md5: can't retrieve hash state")
++	}
++	b := make([]byte, 0, md5MarshaledSize)
++	b = append(b, md5Magic...)
++	b = appendUint32(b, d.h[0])
++	b = appendUint32(b, d.h[1])
++	b = appendUint32(b, d.h[2])
++	b = appendUint32(b, d.h[3])
++	b = append(b, d.x[:d.nx]...)
++	b = b[:len(b)+len(d.x)-int(d.nx)] // already zero
++	b = appendUint64(b, uint64(d.nl)>>3|uint64(d.nh)<<29)
++	return b, nil
++}
++
++func (h *md5Hash) UnmarshalBinary(b []byte) error {
++	if len(b) < len(md5Magic) || string(b[:len(md5Magic)]) != md5Magic {
++		return errors.New("crypto/md5: invalid hash state identifier")
++	}
++	if len(b) != md5MarshaledSize {
++		return errors.New("crypto/md5: invalid hash state size")
++	}
++	d := (*md5State)(h.hashState())
++	if d == nil {
++		return errors.New("crypto/md5: can't retrieve hash state")
++	}
++	b = b[len(md5Magic):]
++	b, d.h[0] = consumeUint32(b)
++	b, d.h[1] = consumeUint32(b)
++	b, d.h[2] = consumeUint32(b)
++	b, d.h[3] = consumeUint32(b)
++	b = b[copy(d.x[:], b):]
++	_, n := consumeUint64(b)
++	d.nl = uint32(n << 3)
++	d.nh = uint32(n >> 29)
++	d.nx = uint32(n) % 64
++	return nil
++}
++
++// NewSHA1 returns a new SHA1 hash.
++func NewSHA1() hash.Hash {
++	return &sha1Hash{
++		evpHash: newEvpHash(crypto.SHA1, 20, 64),
++	}
++}
++
++type sha1Hash struct {
++	*evpHash
++	out [20]byte
++}
++
++func (h *sha1Hash) Sum(in []byte) []byte {
++	h.sum(h.out[:])
++	return append(in, h.out[:]...)
++}
++
++// sha1State layout is taken from
++// https://github.com/openssl/openssl/blob/0418e993c717a6863f206feaa40673a261de7395/include/openssl/sha.h#L34.
++type sha1State struct {
++	h      [5]uint32
++	nl, nh uint32
++	x      [64]byte
++	nx     uint32
++}
++
++const (
++	sha1Magic         = "sha\x01"
++	sha1MarshaledSize = len(sha1Magic) + 5*4 + 64 + 8
++)
++
++func (h *sha1Hash) MarshalBinary() ([]byte, error) {
++	d := (*sha1State)(h.hashState())
++	if d == nil {
++		return nil, errors.New("crypto/sha1: can't retrieve hash state")
++	}
++	b := make([]byte, 0, sha1MarshaledSize)
++	b = append(b, sha1Magic...)
++	b = appendUint32(b, d.h[0])
++	b = appendUint32(b, d.h[1])
++	b = appendUint32(b, d.h[2])
++	b = appendUint32(b, d.h[3])
++	b = appendUint32(b, d.h[4])
++	b = append(b, d.x[:d.nx]...)
++	b = b[:len(b)+len(d.x)-int(d.nx)] // already zero
++	b = appendUint64(b, uint64(d.nl)>>3|uint64(d.nh)<<29)
++	return b, nil
++}
++
++func (h *sha1Hash) UnmarshalBinary(b []byte) error {
++	if len(b) < len(sha1Magic) || string(b[:len(sha1Magic)]) != sha1Magic {
++		return errors.New("crypto/sha1: invalid hash state identifier")
++	}
++	if len(b) != sha1MarshaledSize {
++		return errors.New("crypto/sha1: invalid hash state size")
++	}
++	d := (*sha1State)(h.hashState())
++	if d == nil {
++		return errors.New("crypto/sha1: can't retrieve hash state")
++	}
++	b = b[len(sha1Magic):]
++	b, d.h[0] = consumeUint32(b)
++	b, d.h[1] = consumeUint32(b)
++	b, d.h[2] = consumeUint32(b)
++	b, d.h[3] = consumeUint32(b)
++	b, d.h[4] = consumeUint32(b)
++	b = b[copy(d.x[:], b):]
++	_, n := consumeUint64(b)
++	d.nl = uint32(n << 3)
++	d.nh = uint32(n >> 29)
++	d.nx = uint32(n) % 64
++	return nil
++}
++
++// NewSHA224 returns a new SHA224 hash.
++func NewSHA224() hash.Hash {
++	return &sha224Hash{
++		evpHash: newEvpHash(crypto.SHA224, 224/8, 64),
++	}
++}
++
++type sha224Hash struct {
++	*evpHash
++	out [224 / 8]byte
++}
++
++func (h *sha224Hash) Sum(in []byte) []byte {
++	h.sum(h.out[:])
++	return append(in, h.out[:]...)
++}
++
++// NewSHA256 returns a new SHA256 hash.
++func NewSHA256() hash.Hash {
++	return &sha256Hash{
++		evpHash: newEvpHash(crypto.SHA256, 256/8, 64),
++	}
++}
++
++type sha256Hash struct {
++	*evpHash
++	out [256 / 8]byte
++}
++
++func (h *sha256Hash) Sum(in []byte) []byte {
++	h.sum(h.out[:])
++	return append(in, h.out[:]...)
++}
++
++const (
++	magic224         = "sha\x02"
++	magic256         = "sha\x03"
++	marshaledSize256 = len(magic256) + 8*4 + 64 + 8
++)
++
++// sha256State layout is taken from
++// https://github.com/openssl/openssl/blob/0418e993c717a6863f206feaa40673a261de7395/include/openssl/sha.h#L51.
++type sha256State struct {
++	h      [8]uint32
++	nl, nh uint32
++	x      [64]byte
++	nx     uint32
++}
++
++func (h *sha224Hash) MarshalBinary() ([]byte, error) {
++	d := (*sha256State)(h.hashState())
++	if d == nil {
++		return nil, errors.New("crypto/sha256: can't retrieve hash state")
++	}
++	b := make([]byte, 0, marshaledSize256)
++	b = append(b, magic224...)
++	b = appendUint32(b, d.h[0])
++	b = appendUint32(b, d.h[1])
++	b = appendUint32(b, d.h[2])
++	b = appendUint32(b, d.h[3])
++	b = appendUint32(b, d.h[4])
++	b = appendUint32(b, d.h[5])
++	b = appendUint32(b, d.h[6])
++	b = appendUint32(b, d.h[7])
++	b = append(b, d.x[:d.nx]...)
++	b = b[:len(b)+len(d.x)-int(d.nx)] // already zero
++	b = appendUint64(b, uint64(d.nl)>>3|uint64(d.nh)<<29)
++	return b, nil
++}
++
++func (h *sha256Hash) MarshalBinary() ([]byte, error) {
++	d := (*sha256State)(h.hashState())
++	if d == nil {
++		return nil, errors.New("crypto/sha256: can't retrieve hash state")
++	}
++	b := make([]byte, 0, marshaledSize256)
++	b = append(b, magic256...)
++	b = appendUint32(b, d.h[0])
++	b = appendUint32(b, d.h[1])
++	b = appendUint32(b, d.h[2])
++	b = appendUint32(b, d.h[3])
++	b = appendUint32(b, d.h[4])
++	b = appendUint32(b, d.h[5])
++	b = appendUint32(b, d.h[6])
++	b = appendUint32(b, d.h[7])
++	b = append(b, d.x[:d.nx]...)
++	b = b[:len(b)+len(d.x)-int(d.nx)] // already zero
++	b = appendUint64(b, uint64(d.nl)>>3|uint64(d.nh)<<29)
++	return b, nil
++}
++
++func (h *sha224Hash) UnmarshalBinary(b []byte) error {
++	if len(b) < len(magic224) || string(b[:len(magic224)]) != magic224 {
++		return errors.New("crypto/sha256: invalid hash state identifier")
++	}
++	if len(b) != marshaledSize256 {
++		return errors.New("crypto/sha256: invalid hash state size")
++	}
++	d := (*sha256State)(h.hashState())
++	if d == nil {
++		return errors.New("crypto/sha256: can't retrieve hash state")
++	}
++	b = b[len(magic224):]
++	b, d.h[0] = consumeUint32(b)
++	b, d.h[1] = consumeUint32(b)
++	b, d.h[2] = consumeUint32(b)
++	b, d.h[3] = consumeUint32(b)
++	b, d.h[4] = consumeUint32(b)
++	b, d.h[5] = consumeUint32(b)
++	b, d.h[6] = consumeUint32(b)
++	b, d.h[7] = consumeUint32(b)
++	b = b[copy(d.x[:], b):]
++	_, n := consumeUint64(b)
++	d.nl = uint32(n << 3)
++	d.nh = uint32(n >> 29)
++	d.nx = uint32(n) % 64
++	return nil
++}
++
++func (h *sha256Hash) UnmarshalBinary(b []byte) error {
++	if len(b) < len(magic256) || string(b[:len(magic256)]) != magic256 {
++		return errors.New("crypto/sha256: invalid hash state identifier")
++	}
++	if len(b) != marshaledSize256 {
++		return errors.New("crypto/sha256: invalid hash state size")
++	}
++	d := (*sha256State)(h.hashState())
++	if d == nil {
++		return errors.New("crypto/sha256: can't retrieve hash state")
++	}
++	b = b[len(magic256):]
++	b, d.h[0] = consumeUint32(b)
++	b, d.h[1] = consumeUint32(b)
++	b, d.h[2] = consumeUint32(b)
++	b, d.h[3] = consumeUint32(b)
++	b, d.h[4] = consumeUint32(b)
++	b, d.h[5] = consumeUint32(b)
++	b, d.h[6] = consumeUint32(b)
++	b, d.h[7] = consumeUint32(b)
++	b = b[copy(d.x[:], b):]
++	_, n := consumeUint64(b)
++	d.nl = uint32(n << 3)
++	d.nh = uint32(n >> 29)
++	d.nx = uint32(n) % 64
++	return nil
++}
++
++// NewSHA384 returns a new SHA384 hash.
++func NewSHA384() hash.Hash {
++	return &sha384Hash{
++		evpHash: newEvpHash(crypto.SHA384, 384/8, 128),
++	}
++}
++
++type sha384Hash struct {
++	*evpHash
++	out [384 / 8]byte
++}
++
++func (h *sha384Hash) Sum(in []byte) []byte {
++	h.sum(h.out[:])
++	return append(in, h.out[:]...)
++}
++
++// NewSHA512 returns a new SHA512 hash.
++func NewSHA512() hash.Hash {
++	return &sha512Hash{
++		evpHash: newEvpHash(crypto.SHA512, 512/8, 128),
++	}
++}
++
++type sha512Hash struct {
++	*evpHash
++	out [512 / 8]byte
++}
++
++func (h *sha512Hash) Sum(in []byte) []byte {
++	h.sum(h.out[:])
++	return append(in, h.out[:]...)
++}
++
++// sha512State layout is taken from
++// https://github.com/openssl/openssl/blob/0418e993c717a6863f206feaa40673a261de7395/include/openssl/sha.h#L95.
++type sha512State struct {
++	h      [8]uint64
++	nl, nh uint64
++	x      [128]byte
++	nx     uint32
++}
++
++const (
++	magic384         = "sha\x04"
++	magic512_224     = "sha\x05"
++	magic512_256     = "sha\x06"
++	magic512         = "sha\x07"
++	marshaledSize512 = len(magic512) + 8*8 + 128 + 8
++)
++
++func (h *sha384Hash) MarshalBinary() ([]byte, error) {
++	d := (*sha512State)(h.hashState())
++	if d == nil {
++		return nil, errors.New("crypto/sha512: can't retrieve hash state")
++	}
++	b := make([]byte, 0, marshaledSize512)
++	b = append(b, magic384...)
++	b = appendUint64(b, d.h[0])
++	b = appendUint64(b, d.h[1])
++	b = appendUint64(b, d.h[2])
++	b = appendUint64(b, d.h[3])
++	b = appendUint64(b, d.h[4])
++	b = appendUint64(b, d.h[5])
++	b = appendUint64(b, d.h[6])
++	b = appendUint64(b, d.h[7])
++	b = append(b, d.x[:d.nx]...)
++	b = b[:len(b)+len(d.x)-int(d.nx)] // already zero
++	b = appendUint64(b, d.nl>>3|d.nh<<61)
++	return b, nil
++}
++
++func (h *sha512Hash) MarshalBinary() ([]byte, error) {
++	d := (*sha512State)(h.hashState())
++	if d == nil {
++		return nil, errors.New("crypto/sha512: can't retrieve hash state")
++	}
++	b := make([]byte, 0, marshaledSize512)
++	b = append(b, magic512...)
++	b = appendUint64(b, d.h[0])
++	b = appendUint64(b, d.h[1])
++	b = appendUint64(b, d.h[2])
++	b = appendUint64(b, d.h[3])
++	b = appendUint64(b, d.h[4])
++	b = appendUint64(b, d.h[5])
++	b = appendUint64(b, d.h[6])
++	b = appendUint64(b, d.h[7])
++	b = append(b, d.x[:d.nx]...)
++	b = b[:len(b)+len(d.x)-int(d.nx)] // already zero
++	b = appendUint64(b, d.nl>>3|d.nh<<61)
++	return b, nil
++}
++
++func (h *sha384Hash) UnmarshalBinary(b []byte) error {
++	if len(b) < len(magic512) {
++		return errors.New("crypto/sha512: invalid hash state identifier")
++	}
++	if string(b[:len(magic384)]) != magic384 {
++		return errors.New("crypto/sha512: invalid hash state identifier")
++	}
++	if len(b) != marshaledSize512 {
++		return errors.New("crypto/sha512: invalid hash state size")
++	}
++	d := (*sha512State)(h.hashState())
++	if d == nil {
++		return errors.New("crypto/sha512: can't retrieve hash state")
++	}
++	b = b[len(magic512):]
++	b, d.h[0] = consumeUint64(b)
++	b, d.h[1] = consumeUint64(b)
++	b, d.h[2] = consumeUint64(b)
++	b, d.h[3] = consumeUint64(b)
++	b, d.h[4] = consumeUint64(b)
++	b, d.h[5] = consumeUint64(b)
++	b, d.h[6] = consumeUint64(b)
++	b, d.h[7] = consumeUint64(b)
++	b = b[copy(d.x[:], b):]
++	_, n := consumeUint64(b)
++	d.nl = n << 3
++	d.nh = n >> 61
++	d.nx = uint32(n) % 128
++	return nil
++}
++
++func (h *sha512Hash) UnmarshalBinary(b []byte) error {
++	if len(b) < len(magic512) {
++		return errors.New("crypto/sha512: invalid hash state identifier")
++	}
++	if string(b[:len(magic512)]) != magic512 {
++		return errors.New("crypto/sha512: invalid hash state identifier")
++	}
++	if len(b) != marshaledSize512 {
++		return errors.New("crypto/sha512: invalid hash state size")
++	}
++	d := (*sha512State)(h.hashState())
++	if d == nil {
++		return errors.New("crypto/sha512: can't retrieve hash state")
++	}
++	b = b[len(magic512):]
++	b, d.h[0] = consumeUint64(b)
++	b, d.h[1] = consumeUint64(b)
++	b, d.h[2] = consumeUint64(b)
++	b, d.h[3] = consumeUint64(b)
++	b, d.h[4] = consumeUint64(b)
++	b, d.h[5] = consumeUint64(b)
++	b, d.h[6] = consumeUint64(b)
++	b, d.h[7] = consumeUint64(b)
++	b = b[copy(d.x[:], b):]
++	_, n := consumeUint64(b)
++	d.nl = n << 3
++	d.nh = n >> 61
++	d.nx = uint32(n) % 128
++	return nil
++}
++
++// NewSHA3_224 returns a new SHA3-224 hash.
++func NewSHA3_224() hash.Hash {
++	return &sha3_224Hash{
++		evpHash: newEvpHash(crypto.SHA3_224, 224/8, 64),
++	}
++}
++
++type sha3_224Hash struct {
++	*evpHash
++	out [224 / 8]byte
++}
++
++func (h *sha3_224Hash) Sum(in []byte) []byte {
++	h.sum(h.out[:])
++	return append(in, h.out[:]...)
++}
++
++// NewSHA3_256 returns a new SHA3-256 hash.
++func NewSHA3_256() hash.Hash {
++	return &sha3_256Hash{
++		evpHash: newEvpHash(crypto.SHA3_256, 256/8, 64),
++	}
++}
++
++type sha3_256Hash struct {
++	*evpHash
++	out [256 / 8]byte
++}
++
++func (h *sha3_256Hash) Sum(in []byte) []byte {
++	h.sum(h.out[:])
++	return append(in, h.out[:]...)
++}
++
++// NewSHA3_384 returns a new SHA3-384 hash.
++func NewSHA3_384() hash.Hash {
++	return &sha3_384Hash{
++		evpHash: newEvpHash(crypto.SHA3_384, 384/8, 128),
++	}
++}
++
++type sha3_384Hash struct {
++	*evpHash
++	out [384 / 8]byte
++}
++
++func (h *sha3_384Hash) Sum(in []byte) []byte {
++	h.sum(h.out[:])
++	return append(in, h.out[:]...)
++}
++
++// NewSHA3_512 returns a new SHA3-512 hash.
++func NewSHA3_512() hash.Hash {
++	return &sha3_512Hash{
++		evpHash: newEvpHash(crypto.SHA3_512, 512/8, 128),
++	}
++}
++
++type sha3_512Hash struct {
++	*evpHash
++	out [512 / 8]byte
++}
++
++func (h *sha3_512Hash) Sum(in []byte) []byte {
++	h.sum(h.out[:])
++	return append(in, h.out[:]...)
++}
++
++// appendUint64 appends x into b as a big endian byte sequence.
++func appendUint64(b []byte, x uint64) []byte {
++	return append(b,
++		byte(x>>56),
++		byte(x>>48),
++		byte(x>>40),
++		byte(x>>32),
++		byte(x>>24),
++		byte(x>>16),
++		byte(x>>8),
++		byte(x),
++	)
++}
++
++// appendUint32 appends x into b as a big endian byte sequence.
++func appendUint32(b []byte, x uint32) []byte {
++	return append(b, byte(x>>24), byte(x>>16), byte(x>>8), byte(x))
++}
++
++// consumeUint64 reads a big endian uint64 number from b.
++func consumeUint64(b []byte) ([]byte, uint64) {
++	_ = b[7]
++	x := uint64(b[7]) | uint64(b[6])<<8 | uint64(b[5])<<16 | uint64(b[4])<<24 |
++		uint64(b[3])<<32 | uint64(b[2])<<40 | uint64(b[1])<<48 | uint64(b[0])<<56
++	return b[8:], x
++}
++
++// consumeUint32 reads a big endian uint32 number from b.
++func consumeUint32(b []byte) ([]byte, uint32) {
++	_ = b[3]
++	x := uint32(b[3]) | uint32(b[2])<<8 | uint32(b[1])<<16 | uint32(b[0])<<24
++	return b[4:], x
++}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/hkdf.go b/src/vendor/github.com/golang-fips/openssl/v2/hkdf.go
 new file mode 100644
-index 0000000000..18b92059cc
+index 0000000000..ac3fbba0c2
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/hkdf.go
-@@ -0,0 +1,176 @@
+@@ -0,0 +1,174 @@
 +//go:build !cmd_go_bootstrap
 +
 +package openssl
@@ -6029,9 +7295,7 @@ index 0000000000..18b92059cc
 +)
 +
 +func SupportsHKDF() bool {
-+	return vMajor > 1 ||
-+		(vMajor >= 1 && vMinor > 1) ||
-+		(vMajor >= 1 && vMinor >= 1 && vPatch >= 1)
++	return versionAtOrAbove(1, 1, 1)
 +}
 +
 +func newHKDF(h func() hash.Hash, mode C.int) (*hkdf, error) {
@@ -6436,10 +7700,10 @@ index 0000000000..ef8116ce66
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/init.go b/src/vendor/github.com/golang-fips/openssl/v2/init.go
 new file mode 100644
-index 0000000000..21126ff550
+index 0000000000..a14663298b
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/init.go
-@@ -0,0 +1,63 @@
+@@ -0,0 +1,64 @@
 +//go:build !cmd_go_bootstrap
 +
 +package openssl
@@ -6455,7 +7719,7 @@ index 0000000000..21126ff550
 +// as reported by the OpenSSL API.
 +//
 +// See Init() for details about file.
-+func opensslInit(file string) (major, minor, patch int, err error) {
++func opensslInit(file string) (major, minor, patch uint, err error) {
 +	// Load the OpenSSL shared library using dlopen.
 +	handle, err := dlopen(file)
 +	if err != nil {
@@ -6466,12 +7730,13 @@ index 0000000000..21126ff550
 +	// Notice that major and minor could not match with the version parameter
 +	// in case the name of the shared library file differs from the OpenSSL
 +	// version it contains.
-+	major = int(C.go_openssl_version_major(handle))
-+	minor = int(C.go_openssl_version_minor(handle))
-+	patch = int(C.go_openssl_version_patch(handle))
-+	if major == -1 || minor == -1 || patch == -1 {
++	imajor := int(C.go_openssl_version_major(handle))
++	iminor := int(C.go_openssl_version_minor(handle))
++	ipatch := int(C.go_openssl_version_patch(handle))
++	if imajor < 0 || iminor < 0 || ipatch < 0 {
 +		return 0, 0, 0, errors.New("openssl: can't retrieve OpenSSL version")
 +	}
++	major, minor, patch = uint(imajor), uint(iminor), uint(ipatch)
 +	var supported bool
 +	if major == 1 {
 +		supported = minor == 0 || minor == 1
@@ -6485,7 +7750,7 @@ index 0000000000..21126ff550
 +
 +	// Load the OpenSSL functions.
 +	// See shims.go for the complete list of supported functions.
-+	C.go_openssl_load_functions(handle, C.int(major), C.int(minor), C.int(patch))
++	C.go_openssl_load_functions(handle, C.uint(major), C.uint(minor), C.uint(patch))
 +
 +	// Initialize OpenSSL.
 +	C.go_openssl_OPENSSL_init()
@@ -6584,10 +7849,10 @@ index 0000000000..3778e21227
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/openssl.go b/src/vendor/github.com/golang-fips/openssl/v2/openssl.go
 new file mode 100644
-index 0000000000..5c9324d858
+index 0000000000..691bb16f72
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/openssl.go
-@@ -0,0 +1,408 @@
+@@ -0,0 +1,419 @@
 +//go:build !cmd_go_bootstrap
 +
 +// Package openssl provides access to OpenSSL cryptographic functions.
@@ -6609,7 +7874,7 @@ index 0000000000..5c9324d858
 +var (
 +	// vMajor and vMinor hold the major/minor OpenSSL version.
 +	// It is only populated if Init has been called.
-+	vMajor, vMinor, vPatch int
++	vMajor, vMinor, vPatch uint
 +)
 +
 +var (
@@ -6659,8 +7924,12 @@ index 0000000000..5c9324d858
 +	return initErr
 +}
 +
++func utoa(n uint) string {
++	return strconv.FormatUint(uint64(n), 10)
++}
++
 +func errUnsupportedVersion() error {
-+	return errors.New("openssl: OpenSSL version: " + strconv.Itoa(vMajor) + "." + strconv.Itoa(vMinor) + "." + strconv.Itoa(vPatch))
++	return errors.New("openssl: OpenSSL version: " + utoa(vMajor) + "." + utoa(vMinor) + "." + utoa(vPatch))
 +}
 +
 +type fail string
@@ -6996,6 +8265,13 @@ index 0000000000..5c9324d858
 +func CheckLeaks() {
 +	C.go_openssl_do_leak_check()
 +}
++
++// versionAtOrAbove returns true when
++// (vMajor, vMinor, vPatch) >= (major, minor, patch),
++// compared lexicographically.
++func versionAtOrAbove(major, minor, patch uint) bool {
++	return vMajor > major || (vMajor == major && vMinor > minor) || (vMajor == major && vMinor == minor && vPatch >= patch)
++}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/pbkdf2.go b/src/vendor/github.com/golang-fips/openssl/v2/pbkdf2.go
 new file mode 100644
 index 0000000000..a895eab2d5
@@ -7188,6 +8464,78 @@ index 0000000000..9fd709635c
 +}
 +
 +const RandReader = randReader(0)
+diff --git a/src/vendor/github.com/golang-fips/openssl/v2/rc4.go b/src/vendor/github.com/golang-fips/openssl/v2/rc4.go
+new file mode 100644
+index 0000000000..f88150591e
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl/v2/rc4.go
+@@ -0,0 +1,66 @@
++//go:build !cmd_go_bootstrap
++
++package openssl
++
++// #include "goopenssl.h"
++import "C"
++import "runtime"
++
++// SupportsRC4 returns true if NewRC4Cipher is supported.
++func SupportsRC4() bool {
++	// True for stock OpenSSL 1 w/o FIPS.
++	// False for stock OpenSSL 3 unless the legacy provider is available.
++	return (versionAtOrAbove(1, 1, 0) || !FIPS()) && loadCipher(cipherRC4, cipherModeNone) != nil
++}
++
++// A RC4Cipher is an instance of RC4 using a particular key.
++type RC4Cipher struct {
++	ctx C.GO_EVP_CIPHER_CTX_PTR
++}
++
++// NewRC4Cipher creates and returns a new Cipher.
++func NewRC4Cipher(key []byte) (*RC4Cipher, error) {
++	ctx, err := newCipherCtx(cipherRC4, cipherModeNone, cipherOpEncrypt, key, nil)
++	if err != nil {
++		return nil, err
++	}
++	c := &RC4Cipher{ctx}
++	runtime.SetFinalizer(c, (*RC4Cipher).finalize)
++	return c, nil
++}
++
++func (c *RC4Cipher) finalize() {
++	if c.ctx != nil {
++		C.go_openssl_EVP_CIPHER_CTX_free(c.ctx)
++	}
++}
++
++// Reset zeros the key data and makes the Cipher unusable.
++func (c *RC4Cipher) Reset() {
++	if c.ctx != nil {
++		C.go_openssl_EVP_CIPHER_CTX_free(c.ctx)
++		c.ctx = nil
++	}
++}
++
++// XORKeyStream sets dst to the result of XORing src with the key stream.
++// Dst and src must overlap entirely or not at all.
++func (c *RC4Cipher) XORKeyStream(dst, src []byte) {
++	if c.ctx == nil || len(src) == 0 {
++		return
++	}
++	if inexactOverlap(dst[:len(src)], src) {
++		panic("crypto/rc4: invalid buffer overlap")
++	}
++	// panic if len(dst) < len(src) with a runtime out of bound error,
++	// which is what crypto/rc4 does.
++	_ = dst[len(src)-1]
++	var outLen C.int
++	if C.go_openssl_EVP_EncryptUpdate(c.ctx, base(dst), &outLen, base(src), C.int(len(src))) != 1 {
++		panic("crypto/cipher: EncryptUpdate failed")
++	}
++	if int(outLen) != len(src) {
++		panic("crypto/rc4: src not fully XORed")
++	}
++	runtime.KeepAlive(c)
++}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/rsa.go b/src/vendor/github.com/golang-fips/openssl/v2/rsa.go
 new file mode 100644
 index 0000000000..5aef65b84f
@@ -7945,714 +9293,12 @@ index 4de656b0e8..273a9d49d6 100644
 +	}
 +	return newEvpFromParams(C.GO_EVP_PKEY_RSA, C.int(selection), params)
 +}
-diff --git a/src/vendor/github.com/golang-fips/openssl/v2/sha.go b/src/vendor/github.com/golang-fips/openssl/v2/sha.go
-new file mode 100644
-index 0000000000..c15e1d77cb
---- /dev/null
-+++ b/src/vendor/github.com/golang-fips/openssl/v2/sha.go
-@@ -0,0 +1,696 @@
-+//go:build !cmd_go_bootstrap
-+
-+package openssl
-+
-+// #include "goopenssl.h"
-+import "C"
-+import (
-+	"crypto"
-+	"errors"
-+	"hash"
-+	"runtime"
-+	"strconv"
-+	"unsafe"
-+)
-+
-+// NOTE: Implementation ported from https://go-review.googlesource.com/c/go/+/404295.
-+// The cgo calls in this file are arranged to avoid marking the parameters as escaping.
-+// To do that, we call noescape (including via addr).
-+// We must also make sure that the data pointer arguments have the form unsafe.Pointer(&...)
-+// so that cgo does not annotate them with cgoCheckPointer calls. If it did that, it might look
-+// beyond the byte slice and find Go pointers in unprocessed parts of a larger allocation.
-+// To do both of these simultaneously, the idiom is unsafe.Pointer(&*addr(p)),
-+// where addr returns the base pointer of p, substituting a non-nil pointer for nil,
-+// and applying a noescape along the way.
-+// This is all to preserve compatibility with the allocation behavior of the non-openssl implementations.
-+
-+func shaX(ch crypto.Hash, p []byte, sum []byte) bool {
-+	return C.go_openssl_EVP_Digest(unsafe.Pointer(&*addr(p)), C.size_t(len(p)), (*C.uchar)(unsafe.Pointer(&*addr(sum))), nil, cryptoHashToMD(ch), nil) != 0
-+}
-+
-+func SHA1(p []byte) (sum [20]byte) {
-+	if !shaX(crypto.SHA1, p, sum[:]) {
-+		panic("openssl: SHA1 failed")
-+	}
-+	return
-+}
-+
-+func SHA224(p []byte) (sum [28]byte) {
-+	if !shaX(crypto.SHA224, p, sum[:]) {
-+		panic("openssl: SHA224 failed")
-+	}
-+	return
-+}
-+
-+func SHA256(p []byte) (sum [32]byte) {
-+	if !shaX(crypto.SHA256, p, sum[:]) {
-+		panic("openssl: SHA256 failed")
-+	}
-+	return
-+}
-+
-+func SHA384(p []byte) (sum [48]byte) {
-+	if !shaX(crypto.SHA384, p, sum[:]) {
-+		panic("openssl: SHA384 failed")
-+	}
-+	return
-+}
-+
-+func SHA512(p []byte) (sum [64]byte) {
-+	if !shaX(crypto.SHA512, p, sum[:]) {
-+		panic("openssl: SHA512 failed")
-+	}
-+	return
-+}
-+
-+// SupportsHash returns true if a hash.Hash implementation is supported for h.
-+func SupportsHash(h crypto.Hash) bool {
-+	switch h {
-+	case crypto.SHA1, crypto.SHA224, crypto.SHA256, crypto.SHA384, crypto.SHA512:
-+		return true
-+	case crypto.SHA3_224, crypto.SHA3_256, crypto.SHA3_384, crypto.SHA3_512:
-+		return vMajor > 1 ||
-+			(vMajor >= 1 && vMinor > 1) ||
-+			(vMajor >= 1 && vMinor >= 1 && vPatch >= 1)
-+	}
-+	return false
-+}
-+
-+func SHA3_224(p []byte) (sum [28]byte) {
-+	if !shaX(crypto.SHA3_224, p, sum[:]) {
-+		panic("openssl: SHA3_224 failed")
-+	}
-+	return
-+}
-+
-+func SHA3_256(p []byte) (sum [32]byte) {
-+	if !shaX(crypto.SHA3_256, p, sum[:]) {
-+		panic("openssl: SHA3_256 failed")
-+	}
-+	return
-+}
-+
-+func SHA3_384(p []byte) (sum [48]byte) {
-+	if !shaX(crypto.SHA3_384, p, sum[:]) {
-+		panic("openssl: SHA3_384 failed")
-+	}
-+	return
-+}
-+
-+func SHA3_512(p []byte) (sum [64]byte) {
-+	if !shaX(crypto.SHA3_512, p, sum[:]) {
-+		panic("openssl: SHA3_512 failed")
-+	}
-+	return
-+}
-+
-+// evpHash implements generic hash methods.
-+type evpHash struct {
-+	ctx C.GO_EVP_MD_CTX_PTR
-+	// ctx2 is used in evpHash.sum to avoid changing
-+	// the state of ctx. Having it here allows reusing the
-+	// same allocated object multiple times.
-+	ctx2      C.GO_EVP_MD_CTX_PTR
-+	size      int
-+	blockSize int
-+}
-+
-+func newEvpHash(ch crypto.Hash, size, blockSize int) *evpHash {
-+	md := cryptoHashToMD(ch)
-+	if md == nil {
-+		panic("openssl: unsupported hash function: " + strconv.Itoa(int(ch)))
-+	}
-+	ctx := C.go_openssl_EVP_MD_CTX_new()
-+	if C.go_openssl_EVP_DigestInit_ex(ctx, md, nil) != 1 {
-+		C.go_openssl_EVP_MD_CTX_free(ctx)
-+		panic(newOpenSSLError("EVP_DigestInit_ex"))
-+	}
-+	ctx2 := C.go_openssl_EVP_MD_CTX_new()
-+	h := &evpHash{
-+		ctx:       ctx,
-+		ctx2:      ctx2,
-+		size:      size,
-+		blockSize: blockSize,
-+	}
-+	runtime.SetFinalizer(h, (*evpHash).finalize)
-+	return h
-+}
-+
-+func (h *evpHash) finalize() {
-+	C.go_openssl_EVP_MD_CTX_free(h.ctx)
-+	C.go_openssl_EVP_MD_CTX_free(h.ctx2)
-+}
-+
-+func (h *evpHash) Reset() {
-+	// There is no need to reset h.ctx2 because it is always reset after
-+	// use in evpHash.sum.
-+	if C.go_openssl_EVP_DigestInit_ex(h.ctx, nil, nil) != 1 {
-+		panic(newOpenSSLError("EVP_DigestInit_ex"))
-+	}
-+	runtime.KeepAlive(h)
-+}
-+
-+func (h *evpHash) Write(p []byte) (int, error) {
-+	if len(p) > 0 && C.go_openssl_EVP_DigestUpdate(h.ctx, unsafe.Pointer(&*addr(p)), C.size_t(len(p))) != 1 {
-+		panic(newOpenSSLError("EVP_DigestUpdate"))
-+	}
-+	runtime.KeepAlive(h)
-+	return len(p), nil
-+}
-+
-+func (h *evpHash) WriteString(s string) (int, error) {
-+	if len(s) > 0 && C.go_openssl_EVP_DigestUpdate(h.ctx, unsafe.Pointer(unsafe.StringData(s)), C.size_t(len(s))) == 0 {
-+		panic("openssl: EVP_DigestUpdate failed")
-+	}
-+	runtime.KeepAlive(h)
-+	return len(s), nil
-+}
-+
-+func (h *evpHash) WriteByte(c byte) error {
-+	if C.go_openssl_EVP_DigestUpdate(h.ctx, unsafe.Pointer(&c), 1) == 0 {
-+		panic("openssl: EVP_DigestUpdate failed")
-+	}
-+	runtime.KeepAlive(h)
-+	return nil
-+}
-+
-+func (h *evpHash) Size() int {
-+	return h.size
-+}
-+
-+func (h *evpHash) BlockSize() int {
-+	return h.blockSize
-+}
-+
-+func (h *evpHash) sum(out []byte) {
-+	if C.go_sha_sum(h.ctx, h.ctx2, base(out)) != 1 {
-+		panic(newOpenSSLError("go_sha_sum"))
-+	}
-+	runtime.KeepAlive(h)
-+}
-+
-+// shaState returns a pointer to the internal sha structure.
-+//
-+// The EVP_MD_CTX memory layout has changed in OpenSSL 3
-+// and the property holding the internal structure is no longer md_data but algctx.
-+func (h *evpHash) shaState() unsafe.Pointer {
-+	switch vMajor {
-+	case 1:
-+		// https://github.com/openssl/openssl/blob/0418e993c717a6863f206feaa40673a261de7395/crypto/evp/evp_local.h#L12.
-+		type mdCtx struct {
-+			_       [2]unsafe.Pointer
-+			_       C.ulong
-+			md_data unsafe.Pointer
-+		}
-+		return (*mdCtx)(unsafe.Pointer(h.ctx)).md_data
-+	case 3:
-+		// https://github.com/openssl/openssl/blob/5675a5aaf6a2e489022bcfc18330dae9263e598e/crypto/evp/evp_local.h#L16.
-+		type mdCtx struct {
-+			_      [3]unsafe.Pointer
-+			_      C.ulong
-+			_      [3]unsafe.Pointer
-+			algctx unsafe.Pointer
-+		}
-+		return (*mdCtx)(unsafe.Pointer(h.ctx)).algctx
-+	default:
-+		panic(errUnsupportedVersion())
-+	}
-+}
-+
-+// NewSHA1 returns a new SHA1 hash.
-+func NewSHA1() hash.Hash {
-+	return &sha1Hash{
-+		evpHash: newEvpHash(crypto.SHA1, 20, 64),
-+	}
-+}
-+
-+type sha1Hash struct {
-+	*evpHash
-+	out [20]byte
-+}
-+
-+func (h *sha1Hash) Sum(in []byte) []byte {
-+	h.sum(h.out[:])
-+	return append(in, h.out[:]...)
-+}
-+
-+// sha1State layout is taken from
-+// https://github.com/openssl/openssl/blob/0418e993c717a6863f206feaa40673a261de7395/include/openssl/sha.h#L34.
-+type sha1State struct {
-+	h      [5]uint32
-+	nl, nh uint32
-+	x      [64]byte
-+	nx     uint32
-+}
-+
-+const (
-+	sha1Magic         = "sha\x01"
-+	sha1MarshaledSize = len(sha1Magic) + 5*4 + 64 + 8
-+)
-+
-+func (h *sha1Hash) MarshalBinary() ([]byte, error) {
-+	d := (*sha1State)(h.shaState())
-+	if d == nil {
-+		return nil, errors.New("crypto/sha1: can't retrieve hash state")
-+	}
-+	b := make([]byte, 0, sha1MarshaledSize)
-+	b = append(b, sha1Magic...)
-+	b = appendUint32(b, d.h[0])
-+	b = appendUint32(b, d.h[1])
-+	b = appendUint32(b, d.h[2])
-+	b = appendUint32(b, d.h[3])
-+	b = appendUint32(b, d.h[4])
-+	b = append(b, d.x[:d.nx]...)
-+	b = b[:len(b)+len(d.x)-int(d.nx)] // already zero
-+	b = appendUint64(b, uint64(d.nl)>>3|uint64(d.nh)<<29)
-+	return b, nil
-+}
-+
-+func (h *sha1Hash) UnmarshalBinary(b []byte) error {
-+	if len(b) < len(sha1Magic) || string(b[:len(sha1Magic)]) != sha1Magic {
-+		return errors.New("crypto/sha1: invalid hash state identifier")
-+	}
-+	if len(b) != sha1MarshaledSize {
-+		return errors.New("crypto/sha1: invalid hash state size")
-+	}
-+	d := (*sha1State)(h.shaState())
-+	if d == nil {
-+		return errors.New("crypto/sha1: can't retrieve hash state")
-+	}
-+	b = b[len(sha1Magic):]
-+	b, d.h[0] = consumeUint32(b)
-+	b, d.h[1] = consumeUint32(b)
-+	b, d.h[2] = consumeUint32(b)
-+	b, d.h[3] = consumeUint32(b)
-+	b, d.h[4] = consumeUint32(b)
-+	b = b[copy(d.x[:], b):]
-+	_, n := consumeUint64(b)
-+	d.nl = uint32(n << 3)
-+	d.nh = uint32(n >> 29)
-+	d.nx = uint32(n) % 64
-+	return nil
-+}
-+
-+// NewSHA224 returns a new SHA224 hash.
-+func NewSHA224() hash.Hash {
-+	return &sha224Hash{
-+		evpHash: newEvpHash(crypto.SHA224, 224/8, 64),
-+	}
-+}
-+
-+type sha224Hash struct {
-+	*evpHash
-+	out [224 / 8]byte
-+}
-+
-+func (h *sha224Hash) Sum(in []byte) []byte {
-+	h.sum(h.out[:])
-+	return append(in, h.out[:]...)
-+}
-+
-+// NewSHA256 returns a new SHA256 hash.
-+func NewSHA256() hash.Hash {
-+	return &sha256Hash{
-+		evpHash: newEvpHash(crypto.SHA256, 256/8, 64),
-+	}
-+}
-+
-+type sha256Hash struct {
-+	*evpHash
-+	out [256 / 8]byte
-+}
-+
-+func (h *sha256Hash) Sum(in []byte) []byte {
-+	h.sum(h.out[:])
-+	return append(in, h.out[:]...)
-+}
-+
-+const (
-+	magic224         = "sha\x02"
-+	magic256         = "sha\x03"
-+	marshaledSize256 = len(magic256) + 8*4 + 64 + 8
-+)
-+
-+// sha256State layout is taken from
-+// https://github.com/openssl/openssl/blob/0418e993c717a6863f206feaa40673a261de7395/include/openssl/sha.h#L51.
-+type sha256State struct {
-+	h      [8]uint32
-+	nl, nh uint32
-+	x      [64]byte
-+	nx     uint32
-+}
-+
-+func (h *sha224Hash) MarshalBinary() ([]byte, error) {
-+	d := (*sha256State)(h.shaState())
-+	if d == nil {
-+		return nil, errors.New("crypto/sha256: can't retrieve hash state")
-+	}
-+	b := make([]byte, 0, marshaledSize256)
-+	b = append(b, magic224...)
-+	b = appendUint32(b, d.h[0])
-+	b = appendUint32(b, d.h[1])
-+	b = appendUint32(b, d.h[2])
-+	b = appendUint32(b, d.h[3])
-+	b = appendUint32(b, d.h[4])
-+	b = appendUint32(b, d.h[5])
-+	b = appendUint32(b, d.h[6])
-+	b = appendUint32(b, d.h[7])
-+	b = append(b, d.x[:d.nx]...)
-+	b = b[:len(b)+len(d.x)-int(d.nx)] // already zero
-+	b = appendUint64(b, uint64(d.nl)>>3|uint64(d.nh)<<29)
-+	return b, nil
-+}
-+
-+func (h *sha256Hash) MarshalBinary() ([]byte, error) {
-+	d := (*sha256State)(h.shaState())
-+	if d == nil {
-+		return nil, errors.New("crypto/sha256: can't retrieve hash state")
-+	}
-+	b := make([]byte, 0, marshaledSize256)
-+	b = append(b, magic256...)
-+	b = appendUint32(b, d.h[0])
-+	b = appendUint32(b, d.h[1])
-+	b = appendUint32(b, d.h[2])
-+	b = appendUint32(b, d.h[3])
-+	b = appendUint32(b, d.h[4])
-+	b = appendUint32(b, d.h[5])
-+	b = appendUint32(b, d.h[6])
-+	b = appendUint32(b, d.h[7])
-+	b = append(b, d.x[:d.nx]...)
-+	b = b[:len(b)+len(d.x)-int(d.nx)] // already zero
-+	b = appendUint64(b, uint64(d.nl)>>3|uint64(d.nh)<<29)
-+	return b, nil
-+}
-+
-+func (h *sha224Hash) UnmarshalBinary(b []byte) error {
-+	if len(b) < len(magic224) || string(b[:len(magic224)]) != magic224 {
-+		return errors.New("crypto/sha256: invalid hash state identifier")
-+	}
-+	if len(b) != marshaledSize256 {
-+		return errors.New("crypto/sha256: invalid hash state size")
-+	}
-+	d := (*sha256State)(h.shaState())
-+	if d == nil {
-+		return errors.New("crypto/sha256: can't retrieve hash state")
-+	}
-+	b = b[len(magic224):]
-+	b, d.h[0] = consumeUint32(b)
-+	b, d.h[1] = consumeUint32(b)
-+	b, d.h[2] = consumeUint32(b)
-+	b, d.h[3] = consumeUint32(b)
-+	b, d.h[4] = consumeUint32(b)
-+	b, d.h[5] = consumeUint32(b)
-+	b, d.h[6] = consumeUint32(b)
-+	b, d.h[7] = consumeUint32(b)
-+	b = b[copy(d.x[:], b):]
-+	_, n := consumeUint64(b)
-+	d.nl = uint32(n << 3)
-+	d.nh = uint32(n >> 29)
-+	d.nx = uint32(n) % 64
-+	return nil
-+}
-+
-+func (h *sha256Hash) UnmarshalBinary(b []byte) error {
-+	if len(b) < len(magic256) || string(b[:len(magic256)]) != magic256 {
-+		return errors.New("crypto/sha256: invalid hash state identifier")
-+	}
-+	if len(b) != marshaledSize256 {
-+		return errors.New("crypto/sha256: invalid hash state size")
-+	}
-+	d := (*sha256State)(h.shaState())
-+	if d == nil {
-+		return errors.New("crypto/sha256: can't retrieve hash state")
-+	}
-+	b = b[len(magic256):]
-+	b, d.h[0] = consumeUint32(b)
-+	b, d.h[1] = consumeUint32(b)
-+	b, d.h[2] = consumeUint32(b)
-+	b, d.h[3] = consumeUint32(b)
-+	b, d.h[4] = consumeUint32(b)
-+	b, d.h[5] = consumeUint32(b)
-+	b, d.h[6] = consumeUint32(b)
-+	b, d.h[7] = consumeUint32(b)
-+	b = b[copy(d.x[:], b):]
-+	_, n := consumeUint64(b)
-+	d.nl = uint32(n << 3)
-+	d.nh = uint32(n >> 29)
-+	d.nx = uint32(n) % 64
-+	return nil
-+}
-+
-+// NewSHA384 returns a new SHA384 hash.
-+func NewSHA384() hash.Hash {
-+	return &sha384Hash{
-+		evpHash: newEvpHash(crypto.SHA384, 384/8, 128),
-+	}
-+}
-+
-+type sha384Hash struct {
-+	*evpHash
-+	out [384 / 8]byte
-+}
-+
-+func (h *sha384Hash) Sum(in []byte) []byte {
-+	h.sum(h.out[:])
-+	return append(in, h.out[:]...)
-+}
-+
-+// NewSHA512 returns a new SHA512 hash.
-+func NewSHA512() hash.Hash {
-+	return &sha512Hash{
-+		evpHash: newEvpHash(crypto.SHA512, 512/8, 128),
-+	}
-+}
-+
-+type sha512Hash struct {
-+	*evpHash
-+	out [512 / 8]byte
-+}
-+
-+func (h *sha512Hash) Sum(in []byte) []byte {
-+	h.sum(h.out[:])
-+	return append(in, h.out[:]...)
-+}
-+
-+// sha512State layout is taken from
-+// https://github.com/openssl/openssl/blob/0418e993c717a6863f206feaa40673a261de7395/include/openssl/sha.h#L95.
-+type sha512State struct {
-+	h      [8]uint64
-+	nl, nh uint64
-+	x      [128]byte
-+	nx     uint32
-+}
-+
-+const (
-+	magic384         = "sha\x04"
-+	magic512_224     = "sha\x05"
-+	magic512_256     = "sha\x06"
-+	magic512         = "sha\x07"
-+	marshaledSize512 = len(magic512) + 8*8 + 128 + 8
-+)
-+
-+func (h *sha384Hash) MarshalBinary() ([]byte, error) {
-+	d := (*sha512State)(h.shaState())
-+	if d == nil {
-+		return nil, errors.New("crypto/sha512: can't retrieve hash state")
-+	}
-+	b := make([]byte, 0, marshaledSize512)
-+	b = append(b, magic384...)
-+	b = appendUint64(b, d.h[0])
-+	b = appendUint64(b, d.h[1])
-+	b = appendUint64(b, d.h[2])
-+	b = appendUint64(b, d.h[3])
-+	b = appendUint64(b, d.h[4])
-+	b = appendUint64(b, d.h[5])
-+	b = appendUint64(b, d.h[6])
-+	b = appendUint64(b, d.h[7])
-+	b = append(b, d.x[:d.nx]...)
-+	b = b[:len(b)+len(d.x)-int(d.nx)] // already zero
-+	b = appendUint64(b, d.nl>>3|d.nh<<61)
-+	return b, nil
-+}
-+
-+func (h *sha512Hash) MarshalBinary() ([]byte, error) {
-+	d := (*sha512State)(h.shaState())
-+	if d == nil {
-+		return nil, errors.New("crypto/sha512: can't retrieve hash state")
-+	}
-+	b := make([]byte, 0, marshaledSize512)
-+	b = append(b, magic512...)
-+	b = appendUint64(b, d.h[0])
-+	b = appendUint64(b, d.h[1])
-+	b = appendUint64(b, d.h[2])
-+	b = appendUint64(b, d.h[3])
-+	b = appendUint64(b, d.h[4])
-+	b = appendUint64(b, d.h[5])
-+	b = appendUint64(b, d.h[6])
-+	b = appendUint64(b, d.h[7])
-+	b = append(b, d.x[:d.nx]...)
-+	b = b[:len(b)+len(d.x)-int(d.nx)] // already zero
-+	b = appendUint64(b, d.nl>>3|d.nh<<61)
-+	return b, nil
-+}
-+
-+func (h *sha384Hash) UnmarshalBinary(b []byte) error {
-+	if len(b) < len(magic512) {
-+		return errors.New("crypto/sha512: invalid hash state identifier")
-+	}
-+	if string(b[:len(magic384)]) != magic384 {
-+		return errors.New("crypto/sha512: invalid hash state identifier")
-+	}
-+	if len(b) != marshaledSize512 {
-+		return errors.New("crypto/sha512: invalid hash state size")
-+	}
-+	d := (*sha512State)(h.shaState())
-+	if d == nil {
-+		return errors.New("crypto/sha512: can't retrieve hash state")
-+	}
-+	b = b[len(magic512):]
-+	b, d.h[0] = consumeUint64(b)
-+	b, d.h[1] = consumeUint64(b)
-+	b, d.h[2] = consumeUint64(b)
-+	b, d.h[3] = consumeUint64(b)
-+	b, d.h[4] = consumeUint64(b)
-+	b, d.h[5] = consumeUint64(b)
-+	b, d.h[6] = consumeUint64(b)
-+	b, d.h[7] = consumeUint64(b)
-+	b = b[copy(d.x[:], b):]
-+	_, n := consumeUint64(b)
-+	d.nl = n << 3
-+	d.nh = n >> 61
-+	d.nx = uint32(n) % 128
-+	return nil
-+}
-+
-+func (h *sha512Hash) UnmarshalBinary(b []byte) error {
-+	if len(b) < len(magic512) {
-+		return errors.New("crypto/sha512: invalid hash state identifier")
-+	}
-+	if string(b[:len(magic512)]) != magic512 {
-+		return errors.New("crypto/sha512: invalid hash state identifier")
-+	}
-+	if len(b) != marshaledSize512 {
-+		return errors.New("crypto/sha512: invalid hash state size")
-+	}
-+	d := (*sha512State)(h.shaState())
-+	if d == nil {
-+		return errors.New("crypto/sha512: can't retrieve hash state")
-+	}
-+	b = b[len(magic512):]
-+	b, d.h[0] = consumeUint64(b)
-+	b, d.h[1] = consumeUint64(b)
-+	b, d.h[2] = consumeUint64(b)
-+	b, d.h[3] = consumeUint64(b)
-+	b, d.h[4] = consumeUint64(b)
-+	b, d.h[5] = consumeUint64(b)
-+	b, d.h[6] = consumeUint64(b)
-+	b, d.h[7] = consumeUint64(b)
-+	b = b[copy(d.x[:], b):]
-+	_, n := consumeUint64(b)
-+	d.nl = n << 3
-+	d.nh = n >> 61
-+	d.nx = uint32(n) % 128
-+	return nil
-+}
-+
-+// NewSHA3_224 returns a new SHA3-224 hash.
-+func NewSHA3_224() hash.Hash {
-+	return &sha3_224Hash{
-+		evpHash: newEvpHash(crypto.SHA3_224, 224/8, 64),
-+	}
-+}
-+
-+type sha3_224Hash struct {
-+	*evpHash
-+	out [224 / 8]byte
-+}
-+
-+func (h *sha3_224Hash) Sum(in []byte) []byte {
-+	h.sum(h.out[:])
-+	return append(in, h.out[:]...)
-+}
-+
-+// NewSHA3_256 returns a new SHA3-256 hash.
-+func NewSHA3_256() hash.Hash {
-+	return &sha3_256Hash{
-+		evpHash: newEvpHash(crypto.SHA3_256, 256/8, 64),
-+	}
-+}
-+
-+type sha3_256Hash struct {
-+	*evpHash
-+	out [256 / 8]byte
-+}
-+
-+func (h *sha3_256Hash) Sum(in []byte) []byte {
-+	h.sum(h.out[:])
-+	return append(in, h.out[:]...)
-+}
-+
-+// NewSHA3_384 returns a new SHA3-384 hash.
-+func NewSHA3_384() hash.Hash {
-+	return &sha3_384Hash{
-+		evpHash: newEvpHash(crypto.SHA3_384, 384/8, 128),
-+	}
-+}
-+
-+type sha3_384Hash struct {
-+	*evpHash
-+	out [384 / 8]byte
-+}
-+
-+func (h *sha3_384Hash) Sum(in []byte) []byte {
-+	h.sum(h.out[:])
-+	return append(in, h.out[:]...)
-+}
-+
-+// NewSHA3_512 returns a new SHA3-512 hash.
-+func NewSHA3_512() hash.Hash {
-+	return &sha3_512Hash{
-+		evpHash: newEvpHash(crypto.SHA3_512, 512/8, 128),
-+	}
-+}
-+
-+type sha3_512Hash struct {
-+	*evpHash
-+	out [512 / 8]byte
-+}
-+
-+func (h *sha3_512Hash) Sum(in []byte) []byte {
-+	h.sum(h.out[:])
-+	return append(in, h.out[:]...)
-+}
-+
-+// appendUint64 appends x into b as a big endian byte sequence.
-+func appendUint64(b []byte, x uint64) []byte {
-+	return append(b,
-+		byte(x>>56),
-+		byte(x>>48),
-+		byte(x>>40),
-+		byte(x>>32),
-+		byte(x>>24),
-+		byte(x>>16),
-+		byte(x>>8),
-+		byte(x),
-+	)
-+}
-+
-+// appendUint32 appends x into b as a big endian byte sequence.
-+func appendUint32(b []byte, x uint32) []byte {
-+	return append(b, byte(x>>24), byte(x>>16), byte(x>>8), byte(x))
-+}
-+
-+// consumeUint64 reads a big endian uint64 number from b.
-+func consumeUint64(b []byte) ([]byte, uint64) {
-+	_ = b[7]
-+	x := uint64(b[7]) | uint64(b[6])<<8 | uint64(b[5])<<16 | uint64(b[4])<<24 |
-+		uint64(b[3])<<32 | uint64(b[2])<<40 | uint64(b[1])<<48 | uint64(b[0])<<56
-+	return b[8:], x
-+}
-+
-+// consumeUint32 reads a big endian uint32 number from b.
-+func consumeUint32(b []byte) ([]byte, uint32) {
-+	_ = b[3]
-+	x := uint32(b[3]) | uint32(b[2])<<8 | uint32(b[1])<<16 | uint32(b[0])<<24
-+	return b[4:], x
-+}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/shims.h b/src/vendor/github.com/golang-fips/openssl/v2/shims.h
 new file mode 100644
-index 0000000000..47d8724e32
+index 0000000000..4457a3e491
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/shims.h
-@@ -0,0 +1,357 @@
+@@ -0,0 +1,370 @@
 +#include <stdlib.h> // size_t
 +#include <stdint.h> // uint64_t
 +
@@ -8664,12 +9310,6 @@ index 0000000000..47d8724e32
 +    GO_OPENSSL_INIT_LOAD_CONFIG = 0x00000040L
 +};
 +
-+// #include <openssl/aes.h>
-+enum {
-+    GO_AES_ENCRYPT = 1,
-+    GO_AES_DECRYPT = 0
-+};
-+
 +// #include <openssl/evp.h>
 +enum {
 +    GO_EVP_CTRL_GCM_GET_TAG = 0x10,
@@ -8679,6 +9319,7 @@ index 0000000000..47d8724e32
 +    GO_EVP_PKEY_EC = 408,
 +    GO_EVP_PKEY_TLS1_PRF = 1021,
 +    GO_EVP_PKEY_HKDF = 1036,
++    GO_EVP_PKEY_ED25519 = 1087,
 +    /* This is defined differently in OpenSSL 3 (1 << 11), but in our
 +     * code it is only used in OpenSSL 1.
 +    */
@@ -8761,6 +9402,7 @@ index 0000000000..47d8724e32
 +typedef void* GO_OSSL_PARAM_BLD_PTR;
 +typedef void* GO_OSSL_PARAM_PTR;
 +typedef void* GO_CRYPTO_THREADID_PTR;
++typedef void* GO_EVP_SIGNATURE_PTR;
 +
 +// #include <openssl/md5.h>
 +typedef void* GO_MD5_CTX_PTR;
@@ -8860,10 +9502,12 @@ index 0000000000..47d8724e32
 +DEFINEFUNC(int, EVP_DigestInit, (GO_EVP_MD_CTX_PTR ctx, const GO_EVP_MD_PTR type), (ctx, type)) \
 +DEFINEFUNC(int, EVP_DigestUpdate, (GO_EVP_MD_CTX_PTR ctx, const void *d, size_t cnt), (ctx, d, cnt)) \
 +DEFINEFUNC(int, EVP_DigestFinal, (GO_EVP_MD_CTX_PTR ctx, unsigned char *md, unsigned int *s), (ctx, md, s)) \
++DEFINEFUNC_1_1_1(int, EVP_DigestSign, (GO_EVP_MD_CTX_PTR ctx, unsigned char *sigret, size_t *siglen, const unsigned char *tbs, size_t tbslen), (ctx, sigret, siglen, tbs, tbslen)) \
 +DEFINEFUNC(int, EVP_DigestSignInit, (GO_EVP_MD_CTX_PTR ctx, GO_EVP_PKEY_CTX_PTR *pctx, const GO_EVP_MD_PTR type, GO_ENGINE_PTR e, GO_EVP_PKEY_PTR pkey), (ctx, pctx, type, e, pkey)) \
 +DEFINEFUNC(int, EVP_DigestSignFinal, (GO_EVP_MD_CTX_PTR ctx, unsigned char *sig, size_t *siglen), (ctx, sig, siglen)) \
 +DEFINEFUNC(int, EVP_DigestVerifyInit, (GO_EVP_MD_CTX_PTR ctx, GO_EVP_PKEY_CTX_PTR *pctx, const GO_EVP_MD_PTR type, GO_ENGINE_PTR e, GO_EVP_PKEY_PTR pkey), (ctx, pctx, type, e, pkey)) \
 +DEFINEFUNC(int, EVP_DigestVerifyFinal, (GO_EVP_MD_CTX_PTR ctx, const unsigned char *sig, size_t siglen), (ctx, sig, siglen)) \
++DEFINEFUNC_1_1_1(int, EVP_DigestVerify, (GO_EVP_MD_CTX_PTR ctx, const unsigned char *sigret, size_t siglen, const unsigned char *tbs, size_t tbslen), (ctx, sigret, siglen, tbs, tbslen)) \
 +DEFINEFUNC_LEGACY_1_0(int, MD5_Init, (GO_MD5_CTX_PTR c), (c)) \
 +DEFINEFUNC_LEGACY_1_0(int, MD5_Update, (GO_MD5_CTX_PTR c, const void *data, size_t len), (c, data, len)) \
 +DEFINEFUNC_LEGACY_1_0(int, MD5_Final, (unsigned char *md, GO_MD5_CTX_PTR c), (md, c)) \
@@ -8871,6 +9515,7 @@ index 0000000000..47d8724e32
 +DEFINEFUNC_LEGACY_1_0(int, SHA1_Update, (GO_SHA_CTX_PTR c, const void *data, size_t len), (c, data, len)) \
 +DEFINEFUNC_LEGACY_1_0(int, SHA1_Final, (unsigned char *md, GO_SHA_CTX_PTR c), (md, c)) \
 +DEFINEFUNC_1_1(const GO_EVP_MD_PTR, EVP_md5_sha1, (void), ()) \
++DEFINEFUNC(const GO_EVP_MD_PTR, EVP_md4, (void), ()) \
 +DEFINEFUNC(const GO_EVP_MD_PTR, EVP_md5, (void), ()) \
 +DEFINEFUNC(const GO_EVP_MD_PTR, EVP_sha1, (void), ()) \
 +DEFINEFUNC(const GO_EVP_MD_PTR, EVP_sha224, (void), ()) \
@@ -8896,6 +9541,7 @@ index 0000000000..47d8724e32
 +DEFINEFUNC(int, EVP_EncryptInit_ex, (GO_EVP_CIPHER_CTX_PTR ctx, const GO_EVP_CIPHER_PTR type, GO_ENGINE_PTR impl, const unsigned char *key, const unsigned char *iv), (ctx, type, impl, key, iv)) \
 +DEFINEFUNC(int, EVP_EncryptUpdate, (GO_EVP_CIPHER_CTX_PTR ctx, unsigned char *out, int *outl, const unsigned char *in, int inl), (ctx, out, outl, in, inl)) \
 +DEFINEFUNC(int, EVP_EncryptFinal_ex, (GO_EVP_CIPHER_CTX_PTR ctx, unsigned char *out, int *outl), (ctx, out, outl)) \
++DEFINEFUNC(int, EVP_DecryptInit_ex, (GO_EVP_CIPHER_CTX_PTR ctx, const GO_EVP_CIPHER_PTR type, GO_ENGINE_PTR impl, const unsigned char *key, const unsigned char *iv), (ctx, type, impl, key, iv)) \
 +DEFINEFUNC(int, EVP_DecryptUpdate, (GO_EVP_CIPHER_CTX_PTR ctx, unsigned char *out, int *outl, const unsigned char *in, int inl),	(ctx, out, outl, in, inl)) \
 +DEFINEFUNC(int, EVP_DecryptFinal_ex, (GO_EVP_CIPHER_CTX_PTR ctx, unsigned char *outm, int *outl),	(ctx, outm, outl)) \
 +DEFINEFUNC_3_0(GO_EVP_CIPHER_PTR, EVP_CIPHER_fetch, (GO_OSSL_LIB_CTX_PTR ctx, const char *algorithm, const char *properties), (ctx, algorithm, properties)) \
@@ -8912,9 +9558,18 @@ index 0000000000..47d8724e32
 +DEFINEFUNC(const GO_EVP_CIPHER_PTR, EVP_aes_256_ctr, (void), ()) \
 +DEFINEFUNC(const GO_EVP_CIPHER_PTR, EVP_aes_256_ecb, (void), ()) \
 +DEFINEFUNC(const GO_EVP_CIPHER_PTR, EVP_aes_256_gcm, (void), ()) \
++DEFINEFUNC(const GO_EVP_CIPHER_PTR, EVP_des_ecb, (void), ()) \
++DEFINEFUNC(const GO_EVP_CIPHER_PTR, EVP_des_cbc, (void), ()) \
++DEFINEFUNC(const GO_EVP_CIPHER_PTR, EVP_des_ede3_ecb, (void), ()) \
++DEFINEFUNC(const GO_EVP_CIPHER_PTR, EVP_des_ede3_cbc, (void), ()) \
++DEFINEFUNC(const GO_EVP_CIPHER_PTR, EVP_rc4, (void), ()) \
++DEFINEFUNC_RENAMED_3_0(int, EVP_CIPHER_get_block_size, EVP_CIPHER_block_size, (const GO_EVP_CIPHER_PTR cipher), (cipher)) \
++DEFINEFUNC(int, EVP_CIPHER_CTX_set_key_length, (GO_EVP_CIPHER_CTX_PTR x, int keylen), (x, keylen)) \
 +DEFINEFUNC(void, EVP_CIPHER_CTX_free, (GO_EVP_CIPHER_CTX_PTR arg0), (arg0)) \
 +DEFINEFUNC(int, EVP_CIPHER_CTX_ctrl, (GO_EVP_CIPHER_CTX_PTR ctx, int type, int arg, void *ptr), (ctx, type, arg, ptr)) \
 +DEFINEFUNC(GO_EVP_PKEY_PTR, EVP_PKEY_new, (void), ()) \
++DEFINEFUNC_1_1_1(GO_EVP_PKEY_PTR, EVP_PKEY_new_raw_private_key, (int type, GO_ENGINE_PTR e, const unsigned char *key, size_t keylen), (type, e, key, keylen)) \
++DEFINEFUNC_1_1_1(GO_EVP_PKEY_PTR, EVP_PKEY_new_raw_public_key, (int type, GO_ENGINE_PTR e, const unsigned char *key, size_t keylen), (type, e, key, keylen)) \
 +/* EVP_PKEY_size and EVP_PKEY_get_bits pkey parameter is const since OpenSSL 1.1.1. */ \
 +/* Exclude it from headercheck tool when using previous OpenSSL versions. */ \
 +/*check:from=1.1.1*/ DEFINEFUNC_RENAMED_3_0(int, EVP_PKEY_get_size, EVP_PKEY_size, (const GO_EVP_PKEY_PTR pkey), (pkey)) \
@@ -9009,6 +9664,10 @@ index 0000000000..47d8724e32
 +DEFINEFUNC_3_0(int, EVP_PKEY_CTX_set_tls1_prf_md, (GO_EVP_PKEY_CTX_PTR arg0, const GO_EVP_MD_PTR arg1), (arg0, arg1)) \
 +DEFINEFUNC_3_0(int, EVP_PKEY_CTX_set1_tls1_prf_secret, (GO_EVP_PKEY_CTX_PTR arg0, const unsigned char *arg1, int arg2), (arg0, arg1, arg2)) \
 +DEFINEFUNC_3_0(int, EVP_PKEY_CTX_add1_tls1_prf_seed, (GO_EVP_PKEY_CTX_PTR arg0, const unsigned char *arg1, int arg2), (arg0, arg1, arg2)) \
++DEFINEFUNC_1_1_1(int, EVP_PKEY_get_raw_public_key, (const GO_EVP_PKEY_PTR pkey, unsigned char *pub, size_t *len), (pkey, pub, len)) \
++DEFINEFUNC_1_1_1(int, EVP_PKEY_get_raw_private_key, (const GO_EVP_PKEY_PTR pkey, unsigned char *priv, size_t *len), (pkey, priv, len)) \
++DEFINEFUNC_3_0(GO_EVP_SIGNATURE_PTR, EVP_SIGNATURE_fetch, (GO_OSSL_LIB_CTX_PTR ctx, const char *algorithm, const char *properties), (ctx, algorithm, properties)) \
++DEFINEFUNC_3_0(void, EVP_SIGNATURE_free, (GO_EVP_SIGNATURE_PTR signature), (signature)) \
 +
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/thread_setup_unix.c b/src/vendor/github.com/golang-fips/openssl/v2/thread_setup_unix.c
 new file mode 100644
@@ -9092,10 +9751,10 @@ index 0000000000..7bc66d8014
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/tls1prf.go b/src/vendor/github.com/golang-fips/openssl/v2/tls1prf.go
 new file mode 100644
-index 0000000000..7043b3bc1d
+index 0000000000..3153fc81ec
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/tls1prf.go
-@@ -0,0 +1,98 @@
+@@ -0,0 +1,104 @@
 +//go:build !cmd_go_bootstrap
 +
 +package openssl
@@ -9114,7 +9773,10 @@ index 0000000000..7043b3bc1d
 +		(vMajor >= 1 && vMinor >= 1)
 +}
 +
-+func TLS1PRF(secret, label, seed []byte, keyLen int, h func() hash.Hash) ([]byte, error) {
++// TLS1PRF implements the TLS 1.0/1.1 pseudo-random function if h is nil,
++// else it implements the TLS 1.2 pseudo-random function.
++// The pseudo-random number will be written to result and will be of length len(result).
++func TLS1PRF(result, secret, label, seed []byte, h func() hash.Hash) error {
 +	var md C.GO_EVP_MD_PTR
 +	if h == nil {
 +		// TLS 1.0/1.1 PRF doesn't allow to specify the hash function,
@@ -9127,79 +9789,82 @@ index 0000000000..7043b3bc1d
 +		md = hashToMD(h())
 +	}
 +	if md == nil {
-+		return nil, errors.New("unsupported hash function")
++		return errors.New("unsupported hash function")
 +	}
 +
 +	ctx := C.go_openssl_EVP_PKEY_CTX_new_id(C.GO_EVP_PKEY_TLS1_PRF, nil)
 +	if ctx == nil {
-+		return nil, newOpenSSLError("EVP_PKEY_CTX_new_id")
++		return newOpenSSLError("EVP_PKEY_CTX_new_id")
 +	}
 +	defer func() {
 +		C.go_openssl_EVP_PKEY_CTX_free(ctx)
 +	}()
 +
 +	if C.go_openssl_EVP_PKEY_derive_init(ctx) != 1 {
-+		return nil, newOpenSSLError("EVP_PKEY_derive_init")
++		return newOpenSSLError("EVP_PKEY_derive_init")
 +	}
 +	switch vMajor {
 +	case 3:
 +		if C.go_openssl_EVP_PKEY_CTX_set_tls1_prf_md(ctx, md) != 1 {
-+			return nil, newOpenSSLError("EVP_PKEY_CTX_set_tls1_prf_md")
++			return newOpenSSLError("EVP_PKEY_CTX_set_tls1_prf_md")
 +		}
 +		if C.go_openssl_EVP_PKEY_CTX_set1_tls1_prf_secret(ctx,
 +			base(secret), C.int(len(secret))) != 1 {
-+			return nil, newOpenSSLError("EVP_PKEY_CTX_set1_tls1_prf_secret")
++			return newOpenSSLError("EVP_PKEY_CTX_set1_tls1_prf_secret")
 +		}
 +		if C.go_openssl_EVP_PKEY_CTX_add1_tls1_prf_seed(ctx,
 +			base(label), C.int(len(label))) != 1 {
-+			return nil, newOpenSSLError("EVP_PKEY_CTX_add1_tls1_prf_seed")
++			return newOpenSSLError("EVP_PKEY_CTX_add1_tls1_prf_seed")
 +		}
 +		if C.go_openssl_EVP_PKEY_CTX_add1_tls1_prf_seed(ctx,
 +			base(seed), C.int(len(seed))) != 1 {
-+			return nil, newOpenSSLError("EVP_PKEY_CTX_add1_tls1_prf_seed")
++			return newOpenSSLError("EVP_PKEY_CTX_add1_tls1_prf_seed")
 +		}
 +	case 1:
 +		if C.go_openssl_EVP_PKEY_CTX_ctrl(ctx, -1,
 +			C.GO1_EVP_PKEY_OP_DERIVE,
 +			C.GO_EVP_PKEY_CTRL_TLS_MD,
 +			0, unsafe.Pointer(md)) != 1 {
-+			return nil, newOpenSSLError("EVP_PKEY_CTX_set_tls1_prf_md")
++			return newOpenSSLError("EVP_PKEY_CTX_set_tls1_prf_md")
 +		}
 +		if C.go_openssl_EVP_PKEY_CTX_ctrl(ctx, -1,
 +			C.GO1_EVP_PKEY_OP_DERIVE,
 +			C.GO_EVP_PKEY_CTRL_TLS_SECRET,
 +			C.int(len(secret)), unsafe.Pointer(base(secret))) != 1 {
-+			return nil, newOpenSSLError("EVP_PKEY_CTX_set1_tls1_prf_secret")
++			return newOpenSSLError("EVP_PKEY_CTX_set1_tls1_prf_secret")
 +		}
 +		if C.go_openssl_EVP_PKEY_CTX_ctrl(ctx, -1,
 +			C.GO1_EVP_PKEY_OP_DERIVE,
 +			C.GO_EVP_PKEY_CTRL_TLS_SEED,
 +			C.int(len(label)), unsafe.Pointer(base(label))) != 1 {
-+			return nil, newOpenSSLError("EVP_PKEY_CTX_add1_tls1_prf_seed")
++			return newOpenSSLError("EVP_PKEY_CTX_add1_tls1_prf_seed")
 +		}
 +		if C.go_openssl_EVP_PKEY_CTX_ctrl(ctx, -1,
 +			C.GO1_EVP_PKEY_OP_DERIVE,
 +			C.GO_EVP_PKEY_CTRL_TLS_SEED,
 +			C.int(len(seed)), unsafe.Pointer(base(seed))) != 1 {
-+			return nil, newOpenSSLError("EVP_PKEY_CTX_add1_tls1_prf_seed")
++			return newOpenSSLError("EVP_PKEY_CTX_add1_tls1_prf_seed")
 +		}
 +	}
-+	outLen := C.size_t(keyLen)
-+	out := make([]byte, outLen)
-+	if C.go_openssl_EVP_PKEY_derive(ctx, base(out), &outLen) != 1 {
-+		return nil, newOpenSSLError("EVP_PKEY_derive")
++	outLen := C.size_t(len(result))
++	if C.go_openssl_EVP_PKEY_derive(ctx, base(result), &outLen) != 1 {
++		return newOpenSSLError("EVP_PKEY_derive")
 +	}
-+	if outLen != C.size_t(keyLen) {
-+		return nil, errors.New("tls1-prf: entropy limit reached")
++	// The Go standard library expects TLS1PRF to return the requested number of bytes,
++	// fail if it doesn't. While there is no known situation where this will happen,
++	// EVP_PKEY_derive handles multiple algorithms and there could be a subtle mismatch
++	// after more code changes in the future.
++	if outLen != C.size_t(len(result)) {
++		return errors.New("tls1-prf: derived less bytes than requested")
 +	}
-+	return out[:outLen], nil
++	return nil
 +}
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index 2b5f965f8f..4d1ce8b9cf 100644
+index 2b5f965f8f..e197225afa 100644
 --- a/src/vendor/modules.txt
 +++ b/src/vendor/modules.txt
 @@ -1,3 +1,7 @@
-+# github.com/golang-fips/openssl/v2 v2.0.0-rc.2.0.20230825145541-7544e9a0711b
++# github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20231108174110-41b6eb24da28
 +## explicit; go 1.20
 +github.com/golang-fips/openssl/v2
 +github.com/golang-fips/openssl/v2/bbig
