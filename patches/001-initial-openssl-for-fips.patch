@@ -20,7 +20,7 @@ index f0e3575637..a4139169b8 100644
  	os.Exit(0)
  }
 diff --git a/src/crypto/aes/cipher.go b/src/crypto/aes/cipher.go
-index 183c1697c8..abe85b5ad3 100644
+index a9e6208696..1de76641aa 100644
 --- a/src/crypto/aes/cipher.go
 +++ b/src/crypto/aes/cipher.go
 @@ -7,7 +7,7 @@ package aes
@@ -100,16 +100,15 @@ index 33e5f1b37e..0000000000
 -}
 diff --git a/src/crypto/boring/notboring_test.go b/src/crypto/boring/notboring_test.go
 deleted file mode 100644
-index ffe18e9109..0000000000
+index 0701628464..0000000000
 --- a/src/crypto/boring/notboring_test.go
 +++ /dev/null
-@@ -1,14 +0,0 @@
+@@ -1,13 +0,0 @@
 -// Copyright 2020 The Go Authors. All rights reserved.
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
 -//go:build (goexperiment.boringcrypto && !boringcrypto) || (!goexperiment.boringcrypto && boringcrypto)
--// +build goexperiment.boringcrypto,!boringcrypto !goexperiment.boringcrypto,boringcrypto
 -
 -package boring_test
 -
@@ -119,7 +118,7 @@ index ffe18e9109..0000000000
 -	t.Error("goexperiment.boringcrypto and boringcrypto should be equivalent build tags")
 -}
 diff --git a/src/crypto/ecdh/ecdh.go b/src/crypto/ecdh/ecdh.go
-index b86f521787..5b48335c69 100644
+index b7c26f91e5..0e6680fd04 100644
 --- a/src/crypto/ecdh/ecdh.go
 +++ b/src/crypto/ecdh/ecdh.go
 @@ -8,7 +8,7 @@ package ecdh
@@ -185,7 +184,7 @@ index af6bcd86f4..cc111c5564 100644
  	}
  	if testing.Short() {
 diff --git a/src/crypto/ecdh/nist.go b/src/crypto/ecdh/nist.go
-index 01354fa2cf..a7f1d9eced 100644
+index b366491544..a930d7e5e2 100644
 --- a/src/crypto/ecdh/nist.go
 +++ b/src/crypto/ecdh/nist.go
 @@ -5,7 +5,7 @@
@@ -255,7 +254,7 @@ index 275c60b4de..58f0034b18 100644
  	"math/big"
  )
 diff --git a/src/crypto/ecdsa/ecdsa.go b/src/crypto/ecdsa/ecdsa.go
-index e1503779ae..00953a453a 100644
+index 3ed15a888a..d5ab3d32e3 100644
 --- a/src/crypto/ecdsa/ecdsa.go
 +++ b/src/crypto/ecdsa/ecdsa.go
 @@ -27,8 +27,8 @@ import (
@@ -458,7 +457,7 @@ index 8b5c2cc9af..ebbb1c0c07 100644
  	}
  	testenv.SkipIfOptimizationOff(t)
 diff --git a/src/crypto/hmac/hmac.go b/src/crypto/hmac/hmac.go
-index 35b9d5a17a..5697756a27 100644
+index 46ec81b8c5..1b99c68577 100644
 --- a/src/crypto/hmac/hmac.go
 +++ b/src/crypto/hmac/hmac.go
 @@ -22,7 +22,7 @@ timing side-channels:
@@ -471,8 +470,8 @@ index 35b9d5a17a..5697756a27 100644
  	"hash"
  )
 @@ -127,7 +127,7 @@ func (h *hmac) Reset() {
- // the returned Hash does not implement encoding.BinaryMarshaler
- // or encoding.BinaryUnmarshaler.
+ // the returned Hash does not implement [encoding.BinaryMarshaler]
+ // or [encoding.BinaryUnmarshaler].
  func New(h func() hash.Hash, key []byte) hash.Hash {
 -	if boring.Enabled {
 +	if boring.Enabled() {
@@ -505,7 +504,7 @@ index 55415abf02..0edd7a6003 100644
  	defer func() {
 diff --git a/src/crypto/internal/boring/aes.go b/src/crypto/internal/boring/aes.go
 deleted file mode 100644
-index 6fae1d54f8..0000000000
+index 8819f576f4..0000000000
 --- a/src/crypto/internal/boring/aes.go
 +++ /dev/null
 @@ -1,385 +0,0 @@
@@ -513,7 +512,7 @@ index 6fae1d54f8..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -935,7 +934,7 @@ index 5ce46972b3..0000000000
 -}
 diff --git a/src/crypto/internal/boring/boring.go b/src/crypto/internal/boring/boring.go
 deleted file mode 100644
-index 102380a839..0000000000
+index ded36a92f9..0000000000
 --- a/src/crypto/internal/boring/boring.go
 +++ /dev/null
 @@ -1,126 +0,0 @@
@@ -943,7 +942,7 @@ index 102380a839..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -1107,7 +1106,7 @@ index 83bbbd3404..0000000000
 -}
 diff --git a/src/crypto/internal/boring/doc.go b/src/crypto/internal/boring/doc.go
 deleted file mode 100644
-index 6060fe5951..0000000000
+index 091e0d641e..0000000000
 --- a/src/crypto/internal/boring/doc.go
 +++ /dev/null
 @@ -1,19 +0,0 @@
@@ -1123,7 +1122,7 @@ index 6060fe5951..0000000000
 -// Enabled reports whether BoringCrypto is available.
 -// When enabled is false, all functions in this package panic.
 -//
--// BoringCrypto is only available on linux/amd64 systems.
+-// BoringCrypto is only available on linux/amd64 and linux/arm64 systems.
 -const Enabled = available
 -
 -// A BigInt is the raw words from a BigInt.
@@ -1132,7 +1131,7 @@ index 6060fe5951..0000000000
 -type BigInt []uint
 diff --git a/src/crypto/internal/boring/ecdh.go b/src/crypto/internal/boring/ecdh.go
 deleted file mode 100644
-index 8f46d8146f..0000000000
+index 6a5d174c16..0000000000
 --- a/src/crypto/internal/boring/ecdh.go
 +++ /dev/null
 @@ -1,224 +0,0 @@
@@ -1140,7 +1139,7 @@ index 8f46d8146f..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -1471,7 +1470,7 @@ index 2abc043640..a83be6dfdb 100644
 +	panic("!no_openssl: not available")
  }
 diff --git a/src/crypto/rsa/pkcs1v15.go b/src/crypto/rsa/pkcs1v15.go
-index 55fea1ab93..d6eaf7cea8 100644
+index 2705036fdd..b870749e33 100644
 --- a/src/crypto/rsa/pkcs1v15.go
 +++ b/src/crypto/rsa/pkcs1v15.go
 @@ -6,7 +6,7 @@ package rsa
@@ -1608,7 +1607,7 @@ index 39a4fc184a..0853178e3a 100644
  	}
 
 diff --git a/src/crypto/rsa/pss.go b/src/crypto/rsa/pss.go
-index 3a377cc9db..ce78a13d6f 100644
+index b63b6eb01d..a09a4926f7 100644
 --- a/src/crypto/rsa/pss.go
 +++ b/src/crypto/rsa/pss.go
 @@ -9,7 +9,7 @@ package rsa
@@ -1679,7 +1678,7 @@ index 1226149321..befd1612b5 100644
  	}
 
 diff --git a/src/crypto/rsa/rsa.go b/src/crypto/rsa/rsa.go
-index ad860d7f0c..86f700bee2 100644
+index 90557200ea..3a45deef7d 100644
 --- a/src/crypto/rsa/rsa.go
 +++ b/src/crypto/rsa/rsa.go
 @@ -28,8 +28,8 @@ package rsa
@@ -1820,42 +1819,37 @@ index b994daec19..4b7427e1ae 100644
  			t.Logf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
  			continue
  		}
-diff --git a/src/crypto/sha1/boring.go b/src/crypto/sha1/boring.go
-index b5786d1bf4..9bd03f3940 100644
---- a/src/crypto/sha1/boring.go
-+++ b/src/crypto/sha1/boring.go
-@@ -12,11 +12,11 @@
- package sha1
+diff --git a/src/crypto/sha1/sha1.go b/src/crypto/sha1/sha1.go
+index ac10fa1557..f561d09089 100644
+--- a/src/crypto/sha1/sha1.go
++++ b/src/crypto/sha1/sha1.go
+@@ -10,7 +10,7 @@ package sha1
 
  import (
+ 	"crypto"
 -	"crypto/internal/boring"
 +	boring "crypto/internal/backend"
+ 	"encoding/binary"
+ 	"errors"
  	"hash"
- )
+@@ -108,7 +108,7 @@ func (d *digest) Reset() {
+ // implements [encoding.BinaryMarshaler] and [encoding.BinaryUnmarshaler] to
+ // marshal and unmarshal the internal state of the hash.
+ func New() hash.Hash {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		return boring.NewSHA1()
+ 	}
+ 	d := new(digest)
+@@ -255,7 +255,7 @@ func (d *digest) constSum() [Size]byte {
 
--const boringEnabled = boring.Enabled
-+var boringEnabled = boring.Enabled()
-
- func boringNewSHA1() hash.Hash { return boring.NewSHA1() }
-
-diff --git a/src/crypto/sha1/notboring.go b/src/crypto/sha1/notboring.go
-index 42ef87937f..c1a3205539 100644
---- a/src/crypto/sha1/notboring.go
-+++ b/src/crypto/sha1/notboring.go
-@@ -11,10 +11,10 @@ import (
- 	"hash"
- )
-
--const boringEnabled = false
-+var boringEnabled = false
-
--func boringNewSHA1() hash.Hash { panic("boringcrypto: not available") }
-+func boringNewSHA1() hash.Hash { panic("!no_openssl: not available") }
-
- func boringUnreachable() {}
-
--func boringSHA1([]byte) [20]byte { panic("boringcrypto: not available") }
-+func boringSHA1([]byte) [20]byte { panic("!no_openssl: not available") }
+ // Sum returns the SHA-1 checksum of the data.
+ func Sum(data []byte) [Size]byte {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		return boring.SHA1(data)
+ 	}
+ 	var d digest
 diff --git a/src/crypto/sha1/sha1_test.go b/src/crypto/sha1/sha1_test.go
 index 85ed126091..71f4b46663 100644
 --- a/src/crypto/sha1/sha1_test.go
@@ -1897,7 +1891,7 @@ index 85ed126091..71f4b46663 100644
  	}
  	in := []byte("hello, world!")
 diff --git a/src/crypto/sha256/sha256.go b/src/crypto/sha256/sha256.go
-index 2deafbc9fc..282c326b32 100644
+index 0cc7fca0a6..1bfbf904b1 100644
 --- a/src/crypto/sha256/sha256.go
 +++ b/src/crypto/sha256/sha256.go
 @@ -8,7 +8,7 @@ package sha256
@@ -1910,7 +1904,7 @@ index 2deafbc9fc..282c326b32 100644
  	"errors"
  	"hash"
 @@ -148,7 +148,7 @@ func (d *digest) Reset() {
- // encoding.BinaryUnmarshaler to marshal and unmarshal the internal
+ // [encoding.BinaryUnmarshaler] to marshal and unmarshal the internal
  // state of the hash.
  func New() hash.Hash {
 -	if boring.Enabled {
@@ -2079,7 +2073,7 @@ index 140b1a3dd8..fe6fa96d28 100644
         }
  }
 diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
-index 7bfe3f9417..49702f59ba 100644
+index 06bc373283..5cc0816414 100644
 --- a/src/crypto/tls/boring_test.go
 +++ b/src/crypto/tls/boring_test.go
 @@ -2,14 +2,14 @@
@@ -2181,7 +2175,7 @@ index 7bfe3f9417..49702f59ba 100644
  						}
  						if reachableFIPS[c.org] && c.fipsOK {
 diff --git a/src/crypto/tls/cipher_suites.go b/src/crypto/tls/cipher_suites.go
-index 669208bb86..15a44e8cf6 100644
+index d352a8cfa8..a8920d151b 100644
 --- a/src/crypto/tls/cipher_suites.go
 +++ b/src/crypto/tls/cipher_suites.go
 @@ -10,7 +10,7 @@ import (
@@ -2193,7 +2187,7 @@ index 669208bb86..15a44e8cf6 100644
  	"crypto/rc4"
  	"crypto/sha1"
  	"crypto/sha256"
-@@ -422,7 +422,7 @@ func macSHA1(key []byte) hash.Hash {
+@@ -446,7 +446,7 @@ func macSHA1(key []byte) hash.Hash {
  	h := sha1.New
  	// The BoringCrypto SHA1 does not have a constant-time
  	// checksum function, so don't try to use it.
@@ -2202,7 +2196,7 @@ index 669208bb86..15a44e8cf6 100644
  		h = newConstantTimeHash(h)
  	}
  	return hmac.New(h, key)
-@@ -514,7 +514,7 @@ func aeadAESGCM(key, noncePrefix []byte) aead {
+@@ -538,7 +538,7 @@ func aeadAESGCM(key, noncePrefix []byte) aead {
  		panic(err)
  	}
  	var aead cipher.AEAD
@@ -2212,7 +2206,7 @@ index 669208bb86..15a44e8cf6 100644
  	} else {
  		boring.Unreachable()
 diff --git a/src/crypto/tls/common.go b/src/crypto/tls/common.go
-index 5edbd19995..a72d4855c1 100644
+index c0087ef5df..251a05cb75 100644
 --- a/src/crypto/tls/common.go
 +++ b/src/crypto/tls/common.go
 @@ -12,7 +12,7 @@ import (
@@ -2224,7 +2218,7 @@ index 5edbd19995..a72d4855c1 100644
  	"crypto/rand"
  	"crypto/rsa"
  	"crypto/sha512"
-@@ -1032,7 +1032,7 @@ const roleServer = false
+@@ -1041,7 +1041,7 @@ var tls10server = godebug.New("tls10server")
  func (c *Config) supportedVersions(isClient bool) []uint16 {
  	versions := make([]uint16, 0, len(supportedVersions))
  	for _, v := range supportedVersions {
@@ -2317,7 +2311,7 @@ index c83a7272c9..0c7dea2f1f 100644
  package x509
 
 diff --git a/src/crypto/x509/x509_test.go b/src/crypto/x509/x509_test.go
-index 0c2cbf3182..e01c24292e 100644
+index dca9c51990..224ed4c1d1 100644
 --- a/src/crypto/x509/x509_test.go
 +++ b/src/crypto/x509/x509_test.go
 @@ -12,7 +12,7 @@ import (
@@ -2329,7 +2323,7 @@ index 0c2cbf3182..e01c24292e 100644
  	"crypto/internal/backend/boringtest"
  	"crypto/rand"
  	"crypto/rsa"
-@@ -653,7 +653,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
+@@ -655,7 +655,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
  	extraExtensionData := []byte("extra extension")
 
  	for _, test := range tests {
@@ -2338,7 +2332,7 @@ index 0c2cbf3182..e01c24292e 100644
  			key, _ := test.priv.(*rsa.PrivateKey)
  			if key.PublicKey.N.BitLen() < 2048 {
  				t.Logf("skipping short key with BoringCrypto: %d", key.PublicKey.N.BitLen())
-@@ -3716,7 +3716,7 @@ func TestRevocationListCheckSignatureFrom(t *testing.T) {
+@@ -3719,7 +3719,7 @@ func TestRevocationListCheckSignatureFrom(t *testing.T) {
  	var testCurve elliptic.Curve
  	// If OpenSSL supports P224, use the default upstream behavior,
  	// otherwise test with P384
@@ -2348,27 +2342,27 @@ index 0c2cbf3182..e01c24292e 100644
  	} else {
  		testCurve = elliptic.P384()
 diff --git a/src/go.mod b/src/go.mod
-index 3b24053b94..c4bc3c1e96 100644
+index 003d6a96a9..6b8b04c520 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -3,6 +3,7 @@ module std
- go 1.21
+ go 1.22
 
  require (
 +	github.com/golang-fips/openssl-fips v0.0.0-20230801192317-b175be2ccd46
- 	golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d
- 	golang.org/x/net v0.12.1-0.20231027154334-5ca955b1789c
+ 	golang.org/x/crypto v0.14.1-0.20231011220222-8779cbd1c995
+ 	golang.org/x/net v0.17.1-0.20231025180729-4c7a5b64f145
  )
 diff --git a/src/go.sum b/src/go.sum
-index caf8ff010d..16a5d8c7da 100644
+index 22519d7feb..b3cb54bd01 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,3 +1,5 @@
 +github.com/golang-fips/openssl-fips v0.0.0-20230801192317-b175be2ccd46 h1:1oaM7kpYYlqwc6sIROINgj5fUW4CGZGEBwfzIc+TnJI=
 +github.com/golang-fips/openssl-fips v0.0.0-20230801192317-b175be2ccd46/go.mod h1:V2IU8imz/VkScnIbTOrdYsZ5R88ZFypCE0LzhRJ3HsI=
- golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d h1:LiA25/KWKuXfIq5pMIBq1s5hz3HQxhJJSu/SUGlD+SM=
- golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d/go.mod h1:xgJhtzW8F9jGdVFWZESrid1U1bjeNy4zgy5cRr/CIio=
- golang.org/x/net v0.12.1-0.20231027154334-5ca955b1789c h1:d+VvAxu4S13DWtf73R5eY//VaCk3aUcVdyYjM1SX7zw=
+ golang.org/x/crypto v0.14.1-0.20231011220222-8779cbd1c995 h1:fwu25/DhiXr/++jtzz2gHfC/FL/FimAGVxczaK4pjR8=
+ golang.org/x/crypto v0.14.1-0.20231011220222-8779cbd1c995/go.mod h1:aSyBXtGhRzSMdne9jbl3+PPMVS0IgOWF6Llc+HB5uUU=
+ golang.org/x/net v0.17.1-0.20231025180729-4c7a5b64f145 h1:b50rfQxeg+jm4ud87SAQt4escws56zdE+/rT1oKU4oU=
 diff --git a/src/vendor/github.com/golang-fips/openssl-fips/LICENSE b/src/vendor/github.com/golang-fips/openssl-fips/LICENSE
 new file mode 100644
 index 0000000000..97e8515401
@@ -3164,14 +3158,14 @@ diff --git a/src/crypto/internal/boring/ecdsa.go b/src/vendor/github.com/golang-
 similarity index 60%
 rename from src/crypto/internal/boring/ecdsa.go
 rename to src/vendor/github.com/golang-fips/openssl-fips/openssl/ecdsa.go
-index e15f3682c7..5e1e789da0 100644
+index 2adfdb2c9f..5e1e789da0 100644
 --- a/src/crypto/internal/boring/ecdsa.go
 +++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/ecdsa.go
 @@ -2,19 +2,24 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
 
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 +//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
 +// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
 
@@ -4624,14 +4618,14 @@ diff --git a/src/crypto/internal/boring/hmac.go b/src/vendor/github.com/golang-f
 similarity index 69%
 rename from src/crypto/internal/boring/hmac.go
 rename to src/vendor/github.com/golang-fips/openssl-fips/openssl/hmac.go
-index 6241a65f5f..6f001777ae 100644
+index ae926da695..6f001777ae 100644
 --- a/src/crypto/internal/boring/hmac.go
 +++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/hmac.go
 @@ -2,14 +2,14 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
 
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 +//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
 +// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
 
@@ -4749,14 +4743,14 @@ diff --git a/src/crypto/internal/boring/notboring.go b/src/vendor/github.com/gol
 similarity index 63%
 rename from src/crypto/internal/boring/notboring.go
 rename to src/vendor/github.com/golang-fips/openssl-fips/openssl/notboring.go
-index 1c5e4c742d..2fa4a38e44 100644
+index 361dec9672..2fa4a38e44 100644
 --- a/src/crypto/internal/boring/notboring.go
 +++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/notboring.go
 @@ -2,32 +2,34 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
 
--//go:build !(boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan && cgo)
+-//go:build !(boringcrypto && linux && (amd64 || arm64) && !android && !msan && cgo)
 +//go:build !linux || !cgo || android || cmd_go_bootstrap || msan || no_openssl
 +// +build !linux !cgo android cmd_go_bootstrap msan no_openssl
 
@@ -6387,14 +6381,14 @@ diff --git a/src/crypto/internal/boring/rand.go b/src/vendor/github.com/golang-f
 similarity index 71%
 rename from src/crypto/internal/boring/rand.go
 rename to src/vendor/github.com/golang-fips/openssl-fips/openssl/rand.go
-index 7639c01909..b3668b8823 100644
+index 556b98a112..b3668b8823 100644
 --- a/src/crypto/internal/boring/rand.go
 +++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/rand.go
 @@ -2,11 +2,12 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
 
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 +//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
 +// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
 
@@ -6419,14 +6413,14 @@ diff --git a/src/crypto/internal/boring/rsa.go b/src/vendor/github.com/golang-fi
 similarity index 52%
 rename from src/crypto/internal/boring/rsa.go
 rename to src/vendor/github.com/golang-fips/openssl-fips/openssl/rsa.go
-index fa693ea319..75ba7a8a59 100644
+index e3baa44549..75ba7a8a59 100644
 --- a/src/crypto/internal/boring/rsa.go
 +++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/rsa.go
 @@ -2,15 +2,15 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
 
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 +//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
 +// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
 
@@ -6907,14 +6901,14 @@ diff --git a/src/crypto/internal/boring/sha.go b/src/vendor/github.com/golang-fi
 similarity index 78%
 rename from src/crypto/internal/boring/sha.go
 rename to src/vendor/github.com/golang-fips/openssl-fips/openssl/sha.go
-index cf82f3f64f..0b55cedc91 100644
+index a49c119738..0b55cedc91 100644
 --- a/src/crypto/internal/boring/sha.go
 +++ b/src/vendor/github.com/golang-fips/openssl-fips/openssl/sha.go
 @@ -2,12 +2,13 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
 
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 +//go:build linux && !android && !cmd_go_bootstrap && !msan && !no_openssl
 +// +build linux,!android,!cmd_go_bootstrap,!msan,!no_openssl
 
@@ -7164,13 +7158,13 @@ index cf82f3f64f..0b55cedc91 100644
 
  type sha512Ctx struct {
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index 4de656b0e8..273a9d49d6 100644
+index 6d61189796..993a3cae92 100644
 --- a/src/vendor/modules.txt
 +++ b/src/vendor/modules.txt
 @@ -1,3 +1,6 @@
 +# github.com/golang-fips/openssl-fips v0.0.0-20230801192317-b175be2ccd46
 +## explicit; go 1.18
 +github.com/golang-fips/openssl-fips/openssl
- # golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d
- ## explicit; go 1.17
+ # golang.org/x/crypto v0.14.1-0.20231011220222-8779cbd1c995
+ ## explicit; go 1.18
  golang.org/x/crypto/chacha20

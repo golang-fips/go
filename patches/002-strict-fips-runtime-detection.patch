@@ -1,3 +1,24 @@
+From a4a9ee8d5ce1aea773715adccc10a8a90f0e17dc Mon Sep 17 00:00:00 2001
+From: =?UTF-8?q?Alejandro=20S=C3=A1ez?= <asm@redhat.com>
+Date: Mon, 27 Nov 2023 10:54:39 +0100
+Subject: [PATCH] strict fips runtime detection
+
+---
+ src/crypto/internal/backend/hostfips.go       | 21 +++++++++++++++++
+ src/crypto/internal/backend/nobackend.go      |  9 ++++++--
+ .../internal/backend/not_strict_fips.go       | 10 ++++++++
+ src/crypto/internal/backend/openssl.go        |  4 ++++
+ src/crypto/internal/backend/strict_fips.go    | 23 +++++++++++++++++++
+ .../goexperiment/exp_strictfipsruntime_off.go |  9 ++++++++
+ .../goexperiment/exp_strictfipsruntime_on.go  |  9 ++++++++
+ src/internal/goexperiment/flags.go            |  2 ++
+ 8 files changed, 85 insertions(+), 2 deletions(-)
+ create mode 100644 src/crypto/internal/backend/hostfips.go
+ create mode 100644 src/crypto/internal/backend/not_strict_fips.go
+ create mode 100644 src/crypto/internal/backend/strict_fips.go
+ create mode 100644 src/internal/goexperiment/exp_strictfipsruntime_off.go
+ create mode 100644 src/internal/goexperiment/exp_strictfipsruntime_on.go
+
 diff --git a/src/crypto/internal/backend/hostfips.go b/src/crypto/internal/backend/hostfips.go
 new file mode 100644
 index 0000000000..6fcd7139c6
@@ -140,13 +161,18 @@ index 0000000000..0983612732
 +const StrictFIPSRuntime = true
 +const StrictFIPSRuntimeInt = 1
 diff --git a/src/internal/goexperiment/flags.go b/src/internal/goexperiment/flags.go
-index 02e744362c..4ac7f480cf 100644
+index dacc4c3b13..b665d1f9a3 100644
 --- a/src/internal/goexperiment/flags.go
 +++ b/src/internal/goexperiment/flags.go
-@@ -100,4 +100,6 @@ type Flags struct {
- 	// CacheProg adds support to cmd/go to use a child process to implement
+@@ -110,6 +110,8 @@ type Flags struct {
  	// the build cache; see https://github.com/golang/go/issues/59719.
  	CacheProg bool
-+
+ 
 +	StrictFIPSRuntime bool
- }
++
+ 	// NewInliner enables a new+improved version of the function
+ 	// inlining phase within the Go compiler.
+ 	NewInliner bool
+-- 
+2.43.0
+
