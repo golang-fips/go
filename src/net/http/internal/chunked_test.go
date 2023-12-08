@@ -229,7 +229,7 @@ func TestChunkReaderTooMuchOverhead(t *testing.T) {
 		}
 		return []byte("0\r\n"), nil
 	}})
-	_, err := io.ReadAll(r)
+	_, err := ioutil.ReadAll(r)
 	if err == nil {
 		t.Fatalf("successfully read body with excessive overhead; want error")
 	}
@@ -244,7 +244,7 @@ func TestChunkReaderByteAtATime(t *testing.T) {
 		}
 		return []byte("0\r\n"), nil
 	}})
-	got, err := io.ReadAll(r)
+	got, err := ioutil.ReadAll(r)
 	if err != nil {
 		t.Errorf("unexpected error: %v", err)
 	}
