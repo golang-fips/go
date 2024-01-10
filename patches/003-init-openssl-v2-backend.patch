@@ -70,7 +70,7 @@ index 49bb6da477..69e29d3528 100644
  }
 
  func Enabled() bool {
-@@ -61,8 +109,6 @@ func UnreachableExceptTests() {
+@@ -61,8 +109,7 @@ func UnreachableExceptTests() {
  	}
  }
 
@@ -78,4 +78,5 @@ index 49bb6da477..69e29d3528 100644
 -
  const RandReader = openssl.RandReader
 
++ var NewGCMTLS13 = openssl.NewGCMTLS13
  var NewGCMTLS = openssl.NewGCMTLS

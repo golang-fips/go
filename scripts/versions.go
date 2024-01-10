@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 )
@@ -18,7 +17,7 @@ func main() {
 	repository := os.Args[2]
 
 	// Read the mapping of repositories to git refs.
-	content, err := ioutil.ReadFile(versionFile)
+	content, err := os.ReadFile(versionFile)
 	if err != nil {
 		log.Fatal("Could not open file: ", err)
 	}

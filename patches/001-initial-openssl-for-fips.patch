@@ -20,7 +20,7 @@ index f0e3575637..a4139169b8 100644
  	os.Exit(0)
  }
 diff --git a/src/crypto/aes/cipher.go b/src/crypto/aes/cipher.go
-index 183c1697c8..abe85b5ad3 100644
+index a9e6208696..1de76641aa 100644
 --- a/src/crypto/aes/cipher.go
 +++ b/src/crypto/aes/cipher.go
 @@ -7,7 +7,7 @@ package aes
@@ -100,16 +100,15 @@ index 33e5f1b37e..0000000000
 -}
 diff --git a/src/crypto/boring/notboring_test.go b/src/crypto/boring/notboring_test.go
 deleted file mode 100644
-index ffe18e9109..0000000000
+index 0701628464..0000000000
 --- a/src/crypto/boring/notboring_test.go
 +++ /dev/null
-@@ -1,14 +0,0 @@
+@@ -1,13 +0,0 @@
 -// Copyright 2020 The Go Authors. All rights reserved.
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
 -//go:build (goexperiment.boringcrypto && !boringcrypto) || (!goexperiment.boringcrypto && boringcrypto)
--// +build goexperiment.boringcrypto,!boringcrypto !goexperiment.boringcrypto,boringcrypto
 -
 -package boring_test
 -
@@ -119,7 +118,7 @@ index ffe18e9109..0000000000
 -	t.Error("goexperiment.boringcrypto and boringcrypto should be equivalent build tags")
 -}
 diff --git a/src/crypto/ecdh/ecdh.go b/src/crypto/ecdh/ecdh.go
-index b86f521787..5b48335c69 100644
+index b7c26f91e5..0e6680fd04 100644
 --- a/src/crypto/ecdh/ecdh.go
 +++ b/src/crypto/ecdh/ecdh.go
 @@ -8,7 +8,7 @@ package ecdh
@@ -185,7 +184,7 @@ index af6bcd86f4..cc111c5564 100644
  	}
  	if testing.Short() {
 diff --git a/src/crypto/ecdh/nist.go b/src/crypto/ecdh/nist.go
-index 01354fa2cf..a7f1d9eced 100644
+index b366491544..a930d7e5e2 100644
 --- a/src/crypto/ecdh/nist.go
 +++ b/src/crypto/ecdh/nist.go
 @@ -5,7 +5,7 @@
@@ -255,7 +254,7 @@ index 275c60b4de..58f0034b18 100644
  	"math/big"
  )
 diff --git a/src/crypto/ecdsa/ecdsa.go b/src/crypto/ecdsa/ecdsa.go
-index e1503779ae..00953a453a 100644
+index 3ed15a888a..d5ab3d32e3 100644
 --- a/src/crypto/ecdsa/ecdsa.go
 +++ b/src/crypto/ecdsa/ecdsa.go
 @@ -27,8 +27,8 @@ import (
@@ -405,7 +404,7 @@ index 8b5c2cc9af..ebbb1c0c07 100644
  	}
  	testenv.SkipIfOptimizationOff(t)
 diff --git a/src/crypto/hmac/hmac.go b/src/crypto/hmac/hmac.go
-index 35b9d5a17a..5697756a27 100644
+index 46ec81b8c5..1b99c68577 100644
 --- a/src/crypto/hmac/hmac.go
 +++ b/src/crypto/hmac/hmac.go
 @@ -22,7 +22,7 @@ timing side-channels:
@@ -418,8 +417,8 @@ index 35b9d5a17a..5697756a27 100644
  	"hash"
  )
 @@ -127,7 +127,7 @@ func (h *hmac) Reset() {
- // the returned Hash does not implement encoding.BinaryMarshaler
- // or encoding.BinaryUnmarshaler.
+ // the returned Hash does not implement [encoding.BinaryMarshaler]
+ // or [encoding.BinaryUnmarshaler].
  func New(h func() hash.Hash, key []byte) hash.Hash {
 -	if boring.Enabled {
 +	if boring.Enabled() {
@@ -452,15 +451,15 @@ index 55415abf02..0edd7a6003 100644
  	defer func() {
 diff --git a/src/crypto/internal/boring/aes.go b/src/crypto/internal/boring/aes.go
 deleted file mode 100644
-index 6fae1d54f8..0000000000
+index d18ed5cdc5..0000000000
 --- a/src/crypto/internal/boring/aes.go
 +++ /dev/null
-@@ -1,385 +0,0 @@
+@@ -1,400 +0,0 @@
 -// Copyright 2017 The Go Authors. All rights reserved.
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -686,26 +685,41 @@ index 6fae1d54f8..0000000000
 -	if tagSize != gcmTagSize {
 -		return cipher.NewGCMWithTagSize(&noGCM{c}, tagSize)
 -	}
--	return c.newGCM(false)
+-	return c.newGCM(0)
 -}
+-
+-const (
+-	VersionTLS12 = 0x0303
+-	VersionTLS13 = 0x0304
+-)
 -
 -func NewGCMTLS(c cipher.Block) (cipher.AEAD, error) {
--	return c.(*aesCipher).newGCM(true)
+-	return c.(*aesCipher).newGCM(VersionTLS12)
 -}
 -
--func (c *aesCipher) newGCM(tls bool) (cipher.AEAD, error) {
+-func NewGCMTLS13(c cipher.Block) (cipher.AEAD, error) {
+-	return c.(*aesCipher).newGCM(VersionTLS13)
+-}
+-
+-func (c *aesCipher) newGCM(tlsVersion uint16) (cipher.AEAD, error) {
 -	var aead *C.GO_EVP_AEAD
 -	switch len(c.key) * 8 {
 -	case 128:
--		if tls {
+-		switch tlsVersion {
+-		case VersionTLS12:
 -			aead = C._goboringcrypto_EVP_aead_aes_128_gcm_tls12()
--		} else {
+-		case VersionTLS13:
+-			aead = C._goboringcrypto_EVP_aead_aes_128_gcm_tls13()
+-		default:
 -			aead = C._goboringcrypto_EVP_aead_aes_128_gcm()
 -		}
 -	case 256:
--		if tls {
+-		switch tlsVersion {
+-		case VersionTLS12:
 -			aead = C._goboringcrypto_EVP_aead_aes_256_gcm_tls12()
--		} else {
+-		case VersionTLS13:
+-			aead = C._goboringcrypto_EVP_aead_aes_256_gcm_tls13()
+-		default:
 -			aead = C._goboringcrypto_EVP_aead_aes_256_gcm()
 -		}
 -	default:
@@ -843,7 +857,7 @@ index 6fae1d54f8..0000000000
 -}
 diff --git a/src/crypto/internal/boring/boring.go b/src/crypto/internal/boring/boring.go
 deleted file mode 100644
-index 102380a839..0000000000
+index ded36a92f9..0000000000
 --- a/src/crypto/internal/boring/boring.go
 +++ /dev/null
 @@ -1,126 +0,0 @@
@@ -851,7 +865,7 @@ index 102380a839..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -1014,7 +1028,7 @@ index 83bbbd3404..0000000000
 -	UnreachableExceptTests()
 -}
 diff --git a/src/crypto/internal/boring/doc.go b/src/crypto/internal/boring/doc.go
-index 6060fe5951..ca24813149 100644
+index 091e0d641e..ca24813149 100644
 --- a/src/crypto/internal/boring/doc.go
 +++ b/src/crypto/internal/boring/doc.go
 @@ -7,13 +7,10 @@
@@ -1024,7 +1038,7 @@ index 6060fe5951..ca24813149 100644
 -// Enabled reports whether BoringCrypto is available.
 -// When enabled is false, all functions in this package panic.
 -//
--// BoringCrypto is only available on linux/amd64 systems.
+-// BoringCrypto is only available on linux/amd64 and linux/arm64 systems.
 -const Enabled = available
 +import "github.com/golang-fips/openssl/v2"
  
@@ -1036,7 +1050,7 @@ index 6060fe5951..ca24813149 100644
 +
 diff --git a/src/crypto/internal/boring/ecdh.go b/src/crypto/internal/boring/ecdh.go
 deleted file mode 100644
-index 8f46d8146f..0000000000
+index 6a5d174c16..0000000000
 --- a/src/crypto/internal/boring/ecdh.go
 +++ /dev/null
 @@ -1,224 +0,0 @@
@@ -1044,7 +1058,7 @@ index 8f46d8146f..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -1266,7 +1280,7 @@ index 8f46d8146f..0000000000
 -}
 diff --git a/src/crypto/internal/boring/ecdsa.go b/src/crypto/internal/boring/ecdsa.go
 deleted file mode 100644
-index e15f3682c7..0000000000
+index 2adfdb2c9f..0000000000
 --- a/src/crypto/internal/boring/ecdsa.go
 +++ /dev/null
 @@ -1,172 +0,0 @@
@@ -1274,7 +1288,7 @@ index e15f3682c7..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -1474,7 +1488,7 @@ index 3bf1471fb0..d6c5ca736d 100644
  
 diff --git a/src/crypto/internal/boring/hmac.go b/src/crypto/internal/boring/hmac.go
 deleted file mode 100644
-index 6241a65f5f..0000000000
+index ae926da695..0000000000
 --- a/src/crypto/internal/boring/hmac.go
 +++ /dev/null
 @@ -1,153 +0,0 @@
@@ -1482,7 +1496,7 @@ index 6241a65f5f..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -1633,15 +1647,15 @@ index 6241a65f5f..0000000000
 -}
 diff --git a/src/crypto/internal/boring/notboring.go b/src/crypto/internal/boring/notboring.go
 deleted file mode 100644
-index 1c5e4c742d..0000000000
+index 02bc468a0d..0000000000
 --- a/src/crypto/internal/boring/notboring.go
 +++ /dev/null
-@@ -1,122 +0,0 @@
+@@ -1,123 +0,0 @@
 -// Copyright 2017 The Go Authors. All rights reserved.
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build !(boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan && cgo)
+-//go:build !(boringcrypto && linux && (amd64 || arm64) && !android && !msan && cgo)
 -
 -package boring
 -
@@ -1689,6 +1703,7 @@ index 1c5e4c742d..0000000000
 -
 -func NewAESCipher(key []byte) (cipher.Block, error) { panic("boringcrypto: not available") }
 -func NewGCMTLS(cipher.Block) (cipher.AEAD, error)   { panic("boringcrypto: not available") }
+-func NewGCMTLS13(cipher.Block) (cipher.AEAD, error) { panic("boringcrypto: not available") }
 -
 -type PublicKeyECDSA struct{ _ int }
 -type PrivateKeyECDSA struct{ _ int }
@@ -1761,7 +1776,7 @@ index 1c5e4c742d..0000000000
 -func (*PrivateKeyECDH) PublicKey() (*PublicKeyECDH, error)      { panic("boringcrypto: not available") }
 diff --git a/src/crypto/internal/boring/rand.go b/src/crypto/internal/boring/rand.go
 deleted file mode 100644
-index 7639c01909..0000000000
+index 556b98a112..0000000000
 --- a/src/crypto/internal/boring/rand.go
 +++ /dev/null
 @@ -1,24 +0,0 @@
@@ -1769,7 +1784,7 @@ index 7639c01909..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -1791,7 +1806,7 @@ index 7639c01909..0000000000
 -const RandReader = randReader(0)
 diff --git a/src/crypto/internal/boring/rsa.go b/src/crypto/internal/boring/rsa.go
 deleted file mode 100644
-index fa693ea319..0000000000
+index e3baa44549..0000000000
 --- a/src/crypto/internal/boring/rsa.go
 +++ /dev/null
 @@ -1,379 +0,0 @@
@@ -1799,7 +1814,7 @@ index fa693ea319..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -2176,7 +2191,7 @@ index fa693ea319..0000000000
 -}
 diff --git a/src/crypto/internal/boring/sha.go b/src/crypto/internal/boring/sha.go
 deleted file mode 100644
-index cf82f3f64f..0000000000
+index a49c119738..0000000000
 --- a/src/crypto/internal/boring/sha.go
 +++ /dev/null
 @@ -1,599 +0,0 @@
@@ -2184,7 +2199,7 @@ index cf82f3f64f..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -2860,7 +2875,7 @@ index 2abc043640..a83be6dfdb 100644
 +	panic("!no_openssl: not available")
  }
 diff --git a/src/crypto/rsa/pkcs1v15.go b/src/crypto/rsa/pkcs1v15.go
-index 55fea1ab93..8524c02547 100644
+index 2705036fdd..9f38c3558b 100644
 --- a/src/crypto/rsa/pkcs1v15.go
 +++ b/src/crypto/rsa/pkcs1v15.go
 @@ -6,7 +6,7 @@ package rsa
@@ -2985,7 +3000,7 @@ index 39a4fc184a..0853178e3a 100644
  	}
  
 diff --git a/src/crypto/rsa/pss.go b/src/crypto/rsa/pss.go
-index 3a377cc9db..ce78a13d6f 100644
+index b63b6eb01d..a09a4926f7 100644
 --- a/src/crypto/rsa/pss.go
 +++ b/src/crypto/rsa/pss.go
 @@ -9,7 +9,7 @@ package rsa
@@ -3056,7 +3071,7 @@ index 1226149321..befd1612b5 100644
  	}
  
 diff --git a/src/crypto/rsa/rsa.go b/src/crypto/rsa/rsa.go
-index f0aef1f542..e6bf6a5e88 100644
+index 0715421187..168831c63d 100644
 --- a/src/crypto/rsa/rsa.go
 +++ b/src/crypto/rsa/rsa.go
 @@ -28,8 +28,8 @@ package rsa
@@ -3197,42 +3212,37 @@ index b994daec19..4b7427e1ae 100644
  			t.Logf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
  			continue
  		}
-diff --git a/src/crypto/sha1/boring.go b/src/crypto/sha1/boring.go
-index b5786d1bf4..9bd03f3940 100644
---- a/src/crypto/sha1/boring.go
-+++ b/src/crypto/sha1/boring.go
-@@ -12,11 +12,11 @@
- package sha1
+diff --git a/src/crypto/sha1/sha1.go b/src/crypto/sha1/sha1.go
+index ac10fa1557..f561d09089 100644
+--- a/src/crypto/sha1/sha1.go
++++ b/src/crypto/sha1/sha1.go
+@@ -10,7 +10,7 @@ package sha1
  
  import (
+ 	"crypto"
 -	"crypto/internal/boring"
 +	boring "crypto/internal/backend"
+ 	"encoding/binary"
+ 	"errors"
  	"hash"
- )
+@@ -108,7 +108,7 @@ func (d *digest) Reset() {
+ // implements [encoding.BinaryMarshaler] and [encoding.BinaryUnmarshaler] to
+ // marshal and unmarshal the internal state of the hash.
+ func New() hash.Hash {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		return boring.NewSHA1()
+ 	}
+ 	d := new(digest)
+@@ -255,7 +255,7 @@ func (d *digest) constSum() [Size]byte {
  
--const boringEnabled = boring.Enabled
-+var boringEnabled = boring.Enabled()
- 
- func boringNewSHA1() hash.Hash { return boring.NewSHA1() }
- 
-diff --git a/src/crypto/sha1/notboring.go b/src/crypto/sha1/notboring.go
-index 42ef87937f..c1a3205539 100644
---- a/src/crypto/sha1/notboring.go
-+++ b/src/crypto/sha1/notboring.go
-@@ -11,10 +11,10 @@ import (
- 	"hash"
- )
- 
--const boringEnabled = false
-+var boringEnabled = false
- 
--func boringNewSHA1() hash.Hash { panic("boringcrypto: not available") }
-+func boringNewSHA1() hash.Hash { panic("!no_openssl: not available") }
- 
- func boringUnreachable() {}
- 
--func boringSHA1([]byte) [20]byte { panic("boringcrypto: not available") }
-+func boringSHA1([]byte) [20]byte { panic("!no_openssl: not available") }
+ // Sum returns the SHA-1 checksum of the data.
+ func Sum(data []byte) [Size]byte {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		return boring.SHA1(data)
+ 	}
+ 	var d digest
 diff --git a/src/crypto/sha1/sha1_test.go b/src/crypto/sha1/sha1_test.go
 index 85ed126091..71f4b46663 100644
 --- a/src/crypto/sha1/sha1_test.go
@@ -3274,7 +3284,7 @@ index 85ed126091..71f4b46663 100644
  	}
  	in := []byte("hello, world!")
 diff --git a/src/crypto/sha256/sha256.go b/src/crypto/sha256/sha256.go
-index 2deafbc9fc..282c326b32 100644
+index 0cc7fca0a6..1bfbf904b1 100644
 --- a/src/crypto/sha256/sha256.go
 +++ b/src/crypto/sha256/sha256.go
 @@ -8,7 +8,7 @@ package sha256
@@ -3287,7 +3297,7 @@ index 2deafbc9fc..282c326b32 100644
  	"errors"
  	"hash"
 @@ -148,7 +148,7 @@ func (d *digest) Reset() {
- // encoding.BinaryUnmarshaler to marshal and unmarshal the internal
+ // [encoding.BinaryUnmarshaler] to marshal and unmarshal the internal
  // state of the hash.
  func New() hash.Hash {
 -	if boring.Enabled {
@@ -3434,7 +3444,7 @@ index 921cdbb7bb..a35165bcbf 100644
  	}
  	in := []byte("hello, world!")
 diff --git a/src/crypto/tls/boring.go b/src/crypto/tls/boring.go
-index 140b1a3dd8..fe6fa96d28 100644
+index 17e1d91fd0..2d0a5183e1 100644
 --- a/src/crypto/tls/boring.go
 +++ b/src/crypto/tls/boring.go
 @@ -2,7 +2,7 @@
@@ -3450,13 +3460,13 @@ index 140b1a3dd8..fe6fa96d28 100644
  )
  
  func init() {
--       if boring.Enabled && !boring.ExecutingTest() {
-+       if boring.Enabled() && !boring.ExecutingTest() {
-                fipstls.Force()
-        }
+-	if boring.Enabled && !boring.ExecutingTest() {
++	if boring.Enabled() && !boring.ExecutingTest() {
+ 		fipstls.Force()
+ 	}
  }
 diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
-index 7bfe3f9417..49702f59ba 100644
+index 869dc2dde9..647f0d8027 100644
 --- a/src/crypto/tls/boring_test.go
 +++ b/src/crypto/tls/boring_test.go
 @@ -2,14 +2,14 @@
@@ -3476,7 +3486,7 @@ index 7bfe3f9417..49702f59ba 100644
  	"crypto/internal/backend/boringtest"
  	"crypto/internal/boring/fipstls"
  	"crypto/rand"
-@@ -46,7 +46,7 @@ func TestBoringServerProtocolVersion(t *testing.T) {
+@@ -74,7 +74,7 @@ func TestBoringServerProtocolVersion(t *testing.T) {
  	test("VersionTLS10", VersionTLS10, "")
  	test("VersionTLS11", VersionTLS11, "")
  	test("VersionTLS12", VersionTLS12, "")
@@ -3485,7 +3495,7 @@ index 7bfe3f9417..49702f59ba 100644
  		test("VersionTLS13", VersionTLS13, "client offered only unsupported versions")
  	} else {
  		test("VersionTLS13", VersionTLS13, "")
-@@ -238,7 +238,7 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
+@@ -271,7 +271,7 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
  
  			clientConfig := testConfig.Clone()
  
@@ -3494,7 +3504,7 @@ index 7bfe3f9417..49702f59ba 100644
  				serverConfig.Rand = boring.RandReader
  				clientConfig.Rand = boring.RandReader
  			}
-@@ -369,7 +369,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -402,7 +402,7 @@ func TestBoringCertAlgs(t *testing.T) {
  		serverConfig.Certificates = []Certificate{{Certificate: list, PrivateKey: key}}
  		serverConfig.BuildNameToCertificate()
  
@@ -3503,7 +3513,7 @@ index 7bfe3f9417..49702f59ba 100644
  			serverConfig.Rand = boring.RandReader
  			clientConfig.Rand = boring.RandReader
  		}
-@@ -400,13 +400,13 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -433,13 +433,13 @@ func TestBoringCertAlgs(t *testing.T) {
  		serverConfig := testConfig.Clone()
  		serverConfig.ClientCAs = pool
  		serverConfig.ClientAuth = RequireAndVerifyClientCert
@@ -3519,7 +3529,7 @@ index 7bfe3f9417..49702f59ba 100644
  			serverConfig.Rand = boring.RandReader
  			clientConfig.Rand = boring.RandReader
  		}
-@@ -432,8 +432,8 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -465,8 +465,8 @@ func TestBoringCertAlgs(t *testing.T) {
  	// exhaustive test with computed answers.
  	r1pool := x509.NewCertPool()
  	r1pool.AddCert(R1.cert)
@@ -3530,7 +3540,7 @@ index 7bfe3f9417..49702f59ba 100644
  	fipstls.Force()
  	testServerCert(t, "basic (fips)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
  	testClientCert(t, "basic (fips, client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
-@@ -454,7 +454,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -487,7 +487,7 @@ func TestBoringCertAlgs(t *testing.T) {
  			leaf = L2_I
  		}
  		for i := 0; i < 64; i++ {
@@ -3539,7 +3549,7 @@ index 7bfe3f9417..49702f59ba 100644
  			reachableFIPS := map[string]bool{leaf.parentOrg: leaf.fipsOK}
  			list := [][]byte{leaf.der}
  			listName := leaf.name
-@@ -462,7 +462,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -495,7 +495,7 @@ func TestBoringCertAlgs(t *testing.T) {
  				if cond != 0 {
  					list = append(list, c.der)
  					listName += "," + c.name
@@ -3548,7 +3558,7 @@ index 7bfe3f9417..49702f59ba 100644
  						reachable[c.parentOrg] = true
  					}
  					if reachableFIPS[c.org] && c.fipsOK {
-@@ -486,7 +486,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -519,7 +519,7 @@ func TestBoringCertAlgs(t *testing.T) {
  					if cond != 0 {
  						rootName += "," + c.name
  						pool.AddCert(c.cert)
@@ -3558,7 +3568,7 @@ index 7bfe3f9417..49702f59ba 100644
  						}
  						if reachableFIPS[c.org] && c.fipsOK {
 diff --git a/src/crypto/tls/cipher_suites.go b/src/crypto/tls/cipher_suites.go
-index 669208bb86..15a44e8cf6 100644
+index 882b63da2b..a91df90ea4 100644
 --- a/src/crypto/tls/cipher_suites.go
 +++ b/src/crypto/tls/cipher_suites.go
 @@ -10,7 +10,7 @@ import (
@@ -3570,7 +3580,7 @@ index 669208bb86..15a44e8cf6 100644
  	"crypto/rc4"
  	"crypto/sha1"
  	"crypto/sha256"
-@@ -422,7 +422,7 @@ func macSHA1(key []byte) hash.Hash {
+@@ -446,7 +446,7 @@ func macSHA1(key []byte) hash.Hash {
  	h := sha1.New
  	// The BoringCrypto SHA1 does not have a constant-time
  	// checksum function, so don't try to use it.
@@ -3579,7 +3589,7 @@ index 669208bb86..15a44e8cf6 100644
  		h = newConstantTimeHash(h)
  	}
  	return hmac.New(h, key)
-@@ -514,7 +514,7 @@ func aeadAESGCM(key, noncePrefix []byte) aead {
+@@ -538,7 +538,7 @@ func aeadAESGCM(key, noncePrefix []byte) aead {
  		panic(err)
  	}
  	var aead cipher.AEAD
@@ -3588,8 +3598,17 @@ index 669208bb86..15a44e8cf6 100644
  		aead, err = boring.NewGCMTLS(aes)
  	} else {
  		boring.Unreachable()
+@@ -562,7 +562,7 @@ func aeadAESGCMTLS13(key, nonceMask []byte) aead {
+ 		panic(err)
+ 	}
+ 	var aead cipher.AEAD
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		aead, err = boring.NewGCMTLS13(aes)
+ 	} else {
+ 		boring.Unreachable()
 diff --git a/src/crypto/tls/common.go b/src/crypto/tls/common.go
-index 5edbd19995..a72d4855c1 100644
+index c0087ef5df..251a05cb75 100644
 --- a/src/crypto/tls/common.go
 +++ b/src/crypto/tls/common.go
 @@ -12,7 +12,7 @@ import (
@@ -3601,7 +3620,7 @@ index 5edbd19995..a72d4855c1 100644
  	"crypto/rand"
  	"crypto/rsa"
  	"crypto/sha512"
-@@ -1032,7 +1032,7 @@ const roleServer = false
+@@ -1041,7 +1041,7 @@ var tls10server = godebug.New("tls10server")
  func (c *Config) supportedVersions(isClient bool) []uint16 {
  	versions := make([]uint16, 0, len(supportedVersions))
  	for _, v := range supportedVersions {
@@ -3642,7 +3661,7 @@ index e7a360fdd4..9ea9eed2fb 100644
  		if err != nil {
  			panic("tls: HKDF-Extract invocation failed unexpectedly")
 diff --git a/src/crypto/tls/notboring.go b/src/crypto/tls/notboring.go
-index 7d85b39c59..fe2719485b 100644
+index edccb44d87..da964ccdf7 100644
 --- a/src/crypto/tls/notboring.go
 +++ b/src/crypto/tls/notboring.go
 @@ -2,7 +2,7 @@
@@ -3655,7 +3674,7 @@ index 7d85b39c59..fe2719485b 100644
  package tls
  
 diff --git a/src/crypto/x509/boring.go b/src/crypto/x509/boring.go
-index 095b58c315..ac06591ea8 100644
+index e6237e96bb..75391a38ce 100644
 --- a/src/crypto/x509/boring.go
 +++ b/src/crypto/x509/boring.go
 @@ -2,7 +2,7 @@
@@ -3694,7 +3713,7 @@ index c83a7272c9..0c7dea2f1f 100644
  package x509
  
 diff --git a/src/crypto/x509/x509_test.go b/src/crypto/x509/x509_test.go
-index 0c2cbf3182..e01c24292e 100644
+index 910679756f..44ebc7c15f 100644
 --- a/src/crypto/x509/x509_test.go
 +++ b/src/crypto/x509/x509_test.go
 @@ -12,7 +12,7 @@ import (
@@ -3706,7 +3725,7 @@ index 0c2cbf3182..e01c24292e 100644
  	"crypto/internal/backend/boringtest"
  	"crypto/rand"
  	"crypto/rsa"
-@@ -653,7 +653,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
+@@ -655,7 +655,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
  	extraExtensionData := []byte("extra extension")
  
  	for _, test := range tests {
@@ -3715,7 +3734,7 @@ index 0c2cbf3182..e01c24292e 100644
  			key, _ := test.priv.(*rsa.PrivateKey)
  			if key.PublicKey.N.BitLen() < 2048 {
  				t.Logf("skipping short key with BoringCrypto: %d", key.PublicKey.N.BitLen())
-@@ -3716,7 +3716,7 @@ func TestRevocationListCheckSignatureFrom(t *testing.T) {
+@@ -3719,7 +3719,7 @@ func TestRevocationListCheckSignatureFrom(t *testing.T) {
  	var testCurve elliptic.Curve
  	// If OpenSSL supports P224, use the default upstream behavior,
  	// otherwise test with P384
@@ -3725,27 +3744,27 @@ index 0c2cbf3182..e01c24292e 100644
  	} else {
  		testCurve = elliptic.P384()
 diff --git a/src/go.mod b/src/go.mod
-index 3b24053b94..d5cf5c74f9 100644
+index c18ae7760f..eea762d89a 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -3,6 +3,7 @@ module std
- go 1.21
+ go 1.22
  
  require (
-+	github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20231108174110-41b6eb24da28
- 	golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d
- 	golang.org/x/net v0.12.1-0.20231027154334-5ca955b1789c
++	github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20240109234540-66bdd798d334
+ 	golang.org/x/crypto v0.16.1-0.20231129163542-152cdb1503eb
+ 	golang.org/x/net v0.19.0
  )
 diff --git a/src/go.sum b/src/go.sum
-index caf8ff010d..611d232a43 100644
+index 7c3519882a..a271094177 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,3 +1,5 @@
-+github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20231108174110-41b6eb24da28 h1:tFlW5hU9m5kkVIShxa1FFNLe9gwoygZFHw/d/60VE7s=
-+github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20231108174110-41b6eb24da28/go.mod h1:7tuBqX2Zov8Yq5mJ2yzlKhpnxOnWyEzi38AzeWRuQdg=
- golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d h1:LiA25/KWKuXfIq5pMIBq1s5hz3HQxhJJSu/SUGlD+SM=
- golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d/go.mod h1:xgJhtzW8F9jGdVFWZESrid1U1bjeNy4zgy5cRr/CIio=
- golang.org/x/net v0.12.1-0.20231027154334-5ca955b1789c h1:d+VvAxu4S13DWtf73R5eY//VaCk3aUcVdyYjM1SX7zw=
++github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20240109234540-66bdd798d334 h1:FxMYHVog5A12UKxDmOD4FigKiunWkkd5LmyQXKcb3lQ=
++github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20240109234540-66bdd798d334/go.mod h1:7tuBqX2Zov8Yq5mJ2yzlKhpnxOnWyEzi38AzeWRuQdg=
+ golang.org/x/crypto v0.16.1-0.20231129163542-152cdb1503eb h1:1ceSY7sk6sJuiDREHpfyrqDnDljsLfEP2GuTClhBBfI=
+ golang.org/x/crypto v0.16.1-0.20231129163542-152cdb1503eb/go.mod h1:gCAAfMLgwOJRpTjQ2zCCt2OcSfYMTeZVSRtQlPC7Nq4=
+ golang.org/x/net v0.19.0 h1:zTwKpTd2XuCqf8huc7Fo2iSy+4RHPd10s4KzeTnVr1c=
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/.gitleaks.toml b/src/vendor/github.com/golang-fips/openssl/v2/.gitleaks.toml
 new file mode 100644
 index 0000000000..aed2e22df2
@@ -3862,10 +3881,10 @@ index 0000000000..ba6289ecff
 +This project adopts the Go code of conduct: https://go.dev/conduct.
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/aes.go b/src/vendor/github.com/golang-fips/openssl/v2/aes.go
 new file mode 100644
-index 0000000000..1fc11f00cd
+index 0000000000..231b75e2ad
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/aes.go
-@@ -0,0 +1,90 @@
+@@ -0,0 +1,100 @@
 +//go:build !cmd_go_bootstrap
 +
 +package openssl
@@ -3915,6 +3934,12 @@ index 0000000000..1fc11f00cd
 +	return c.(*aesCipher).NewGCMTLS()
 +}
 +
++// NewGCMTLS13 returns a GCM cipher specific to TLS 1.3 and should not be used
++// for non-TLS purposes.
++func NewGCMTLS13(c cipher.Block) (cipher.AEAD, error) {
++	return c.(*aesCipher).NewGCMTLS13()
++}
++
 +type aesCipher struct {
 +	*evpCipher
 +}
@@ -3954,7 +3979,11 @@ index 0000000000..1fc11f00cd
 +}
 +
 +func (c *aesCipher) NewGCMTLS() (cipher.AEAD, error) {
-+	return c.newGCM(true)
++	return c.newGCM(cipherGCMTLS12)
++}
++
++func (c *aesCipher) NewGCMTLS13() (cipher.AEAD, error) {
++	return c.newGCM(cipherGCMTLS13)
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/bbig/big.go b/src/vendor/github.com/golang-fips/openssl/v2/bbig/big.go
 new file mode 100644
@@ -4018,10 +4047,10 @@ index 0000000000..6461f241f8
 +type BigInt []uint
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/cipher.go b/src/vendor/github.com/golang-fips/openssl/v2/cipher.go
 new file mode 100644
-index 0000000000..b56de6a74e
+index 0000000000..ddaadfa889
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/cipher.go
-@@ -0,0 +1,534 @@
+@@ -0,0 +1,582 @@
 +//go:build !cmd_go_bootstrap
 +
 +package openssl
@@ -4336,17 +4365,39 @@ index 0000000000..b56de6a74e
 +	C.go_openssl_EVP_CIPHER_CTX_free(c.ctx)
 +}
 +
++type cipherGCMTLS uint8
++
++const (
++	cipherGCMTLSNone cipherGCMTLS = iota
++	cipherGCMTLS12
++	cipherGCMTLS13
++)
++
 +type cipherGCM struct {
-+	ctx          C.GO_EVP_CIPHER_CTX_PTR
-+	tls          bool
++	ctx C.GO_EVP_CIPHER_CTX_PTR
++	tls cipherGCMTLS
++	// minNextNonce is the minimum value that the next nonce can be, enforced by
++	// all TLS modes.
 +	minNextNonce uint64
-+	blockSize    int
++	// mask is the nonce mask used in TLS 1.3 mode.
++	mask uint64
++	// maskInitialized is true if mask has been initialized. This happens during
++	// the first Seal. The initialized mask may be 0. Used by TLS 1.3 mode.
++	maskInitialized bool
++	blockSize       int
 +}
 +
 +const (
 +	gcmTagSize           = 16
 +	gcmStandardNonceSize = 12
-+	gcmTlsAddSize        = 13
++	// TLS 1.2 additional data is constructed as:
++	//
++	//     additional_data = seq_num(8) + TLSCompressed.type(1) + TLSCompressed.version(2) + TLSCompressed.length(2);
++	gcmTls12AddSize = 13
++	// TLS 1.3 additional data is constructed as:
++	//
++	//     additional_data = TLSCiphertext.opaque_type(1) || TLSCiphertext.legacy_record_version(2) || TLSCiphertext.length(2)
++	gcmTls13AddSize      = 5
 +	gcmTlsFixedNonceSize = 4
 +)
 +
@@ -4377,10 +4428,10 @@ index 0000000000..b56de6a74e
 +	if tagSize != gcmTagSize {
 +		return cipher.NewGCMWithTagSize(&noGCM{c}, tagSize)
 +	}
-+	return c.newGCM(false)
++	return c.newGCM(cipherGCMTLSNone)
 +}
 +
-+func (c *evpCipher) newGCM(tls bool) (cipher.AEAD, error) {
++func (c *evpCipher) newGCM(tls cipherGCMTLS) (cipher.AEAD, error) {
 +	ctx, err := newCipherCtx(c.kind, cipherModeGCM, cipherOpNone, c.key, nil)
 +	if err != nil {
 +		return nil, err
@@ -4412,15 +4463,41 @@ index 0000000000..b56de6a74e
 +	if len(dst)+len(plaintext)+gcmTagSize < len(dst) {
 +		panic("cipher: message too large for buffer")
 +	}
-+	if g.tls {
-+		if len(additionalData) != gcmTlsAddSize {
-+			panic("cipher: incorrect additional data length given to GCM TLS")
++	if g.tls != cipherGCMTLSNone {
++		if g.tls == cipherGCMTLS12 && len(additionalData) != gcmTls12AddSize {
++			panic("cipher: incorrect additional data length given to GCM TLS 1.2")
++		} else if g.tls == cipherGCMTLS13 && len(additionalData) != gcmTls13AddSize {
++			panic("cipher: incorrect additional data length given to GCM TLS 1.3")
++		}
++		counter := binary.BigEndian.Uint64(nonce[gcmTlsFixedNonceSize:])
++		if g.tls == cipherGCMTLS13 {
++			// In TLS 1.3, the counter in the nonce has a mask and requires
++			// further decoding.
++			if !g.maskInitialized {
++				// According to TLS 1.3 nonce construction details at
++				// https://tools.ietf.org/html/rfc8446#section-5.3:
++				//
++				//   the first record transmitted under a particular traffic
++				//   key MUST use sequence number 0.
++				//
++				//   The padded sequence number is XORed with [a mask].
++				//
++				//   The resulting quantity (of length iv_length) is used as
++				//   the per-record nonce.
++				//
++				// We need to convert from the given nonce to sequence numbers
++				// to keep track of minNextNonce and enforce the counter
++				// maximum. On the first call, we know counter^mask is 0^mask,
++				// so we can simply store it as the mask.
++				g.mask = counter
++				g.maskInitialized = true
++			}
++			counter ^= g.mask
 +		}
 +		// BoringCrypto enforces strictly monotonically increasing explicit nonces
 +		// and to fail after 2^64 - 1 keys as per FIPS 140-2 IG A.5,
 +		// but OpenSSL does not perform this check, so it is implemented here.
 +		const maxUint64 = 1<<64 - 1
-+		counter := binary.BigEndian.Uint64(nonce[gcmTlsFixedNonceSize:])
 +		if counter == maxUint64 {
 +			panic("cipher: nonce counter must be less than 2^64 - 1")
 +		}
@@ -9478,14 +9555,14 @@ index 0000000000..3153fc81ec
 +	return nil
 +}
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index 4de656b0e8..8fdf76a925 100644
+index 338c496bf9..6eb9834c76 100644
 --- a/src/vendor/modules.txt
 +++ b/src/vendor/modules.txt
 @@ -1,3 +1,7 @@
-+# github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20231108174110-41b6eb24da28
++# github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20240109234540-66bdd798d334
 +## explicit; go 1.20
 +github.com/golang-fips/openssl/v2
 +github.com/golang-fips/openssl/v2/bbig
- # golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d
- ## explicit; go 1.17
+ # golang.org/x/crypto v0.16.1-0.20231129163542-152cdb1503eb
+ ## explicit; go 1.18
  golang.org/x/crypto/chacha20
