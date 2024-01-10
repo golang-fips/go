@@ -9,6 +9,7 @@ function cleanup() {
     # shellcheck disable=SC2181
     if [ "0" != "${?}" ]; then
         cd "${ROOT}"
+        git reset go
         rm -rf go
     fi
 }
@@ -37,6 +38,7 @@ shift $((OPTIND-1))
 # Enter the submodule directory.
 cd ./go
 ORIGINAL_GIT_SHA=$(git rev-parse HEAD)
+echo $replacement
 
 # Build the Go toolchain before applying patches. This allows us to use this toolchain in later steps
 # when running `go mod` commands.
