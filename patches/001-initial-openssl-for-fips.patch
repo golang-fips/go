@@ -3466,7 +3466,7 @@ index 17e1d91fd0..2d0a5183e1 100644
  	}
  }
 diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
-index 869dc2dde9..647f0d8027 100644
+index eccc56759c..fc6d81a724 100644
 --- a/src/crypto/tls/boring_test.go
 +++ b/src/crypto/tls/boring_test.go
 @@ -2,14 +2,14 @@
@@ -3495,7 +3495,7 @@ index 869dc2dde9..647f0d8027 100644
  		test("VersionTLS13", VersionTLS13, "client offered only unsupported versions")
  	} else {
  		test("VersionTLS13", VersionTLS13, "")
-@@ -271,7 +271,7 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
+@@ -269,7 +269,7 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
  
  			clientConfig := testConfig.Clone()
  
@@ -3504,7 +3504,7 @@ index 869dc2dde9..647f0d8027 100644
  				serverConfig.Rand = boring.RandReader
  				clientConfig.Rand = boring.RandReader
  			}
-@@ -402,7 +402,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -400,7 +400,7 @@ func TestBoringCertAlgs(t *testing.T) {
  		serverConfig.Certificates = []Certificate{{Certificate: list, PrivateKey: key}}
  		serverConfig.BuildNameToCertificate()
  
@@ -3513,7 +3513,7 @@ index 869dc2dde9..647f0d8027 100644
  			serverConfig.Rand = boring.RandReader
  			clientConfig.Rand = boring.RandReader
  		}
-@@ -433,13 +433,13 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -431,13 +431,13 @@ func TestBoringCertAlgs(t *testing.T) {
  		serverConfig := testConfig.Clone()
  		serverConfig.ClientCAs = pool
  		serverConfig.ClientAuth = RequireAndVerifyClientCert
@@ -3529,7 +3529,7 @@ index 869dc2dde9..647f0d8027 100644
  			serverConfig.Rand = boring.RandReader
  			clientConfig.Rand = boring.RandReader
  		}
-@@ -465,8 +465,8 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -463,8 +463,8 @@ func TestBoringCertAlgs(t *testing.T) {
  	// exhaustive test with computed answers.
  	r1pool := x509.NewCertPool()
  	r1pool.AddCert(R1.cert)
@@ -3540,7 +3540,7 @@ index 869dc2dde9..647f0d8027 100644
  	fipstls.Force()
  	testServerCert(t, "basic (fips)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
  	testClientCert(t, "basic (fips, client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
-@@ -487,7 +487,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -485,7 +485,7 @@ func TestBoringCertAlgs(t *testing.T) {
  			leaf = L2_I
  		}
  		for i := 0; i < 64; i++ {
@@ -3549,7 +3549,7 @@ index 869dc2dde9..647f0d8027 100644
  			reachableFIPS := map[string]bool{leaf.parentOrg: leaf.fipsOK}
  			list := [][]byte{leaf.der}
  			listName := leaf.name
-@@ -495,7 +495,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -493,7 +493,7 @@ func TestBoringCertAlgs(t *testing.T) {
  				if cond != 0 {
  					list = append(list, c.der)
  					listName += "," + c.name
@@ -3558,7 +3558,7 @@ index 869dc2dde9..647f0d8027 100644
  						reachable[c.parentOrg] = true
  					}
  					if reachableFIPS[c.org] && c.fipsOK {
-@@ -519,7 +519,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -517,7 +517,7 @@ func TestBoringCertAlgs(t *testing.T) {
  					if cond != 0 {
  						rootName += "," + c.name
  						pool.AddCert(c.cert)

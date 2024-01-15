@@ -965,17 +965,6 @@ index ba68f355eb..7bfe3f9417 100644
  }
 
  func isBoringCipherSuite(id uint16) bool {
-@@ -66,7 +74,9 @@ func isBoringCipherSuite(id uint16) bool {
- 		TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
- 		TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
- 		TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
--		TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384:
-+		TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
-+		TLS_AES_128_GCM_SHA256,
-+		TLS_AES_256_GCM_SHA384:
- 		return true
- 	}
- 	return false
 @@ -226,7 +236,14 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
  			// 1.3, and the ECDSA ones bind to the curve used.
  			serverConfig.MaxVersion = VersionTLS12
