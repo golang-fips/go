@@ -5545,7 +5545,8 @@ index 64c83c21c5..f48c57adff 100644
  	key := C._goboringcrypto_RSA_new()
  	if key == nil {
 -		return nil, fail("RSA_new")
--	}
++		return nil, NewOpenSSLError("RSA_new failed")
+ 	}
 -	if !bigToBn(&key.n, N) ||
 -		!bigToBn(&key.e, E) ||
 -		!bigToBn(&key.d, D) ||
@@ -5555,8 +5556,6 @@ index 64c83c21c5..f48c57adff 100644
 -		!bigToBn(&key.dmq1, Dq) ||
 -		!bigToBn(&key.iqmp, Qinv) {
 -		return nil, fail("BN_bin2bn")
-+		return nil, NewOpenSSLError("RSA_new failed")
-+	}
 +	var n, e, d, p, q, dp, dq, qinv *C.GO_BIGNUM
 +	n = bigToBN(N)
 +	e = bigToBN(E)
@@ -5728,9 +5727,6 @@ index 64c83c21c5..f48c57adff 100644
  		return out[:outLen], nil
  	}
  
--	md := cryptoHashToMD(h)
--	if md == nil {
--		return nil, errors.New("crypto/rsa: unsupported hash function: " + strconv.Itoa(int(h)))
 +	var out []byte
 +	var outLen C.size_t
 +
@@ -5738,45 +5734,44 @@ index 64c83c21c5..f48c57adff 100644
 +		return C._goboringcrypto_EVP_RSA_sign(md, base(msg), C.uint(len(msg)), base(out), &outLen, key)
 +	}) == 0 {
 +		return nil, NewOpenSSLError("RSA_sign")
- 	}
--	nid := C._goboringcrypto_EVP_MD_type(md)
++	}
 +	return out[:outLen], nil
 +}
 +
 +func signRSAPKCS1v15Raw(priv *PrivateKeyRSA, msg []byte, md *C.GO_EVP_MD) ([]byte, error) {
- 	var out []byte
--	var outLen C.uint
++	var out []byte
 +	var outLen C.size_t
 +	PanicIfStrictFIPS("You must provide a raw unhashed message for PKCS1v15 signing and use HashSignPKCS1v15 instead of SignPKCS1v15")
 +
- 	if priv.withKey(func(key *C.GO_RSA) C.int {
- 		out = make([]byte, C._goboringcrypto_RSA_size(key))
--		return C._goboringcrypto_RSA_sign(nid, base(hashed), C.uint(len(hashed)),
--			base(out), &outLen, key)
++	if priv.withKey(func(key *C.GO_RSA) C.int {
++		out = make([]byte, C._goboringcrypto_RSA_size(key))
 +		outLen = C.size_t(len(out))
 +		return C._goboringcrypto_EVP_sign_raw(md, nil, base(msg),
 +			C.size_t(len(msg)), base(out), &outLen, key)
- 	}) == 0 {
--		return nil, fail("RSA_sign")
++	}) == 0 {
 +		return nil, NewOpenSSLError("RSA_sign")
- 	}
++	}
 +	runtime.KeepAlive(priv)
- 	return out[:outLen], nil
- }
- 
--func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte) error {
--	if h == 0 {
--		var out []byte
--		var outLen C.size_t
++	return out[:outLen], nil
++}
++
 +func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, msg, sig []byte, msgIsHashed bool) error {
 +	if h == 0 && ExecutingTest() {
 +		return verifyRSAPKCS1v15Raw(pub, msg, sig)
 +	}
 +
-+	md := cryptoHashToMD(h)
-+	if md == nil {
+ 	md := cryptoHashToMD(h)
+ 	if md == nil {
+-		return nil, errors.New("crypto/rsa: unsupported hash function: " + strconv.Itoa(int(h)))
 +		return errors.New("crypto/rsa: unsupported hash function")
-+	}
+ 	}
+-	nid := C._goboringcrypto_EVP_MD_type(md)
+-	var out []byte
+-	var outLen C.uint
+-	if priv.withKey(func(key *C.GO_RSA) C.int {
+-		out = make([]byte, C._goboringcrypto_RSA_size(key))
+-		return C._goboringcrypto_RSA_sign(nid, base(hashed), C.uint(len(hashed)),
+-			base(out), &outLen, key)
 +
 +	if pub.withKey(func(key *C.GO_RSA) C.int {
 +		size := int(C._goboringcrypto_RSA_size(key))
@@ -5784,10 +5779,17 @@ index 64c83c21c5..f48c57adff 100644
 +			return 0
 +		}
 +		return 1
-+	}) == 0 {
+ 	}) == 0 {
+-		return nil, fail("RSA_sign")
 +		return errors.New("crypto/rsa: verification error")
-+	}
-+
+ 	}
+-	return out[:outLen], nil
+-}
+ 
+-func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, hashed, sig []byte) error {
+-	if h == 0 {
+-		var out []byte
+-		var outLen C.size_t
 +	if msgIsHashed {
 +		PanicIfStrictFIPS("You must provide a raw unhashed message for PKCS1v15 verification and use HashVerifyPKCS1v15 instead of VerifyPKCS1v15")
 +		nid := C._goboringcrypto_EVP_MD_type(md)
