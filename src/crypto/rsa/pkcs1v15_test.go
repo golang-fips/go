@@ -188,7 +188,7 @@ type signPKCS1v15Test struct {
 
 // Test vector for testRSA2048PrivateKey
 // generated with `openssl pkeyutl -rawin -digest sha256 -sign -inkey <key>`
- var signPKCS1v15Tests = []signPKCS1v15Test{
+var signPKCS1v15Tests = []signPKCS1v15Test{
 	{"Test.\n", "467c3c8f16223ba09aecfe44488d6b34b3f91f11379949b1d8af31636ee8b3aa51eebb96ee11678323cb1f909af17c9d0fe4b6012078af8120474474efd1bb51765e1647369ddba6525c6608113857bb0e2aaed9ad01fe041b476b162f7d4db55bb31fa957046616ce463cecb2a66f38fa62c594d07afcc870582d545853b31fa705ab8565e4085804c32e73459720bf4e08f097843b0845116d4376231fa2472abc89b1e42462002bf70f9a1df31db6d2ab6dc52c8223798a4f57c40d6a9123b80739846d779044eac28d8c783e8ce73919f1d4a6efe8fb601b8d36c5c9b61654d6f8717d1fb9fcafa19669200900899dd08ce921a1745312eb06040a405903"},
 }
 
@@ -237,6 +237,10 @@ func TestHashVerifyPKCS1v15(t *testing.T) {
 }
 
 func TestOverlongMessagePKCS1v15(t *testing.T) {
+	// OpenSSL now returns a random string instead of an error
+	if boring.Enabled() {
+		t.Skip("Not relevant in boring mode")
+	}
 	ciphertext := decodeBase64("fjOVdirUzFoLlukv80dBllMLjXythIf22feqPrNo0YoIjzyzyoMFiLjAc/Y4krkeZ11XFThIrEvw\nkRiZcCq5ng==")
 	_, err := DecryptPKCS1v15(nil, rsaPrivateKey, ciphertext)
 	if err == nil {
