@@ -188,7 +188,8 @@ type signPKCS1v15Test struct {
 }
 
 // These vectors have been tested with
-//   `openssl rsautl -verify -inkey pk -in signature | hexdump -C`
+//
+//	`openssl rsautl -verify -inkey pk -in signature | hexdump -C`
 var signPKCS1v15Tests = []signPKCS1v15Test{
 	{"Test.\n", "a4f3fa6ea93bcdd0c57be020c1193ecbfd6f200a3d95c409769b029578fa0e336ad9a347600e40d3ae823b8c7e6bad88cc07c1d54c3a1523cbbb6d58efc362ae"},
 }
@@ -238,6 +239,10 @@ func TestHashVerifyPKCS1v15(t *testing.T) {
 }
 
 func TestOverlongMessagePKCS1v15(t *testing.T) {
+	// OpenSSL now returns a random string instead of an error
+	if boring.Enabled() {
+		t.Skip("Not relevant in boring mode")
+	}
 	ciphertext := decodeBase64("fjOVdirUzFoLlukv80dBllMLjXythIf22feqPrNo0YoIjzyzyoMFiLjAc/Y4krkeZ11XFThIrEvw\nkRiZcCq5ng==")
 	_, err := DecryptPKCS1v15(nil, rsaPrivateKey, ciphertext)
 	if err == nil {
