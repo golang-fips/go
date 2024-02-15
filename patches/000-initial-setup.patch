@@ -135,6 +135,27 @@ index f933f2800a..223ce04340 100644
  	testenv.MustHaveExternalNetwork(t)
 
  	// Create a temp dir and modcache subdir.
+diff --git a/src/crypto/internal/backend/bbig/big.go b/src/crypto/internal/backend/bbig/big.go
+new file mode 100644
+index 0000000000..5652398605
+--- /dev/null
++++ b/src/crypto/internal/backend/bbig/big.go
+@@ -0,0 +1,15 @@
++// Copyright 2022 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++// This is a mirror of
++// https://github.com/golang/go/blob/36b87f273cc43e21685179dc1664ebb5493d26ae/src/crypto/internal/boring/bbig/big.go.
++
++package bbig
++
++import (
++       "github.com/golang-fips/openssl/v2/bbig"
++)
++
++var Enc = bbig.Enc
++var Dec = bbig.Dec
 diff --git a/src/crypto/internal/backend/boringtest/config.go b/src/crypto/internal/backend/boringtest/config.go
 new file mode 100644
 index 0000000000..6c8c00d11e
@@ -192,10 +213,10 @@ new file mode 100644
 index 0000000000..e69de29bb2
 diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
 new file mode 100644
-index 0000000000..15c1ee8cbe
+index 0000000000..528ded04d7
 --- /dev/null
 +++ b/src/crypto/internal/backend/nobackend.go
-@@ -0,0 +1,163 @@
+@@ -0,0 +1,170 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -359,12 +380,19 @@ index 0000000000..15c1ee8cbe
 +func HashSignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) (*big.Int, *big.Int, error) {
 +	panic("boringcrypto: not available")
 +}
++
++func SupportsTLS1PRF() bool {
++	panic("boringcrypto: not available")
++}
++func TLS1PRF(result, secret, label, seed []byte, h func() hash.Hash) error {
++	panic("boringcrypto: not available")
++}
 diff --git a/src/crypto/internal/backend/openssl.go b/src/crypto/internal/backend/openssl.go
 new file mode 100644
-index 0000000000..2087c555a4
+index 0000000000..6ec71c625d
 --- /dev/null
 +++ b/src/crypto/internal/backend/openssl.go
-@@ -0,0 +1,122 @@
+@@ -0,0 +1,125 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -487,27 +515,9 @@ index 0000000000..2087c555a4
 +var ExtractHKDF = openssl.ExtractHKDF
 +var ExpandHKDF = openssl.ExpandHKDF
 +var SupportsHKDF = openssl.SupportsHKDF
-diff --git a/src/crypto/internal/backend/bbig/big.go b/src/crypto/internal/backend/bbig/big.go
-new file mode 100644
-index 0000000000..7fac1ec7e1
---- /dev/null
-+++ b/src/crypto/internal/backend/bbig/big.go
-@@ -0,0 +1,15 @@
-+// Copyright 2022 The Go Authors. All rights reserved.
-+// Use of this source code is governed by a BSD-style
-+// license that can be found in the LICENSE file.
 +
-+// This is a mirror of
-+// https://github.com/golang/go/blob/36b87f273cc43e21685179dc1664ebb5493d26ae/src/crypto/internal/boring/bbig/big.go.
-+
-+package bbig
-+
-+import (
-+       "github.com/golang-fips/openssl/v2/bbig"
-+)
-+
-+var Enc = bbig.Enc
-+var Dec = bbig.Dec
++var SupportsTLS1PRF = openssl.SupportsTLS1PRF
++var TLS1PRF = openssl.TLS1PRF
 diff --git a/src/crypto/rsa/pkcs1v15_test.go b/src/crypto/rsa/pkcs1v15_test.go
 index dfa1eddc88..39a4fc184a 100644
 --- a/src/crypto/rsa/pkcs1v15_test.go
@@ -734,28 +744,6 @@ index cf03e3cb7e..1226149321 100644
  		t.Fatalf("SignPSS unexpected error: got %v, want %v", err, InvalidSaltLenErr)
  	}
 
-diff --git a/src/crypto/rsa/rsa.go b/src/crypto/rsa/rsa.go
-index 63bc8dad1a..ab56ccd1ed 100644
---- a/src/crypto/rsa/rsa.go
-+++ b/src/crypto/rsa/rsa.go
-@@ -509,7 +509,7 @@ func EncryptOAEP(hash hash.Hash, random io.Reader, pub *PublicKey, msg []byte, l
- 		if err != nil {
- 			return nil, err
- 		}
--		return boring.EncryptRSAOAEP(hash, hash, bkey, msg, label)
-+		return boring.EncryptRSAOAEP(hash, hash, bkey, msg, label)
- 	}
- 	boring.UnreachableExceptTests()
-
-@@ -680,7 +680,7 @@ func decryptOAEP(hash, mgfHash hash.Hash, random io.Reader, priv *PrivateKey, ci
- 		if err != nil {
- 			return nil, err
- 		}
--		out, err := boring.DecryptRSAOAEP(hash, mgfHash, bkey, ciphertext, label)
-+		out, err := boring.DecryptRSAOAEP(hash, mgfHash, bkey, ciphertext, label)
- 		if err != nil {
- 			return nil, ErrDecryption
- 		}
 diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
 index 3278a7ff30..b994daec19 100644
 --- a/src/crypto/rsa/rsa_test.go
@@ -1128,7 +1116,7 @@ index ba68f355eb..7bfe3f9417 100644
 
  // A self-signed test certificate with an RSA key of size 2048, for testing
 diff --git a/src/crypto/tls/cipher_suites.go b/src/crypto/tls/cipher_suites.go
-index 04e6dfe018..b6ed936cd1 100644
+index 589e8b6faf..669208bb86 100644
 --- a/src/crypto/tls/cipher_suites.go
 +++ b/src/crypto/tls/cipher_suites.go
 @@ -354,6 +354,11 @@ var defaultCipherSuitesTLS13NoAES = []uint16{
@@ -1144,7 +1132,7 @@ index 04e6dfe018..b6ed936cd1 100644
  	hasGCMAsmAMD64 = cpu.X86.HasAES && cpu.X86.HasPCLMULQDQ
  	hasGCMAsmARM64 = cpu.ARM64.HasAES && cpu.ARM64.HasPMULL
 diff --git a/src/crypto/tls/common.go b/src/crypto/tls/common.go
-index 5394d64ac6..db4e2dbf60 100644
+index e0885a0da9..5edbd19995 100644
 --- a/src/crypto/tls/common.go
 +++ b/src/crypto/tls/common.go
 @@ -12,6 +12,7 @@ import (
@@ -1155,7 +1143,7 @@ index 5394d64ac6..db4e2dbf60 100644
  	"crypto/rand"
  	"crypto/rsa"
  	"crypto/sha512"
-@@ -994,6 +995,9 @@ const roleServer = false
+@@ -1031,6 +1032,9 @@ const roleServer = false
  func (c *Config) supportedVersions(isClient bool) []uint16 {
  	versions := make([]uint16, 0, len(supportedVersions))
  	for _, v := range supportedVersions {
@@ -1166,10 +1154,10 @@ index 5394d64ac6..db4e2dbf60 100644
  			continue
  		}
 diff --git a/src/crypto/tls/handshake_client.go b/src/crypto/tls/handshake_client.go
-index 63d86b9f3a..a8ee915041 100644
+index 4649f36dea..5e1976caf3 100644
 --- a/src/crypto/tls/handshake_client.go
 +++ b/src/crypto/tls/handshake_client.go
-@@ -127,7 +127,9 @@ func (c *Conn) makeClientHello() (*clientHelloMsg, *ecdh.PrivateKey, error) {
+@@ -139,7 +139,9 @@ func (c *Conn) makeClientHello() (*clientHelloMsg, *ecdh.PrivateKey, error) {
  		if len(hello.supportedVersions) == 1 {
  			hello.cipherSuites = nil
  		}
@@ -1181,10 +1169,10 @@ index 63d86b9f3a..a8ee915041 100644
  		} else {
  			hello.cipherSuites = append(hello.cipherSuites, defaultCipherSuitesTLS13NoAES...)
 diff --git a/src/crypto/tls/handshake_client_test.go b/src/crypto/tls/handshake_client_test.go
-index 22be38faff..d460eeb880 100644
+index a2052ceb70..1666b58ef3 100644
 --- a/src/crypto/tls/handshake_client_test.go
 +++ b/src/crypto/tls/handshake_client_test.go
-@@ -2156,6 +2156,7 @@ func testBuffering(t *testing.T, version uint16) {
+@@ -2198,6 +2198,7 @@ func testBuffering(t *testing.T, version uint16) {
  }
 
  func TestAlertFlushing(t *testing.T) {
@@ -1193,7 +1181,7 @@ index 22be38faff..d460eeb880 100644
  	done := make(chan bool)
 
 diff --git a/src/crypto/tls/handshake_client_tls13.go b/src/crypto/tls/handshake_client_tls13.go
-index 4a8661085e..87fe11de5c 100644
+index 2f59f6888c..a84cede1b0 100644
 --- a/src/crypto/tls/handshake_client_tls13.go
 +++ b/src/crypto/tls/handshake_client_tls13.go
 @@ -41,10 +41,6 @@ type clientHandshakeStateTLS13 struct {
@@ -1208,10 +1196,10 @@ index 4a8661085e..87fe11de5c 100644
  	// sections 4.1.2 and 4.1.3.
  	if c.handshakes > 0 {
 diff --git a/src/crypto/tls/handshake_server_tls13.go b/src/crypto/tls/handshake_server_tls13.go
-index b7b568cd84..af75e7dbe0 100644
+index 07b1a3851e..938a329668 100644
 --- a/src/crypto/tls/handshake_server_tls13.go
 +++ b/src/crypto/tls/handshake_server_tls13.go
-@@ -44,10 +44,6 @@ type serverHandshakeStateTLS13 struct {
+@@ -45,10 +45,6 @@ type serverHandshakeStateTLS13 struct {
  func (hs *serverHandshakeStateTLS13) handshake() error {
  	c := hs.c
 
@@ -1223,7 +1211,7 @@ index b7b568cd84..af75e7dbe0 100644
  	if err := hs.processClientHello(); err != nil {
  		return err
 diff --git a/src/crypto/tls/key_schedule.go b/src/crypto/tls/key_schedule.go
-index ae8f80a7cf..30a8450f40 100644
+index d7f082c9ee..e7a360fdd4 100644
 --- a/src/crypto/tls/key_schedule.go
 +++ b/src/crypto/tls/key_schedule.go
 @@ -7,6 +7,7 @@ package tls
@@ -1234,7 +1222,7 @@ index ae8f80a7cf..30a8450f40 100644
  	"errors"
  	"fmt"
  	"hash"
-@@ -58,9 +59,20 @@ func (c *cipherSuiteTLS13) expandLabel(secret []byte, label string, context []by
+@@ -59,9 +60,20 @@ func (c *cipherSuiteTLS13) expandLabel(secret []byte, label string, context []by
  		panic(fmt.Errorf("failed to construct HKDF label: %s", err))
  	}
  	out := make([]byte, length)
@@ -1258,7 +1246,7 @@ index ae8f80a7cf..30a8450f40 100644
  	}
  	return out
  }
-@@ -78,7 +90,15 @@ func (c *cipherSuiteTLS13) extract(newSecret, currentSecret []byte) []byte {
+@@ -79,7 +91,15 @@ func (c *cipherSuiteTLS13) extract(newSecret, currentSecret []byte) []byte {
  	if newSecret == nil {
  		newSecret = make([]byte, c.hash.Size())
  	}
@@ -1305,7 +1293,7 @@ index 33fd0ed52b..102acda578 100644
  	I_R1 := testBoringCert(t, "I_R1", boringRSAKey(t, 3072), R1, boringCertCA|boringCertFIPSOK)
  	testBoringCert(t, "I_R2", I_R1.key, R2, boringCertCA|boringCertFIPSOK)
 diff --git a/src/crypto/x509/x509_test.go b/src/crypto/x509/x509_test.go
-index 8846b00312..8734dd03c1 100644
+index 19deeab54d..0c2cbf3182 100644
 --- a/src/crypto/x509/x509_test.go
 +++ b/src/crypto/x509/x509_test.go
 @@ -12,6 +12,8 @@ import (
@@ -1424,7 +1412,7 @@ index 8846b00312..8734dd03c1 100644
  		commonName := "test.example.com"
  		template := Certificate{
  			SerialNumber: big.NewInt(1),
-@@ -3607,11 +3638,19 @@ func TestParseRevocationList(t *testing.T) {
+@@ -3682,11 +3713,19 @@ func TestParseRevocationList(t *testing.T) {
  }
 
  func TestRevocationListCheckSignatureFrom(t *testing.T) {
@@ -1447,10 +1435,10 @@ index 8846b00312..8734dd03c1 100644
  		t.Fatalf("failed to generate test key: %s", err)
  	}
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
-index 08452c7b1d..0732db0662 100644
+index 592f2fd72a..1c1caa6897 100644
 --- a/src/go/build/deps_test.go
 +++ b/src/go/build/deps_test.go
-@@ -396,9 +396,11 @@ var depsRules = `
+@@ -423,9 +423,11 @@ var depsRules = `
  	< crypto/internal/alias
  	< crypto/cipher;
 
@@ -1463,7 +1451,7 @@ index 08452c7b1d..0732db0662 100644
  	< crypto/boring;
 
  	crypto/internal/alias
-@@ -427,11 +429,13 @@ var depsRules = `
+@@ -454,11 +456,13 @@ var depsRules = `
  	crypto/sha512
  	< CRYPTO;
 
@@ -1478,7 +1466,7 @@ index 08452c7b1d..0732db0662 100644
  	< crypto/rand
  	< crypto/ed25519
  	< encoding/asn1
-@@ -629,6 +633,7 @@ func listStdPkgs(goroot string) ([]string, error) {
+@@ -663,6 +667,7 @@ func listStdPkgs(goroot string) ([]string, error) {
  }
 
  func TestDependencies(t *testing.T) {
@@ -1486,7 +1474,7 @@ index 08452c7b1d..0732db0662 100644
  	if !testenv.HasSrc() {
  		// Tests run in a limited file system and we do not
  		// provide access to every source file.
-@@ -671,7 +676,7 @@ var buildIgnore = []byte("\n//go:build ignore")
+@@ -705,7 +710,7 @@ var buildIgnore = []byte("\n//go:build ignore")
 
  func findImports(pkg string) ([]string, error) {
  	vpkg := pkg
@@ -1495,7 +1483,7 @@ index 08452c7b1d..0732db0662 100644
  		vpkg = "vendor/" + pkg
  	}
  	dir := filepath.Join(Default.GOROOT, "src", vpkg)
-@@ -681,7 +686,7 @@ func findImports(pkg string) ([]string, error) {
+@@ -715,7 +720,7 @@ func findImports(pkg string) ([]string, error) {
  	}
  	var imports []string
  	var haveImport = map[string]bool{}
@@ -1505,7 +1493,7 @@ index 08452c7b1d..0732db0662 100644
  	}
  	fset := token.NewFileSet()
 diff --git a/src/runtime/pprof/proto_test.go b/src/runtime/pprof/proto_test.go
-index 780b481de8..63db9e9ed7 100644
+index 8ec9c9109a..d7f287261f 100644
 --- a/src/runtime/pprof/proto_test.go
 +++ b/src/runtime/pprof/proto_test.go
 @@ -15,6 +15,7 @@ import (
