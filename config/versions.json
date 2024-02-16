@@ -1,5 +1,5 @@
 {
     "github.com/golang-fips/go": "main",
-    "github.com/golang-fips/openssl": "66bdd798d334fcee88b05355e87eb0f21aac4bb5",
-    "github.com/golang/go": "go1.22rc1"
+    "github.com/golang-fips/openssl": "2f74c04ce90b331d31dc4dbd58678d7b7d046fbe",
+    "github.com/golang/go": "go1.22.0"
 }
