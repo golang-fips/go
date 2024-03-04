@@ -237,6 +237,10 @@ func TestHashVerifyPKCS1v15(t *testing.T) {
 }
 
 func TestOverlongMessagePKCS1v15(t *testing.T) {
+	// OpenSSL now returns a random string instead of an error
+	if boring.Enabled() {
+		t.Skip("Not relevant in boring mode")
+	}
 	ciphertext := decodeBase64("fjOVdirUzFoLlukv80dBllMLjXythIf22feqPrNo0YoIjzyzyoMFiLjAc/Y4krkeZ11XFThIrEvw\nkRiZcCq5ng==")
 	_, err := DecryptPKCS1v15(nil, rsaPrivateKey, ciphertext)
 	if err == nil {
