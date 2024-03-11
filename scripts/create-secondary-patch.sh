@@ -43,9 +43,9 @@ type BigInt = openssl.BigInt
 cd src
 SCRIPT_DIR=$(readlink -f $(dirname $0))
 CONFIG_DIR=$(readlink -f $(dirname $0)/../config)
-OPENSSL_FIPS_REF=$(go run ${SCRIPT_DIR}/versions.go ${CONFIG_DIR}/versions.json \
+OPENSSL_FIPS_REF=$(../bin/go run ${SCRIPT_DIR}/versions.go ${CONFIG_DIR}/versions.json \
 			github.com/golang-fips/openssl)
-go get github.com/golang-fips/openssl/v2@${OPENSSL_FIPS_REF}
+../bin/go get github.com/golang-fips/openssl/v2@${OPENSSL_FIPS_REF}
 
 replace="${1}"
 if [ -n "${replace}" ]; then

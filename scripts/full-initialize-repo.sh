@@ -22,7 +22,7 @@ ${SCRIPT_DIR}/setup-initial-patch.sh $@
 set -ex
 pushd ${GO_DIR}
 for patch in $(ls ../patches); do
-  git apply ../patches/${patch}
+  git apply -v ../patches/${patch}
   git add -A
   git commit -am ${patch}
 done

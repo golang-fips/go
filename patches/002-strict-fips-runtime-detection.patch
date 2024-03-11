@@ -163,9 +163,9 @@ index 02e744362c..4ac7f480cf 100644
 --- a/src/internal/goexperiment/flags.go
 +++ b/src/internal/goexperiment/flags.go
 @@ -100,4 +100,6 @@ type Flags struct {
- 	// CacheProg adds support to cmd/go to use a child process to implement
- 	// the build cache; see https://github.com/golang/go/issues/59719.
- 	CacheProg bool
+ 	// ExecTracer2 controls whether to use the new execution trace
+ 	// implementation.
+ 	ExecTracer2 bool
 +
 +	StrictFIPSRuntime bool
  }

@@ -20,7 +20,7 @@ index f0e3575637..a4139169b8 100644
  	os.Exit(0)
  }
 diff --git a/src/crypto/aes/cipher.go b/src/crypto/aes/cipher.go
-index 183c1697c8..abe85b5ad3 100644
+index a9e6208696..1de76641aa 100644
 --- a/src/crypto/aes/cipher.go
 +++ b/src/crypto/aes/cipher.go
 @@ -7,7 +7,7 @@ package aes
@@ -100,16 +100,15 @@ index 33e5f1b37e..0000000000
 -}
 diff --git a/src/crypto/boring/notboring_test.go b/src/crypto/boring/notboring_test.go
 deleted file mode 100644
-index ffe18e9109..0000000000
+index 0701628464..0000000000
 --- a/src/crypto/boring/notboring_test.go
 +++ /dev/null
-@@ -1,14 +0,0 @@
+@@ -1,13 +0,0 @@
 -// Copyright 2020 The Go Authors. All rights reserved.
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
 -//go:build (goexperiment.boringcrypto && !boringcrypto) || (!goexperiment.boringcrypto && boringcrypto)
--// +build goexperiment.boringcrypto,!boringcrypto !goexperiment.boringcrypto,boringcrypto
 -
 -package boring_test
 -
@@ -119,7 +118,7 @@ index ffe18e9109..0000000000
 -	t.Error("goexperiment.boringcrypto and boringcrypto should be equivalent build tags")
 -}
 diff --git a/src/crypto/ecdh/ecdh.go b/src/crypto/ecdh/ecdh.go
-index b86f521787..5b48335c69 100644
+index b7c26f91e5..0e6680fd04 100644
 --- a/src/crypto/ecdh/ecdh.go
 +++ b/src/crypto/ecdh/ecdh.go
 @@ -8,7 +8,7 @@ package ecdh
@@ -185,7 +184,7 @@ index af6bcd86f4..cc111c5564 100644
  	}
  	if testing.Short() {
 diff --git a/src/crypto/ecdh/nist.go b/src/crypto/ecdh/nist.go
-index 01354fa2cf..a7f1d9eced 100644
+index b366491544..a930d7e5e2 100644
 --- a/src/crypto/ecdh/nist.go
 +++ b/src/crypto/ecdh/nist.go
 @@ -5,7 +5,7 @@
@@ -255,7 +254,7 @@ index 275c60b4de..58f0034b18 100644
  	"math/big"
  )
 diff --git a/src/crypto/ecdsa/ecdsa.go b/src/crypto/ecdsa/ecdsa.go
-index e1503779ae..00953a453a 100644
+index 3ed15a888a..d5ab3d32e3 100644
 --- a/src/crypto/ecdsa/ecdsa.go
 +++ b/src/crypto/ecdsa/ecdsa.go
 @@ -27,8 +27,8 @@ import (
@@ -405,7 +404,7 @@ index 8b5c2cc9af..ebbb1c0c07 100644
  	}
  	testenv.SkipIfOptimizationOff(t)
 diff --git a/src/crypto/hmac/hmac.go b/src/crypto/hmac/hmac.go
-index 35b9d5a17a..5697756a27 100644
+index 46ec81b8c5..1b99c68577 100644
 --- a/src/crypto/hmac/hmac.go
 +++ b/src/crypto/hmac/hmac.go
 @@ -22,7 +22,7 @@ timing side-channels:
@@ -418,8 +417,8 @@ index 35b9d5a17a..5697756a27 100644
  	"hash"
  )
 @@ -127,7 +127,7 @@ func (h *hmac) Reset() {
- // the returned Hash does not implement encoding.BinaryMarshaler
- // or encoding.BinaryUnmarshaler.
+ // the returned Hash does not implement [encoding.BinaryMarshaler]
+ // or [encoding.BinaryUnmarshaler].
  func New(h func() hash.Hash, key []byte) hash.Hash {
 -	if boring.Enabled {
 +	if boring.Enabled() {
@@ -452,7 +451,7 @@ index 55415abf02..0edd7a6003 100644
  	defer func() {
 diff --git a/src/crypto/internal/boring/aes.go b/src/crypto/internal/boring/aes.go
 deleted file mode 100644
-index 6fae1d54f8..0000000000
+index 8819f576f4..0000000000
 --- a/src/crypto/internal/boring/aes.go
 +++ /dev/null
 @@ -1,385 +0,0 @@
@@ -460,7 +459,7 @@ index 6fae1d54f8..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -843,7 +842,7 @@ index 6fae1d54f8..0000000000
 -}
 diff --git a/src/crypto/internal/boring/boring.go b/src/crypto/internal/boring/boring.go
 deleted file mode 100644
-index 102380a839..0000000000
+index ded36a92f9..0000000000
 --- a/src/crypto/internal/boring/boring.go
 +++ /dev/null
 @@ -1,126 +0,0 @@
@@ -851,7 +850,7 @@ index 102380a839..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -1014,7 +1013,7 @@ index 83bbbd3404..0000000000
 -	UnreachableExceptTests()
 -}
 diff --git a/src/crypto/internal/boring/doc.go b/src/crypto/internal/boring/doc.go
-index 6060fe5951..ca24813149 100644
+index 091e0d641e..ca24813149 100644
 --- a/src/crypto/internal/boring/doc.go
 +++ b/src/crypto/internal/boring/doc.go
 @@ -7,13 +7,10 @@
@@ -1024,7 +1023,7 @@ index 6060fe5951..ca24813149 100644
 -// Enabled reports whether BoringCrypto is available.
 -// When enabled is false, all functions in this package panic.
 -//
--// BoringCrypto is only available on linux/amd64 systems.
+-// BoringCrypto is only available on linux/amd64 and linux/arm64 systems.
 -const Enabled = available
 +import "github.com/golang-fips/openssl/v2"
  
@@ -1036,7 +1035,7 @@ index 6060fe5951..ca24813149 100644
 +
 diff --git a/src/crypto/internal/boring/ecdh.go b/src/crypto/internal/boring/ecdh.go
 deleted file mode 100644
-index 8f46d8146f..0000000000
+index 6a5d174c16..0000000000
 --- a/src/crypto/internal/boring/ecdh.go
 +++ /dev/null
 @@ -1,224 +0,0 @@
@@ -1044,7 +1043,7 @@ index 8f46d8146f..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -1266,7 +1265,7 @@ index 8f46d8146f..0000000000
 -}
 diff --git a/src/crypto/internal/boring/ecdsa.go b/src/crypto/internal/boring/ecdsa.go
 deleted file mode 100644
-index e15f3682c7..0000000000
+index 2adfdb2c9f..0000000000
 --- a/src/crypto/internal/boring/ecdsa.go
 +++ /dev/null
 @@ -1,172 +0,0 @@
@@ -1274,7 +1273,7 @@ index e15f3682c7..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -1474,7 +1473,7 @@ index 3bf1471fb0..d6c5ca736d 100644
  
 diff --git a/src/crypto/internal/boring/hmac.go b/src/crypto/internal/boring/hmac.go
 deleted file mode 100644
-index 6241a65f5f..0000000000
+index ae926da695..0000000000
 --- a/src/crypto/internal/boring/hmac.go
 +++ /dev/null
 @@ -1,153 +0,0 @@
@@ -1482,7 +1481,7 @@ index 6241a65f5f..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -1633,7 +1632,7 @@ index 6241a65f5f..0000000000
 -}
 diff --git a/src/crypto/internal/boring/notboring.go b/src/crypto/internal/boring/notboring.go
 deleted file mode 100644
-index 1c5e4c742d..0000000000
+index 361dec9672..0000000000
 --- a/src/crypto/internal/boring/notboring.go
 +++ /dev/null
 @@ -1,122 +0,0 @@
@@ -1641,7 +1640,7 @@ index 1c5e4c742d..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build !(boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan && cgo)
+-//go:build !(boringcrypto && linux && (amd64 || arm64) && !android && !msan && cgo)
 -
 -package boring
 -
@@ -1761,7 +1760,7 @@ index 1c5e4c742d..0000000000
 -func (*PrivateKeyECDH) PublicKey() (*PublicKeyECDH, error)      { panic("boringcrypto: not available") }
 diff --git a/src/crypto/internal/boring/rand.go b/src/crypto/internal/boring/rand.go
 deleted file mode 100644
-index 7639c01909..0000000000
+index 556b98a112..0000000000
 --- a/src/crypto/internal/boring/rand.go
 +++ /dev/null
 @@ -1,24 +0,0 @@
@@ -1769,7 +1768,7 @@ index 7639c01909..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -1791,7 +1790,7 @@ index 7639c01909..0000000000
 -const RandReader = randReader(0)
 diff --git a/src/crypto/internal/boring/rsa.go b/src/crypto/internal/boring/rsa.go
 deleted file mode 100644
-index fa693ea319..0000000000
+index e3baa44549..0000000000
 --- a/src/crypto/internal/boring/rsa.go
 +++ /dev/null
 @@ -1,379 +0,0 @@
@@ -1799,7 +1798,7 @@ index fa693ea319..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -2176,7 +2175,7 @@ index fa693ea319..0000000000
 -}
 diff --git a/src/crypto/internal/boring/sha.go b/src/crypto/internal/boring/sha.go
 deleted file mode 100644
-index cf82f3f64f..0000000000
+index a49c119738..0000000000
 --- a/src/crypto/internal/boring/sha.go
 +++ /dev/null
 @@ -1,599 +0,0 @@
@@ -2184,7 +2183,7 @@ index cf82f3f64f..0000000000
 -// Use of this source code is governed by a BSD-style
 -// license that can be found in the LICENSE file.
 -
--//go:build boringcrypto && linux && (amd64 || arm64) && !android && !cmd_go_bootstrap && !msan
+-//go:build boringcrypto && linux && (amd64 || arm64) && !android && !msan
 -
 -package boring
 -
@@ -2860,7 +2859,7 @@ index 2abc043640..a83be6dfdb 100644
 +	panic("!no_openssl: not available")
  }
 diff --git a/src/crypto/rsa/pkcs1v15.go b/src/crypto/rsa/pkcs1v15.go
-index 55fea1ab93..8524c02547 100644
+index 2705036fdd..9f38c3558b 100644
 --- a/src/crypto/rsa/pkcs1v15.go
 +++ b/src/crypto/rsa/pkcs1v15.go
 @@ -6,7 +6,7 @@ package rsa
@@ -2985,7 +2984,7 @@ index 39a4fc184a..0853178e3a 100644
  	}
  
 diff --git a/src/crypto/rsa/pss.go b/src/crypto/rsa/pss.go
-index 3a377cc9db..ce78a13d6f 100644
+index b63b6eb01d..a09a4926f7 100644
 --- a/src/crypto/rsa/pss.go
 +++ b/src/crypto/rsa/pss.go
 @@ -9,7 +9,7 @@ package rsa
@@ -3056,7 +3055,7 @@ index 1226149321..befd1612b5 100644
  	}
  
 diff --git a/src/crypto/rsa/rsa.go b/src/crypto/rsa/rsa.go
-index f0aef1f542..e6bf6a5e88 100644
+index 9342930dc1..dad2a3c01a 100644
 --- a/src/crypto/rsa/rsa.go
 +++ b/src/crypto/rsa/rsa.go
 @@ -28,8 +28,8 @@ package rsa
@@ -3070,7 +3069,7 @@ index f0aef1f542..e6bf6a5e88 100644
  	"crypto/internal/randutil"
  	"crypto/rand"
  	"crypto/subtle"
-@@ -294,7 +294,7 @@ func GenerateKey(random io.Reader, bits int) (*PrivateKey, error) {
+@@ -298,7 +298,7 @@ func GenerateKey(random io.Reader, bits int) (*PrivateKey, error) {
  func GenerateMultiPrimeKey(random io.Reader, nprimes int, bits int) (*PrivateKey, error) {
  	randutil.MaybeReadByte(random)
  
@@ -3107,7 +3106,7 @@ index f0aef1f542..e6bf6a5e88 100644
  		if err != nil {
  			return nil, err
 diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
-index b994daec19..4b7427e1ae 100644
+index 437e0c219d..e6b5e266a8 100644
 --- a/src/crypto/rsa/rsa_test.go
 +++ b/src/crypto/rsa/rsa_test.go
 @@ -8,7 +8,7 @@ import (
@@ -3161,7 +3160,7 @@ index b994daec19..4b7427e1ae 100644
  				t.Skip("skipping short key with BoringCrypto")
  			}
  			testEverything(t, priv)
-@@ -667,7 +667,7 @@ func TestEncryptOAEP(t *testing.T) {
+@@ -677,7 +677,7 @@ func TestEncryptOAEP(t *testing.T) {
  	n := new(big.Int)
  	for i, test := range testEncryptOAEPData {
  		n.SetString(test.modulus, 16)
@@ -3170,7 +3169,7 @@ index b994daec19..4b7427e1ae 100644
  			t.Log("skipping test in FIPS mode due to short keys and unpadded RSA operations not allowed with FIPS")
  			continue
  		}
-@@ -694,7 +694,7 @@ func TestDecryptOAEP(t *testing.T) {
+@@ -704,7 +704,7 @@ func TestDecryptOAEP(t *testing.T) {
  	d := new(big.Int)
  	for i, test := range testEncryptOAEPData {
  		n.SetString(test.modulus, 16)
@@ -3179,7 +3178,7 @@ index b994daec19..4b7427e1ae 100644
  			t.Logf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
  			continue
  		}
-@@ -741,7 +741,7 @@ func Test2DecryptOAEP(t *testing.T) {
+@@ -751,7 +751,7 @@ func Test2DecryptOAEP(t *testing.T) {
  	sha1 := crypto.SHA1
  	sha256 := crypto.SHA256
  
@@ -3188,7 +3187,7 @@ index b994daec19..4b7427e1ae 100644
  		t.Skipf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
  	}
  
-@@ -760,7 +760,7 @@ func TestEncryptDecryptOAEP(t *testing.T) {
+@@ -770,7 +770,7 @@ func TestEncryptDecryptOAEP(t *testing.T) {
  	d := new(big.Int)
  	for i, test := range testEncryptOAEPData {
  		n.SetString(test.modulus, 16)
@@ -3197,42 +3196,37 @@ index b994daec19..4b7427e1ae 100644
  			t.Logf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
  			continue
  		}
-diff --git a/src/crypto/sha1/boring.go b/src/crypto/sha1/boring.go
-index b5786d1bf4..9bd03f3940 100644
---- a/src/crypto/sha1/boring.go
-+++ b/src/crypto/sha1/boring.go
-@@ -12,11 +12,11 @@
- package sha1
+diff --git a/src/crypto/sha1/sha1.go b/src/crypto/sha1/sha1.go
+index ac10fa1557..f561d09089 100644
+--- a/src/crypto/sha1/sha1.go
++++ b/src/crypto/sha1/sha1.go
+@@ -10,7 +10,7 @@ package sha1
  
  import (
+ 	"crypto"
 -	"crypto/internal/boring"
 +	boring "crypto/internal/backend"
+ 	"encoding/binary"
+ 	"errors"
  	"hash"
- )
+@@ -108,7 +108,7 @@ func (d *digest) Reset() {
+ // implements [encoding.BinaryMarshaler] and [encoding.BinaryUnmarshaler] to
+ // marshal and unmarshal the internal state of the hash.
+ func New() hash.Hash {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		return boring.NewSHA1()
+ 	}
+ 	d := new(digest)
+@@ -255,7 +255,7 @@ func (d *digest) constSum() [Size]byte {
  
--const boringEnabled = boring.Enabled
-+var boringEnabled = boring.Enabled()
- 
- func boringNewSHA1() hash.Hash { return boring.NewSHA1() }
- 
-diff --git a/src/crypto/sha1/notboring.go b/src/crypto/sha1/notboring.go
-index 42ef87937f..c1a3205539 100644
---- a/src/crypto/sha1/notboring.go
-+++ b/src/crypto/sha1/notboring.go
-@@ -11,10 +11,10 @@ import (
- 	"hash"
- )
- 
--const boringEnabled = false
-+var boringEnabled = false
- 
--func boringNewSHA1() hash.Hash { panic("boringcrypto: not available") }
-+func boringNewSHA1() hash.Hash { panic("!no_openssl: not available") }
- 
- func boringUnreachable() {}
- 
--func boringSHA1([]byte) [20]byte { panic("boringcrypto: not available") }
-+func boringSHA1([]byte) [20]byte { panic("!no_openssl: not available") }
+ // Sum returns the SHA-1 checksum of the data.
+ func Sum(data []byte) [Size]byte {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		return boring.SHA1(data)
+ 	}
+ 	var d digest
 diff --git a/src/crypto/sha1/sha1_test.go b/src/crypto/sha1/sha1_test.go
 index 85ed126091..71f4b46663 100644
 --- a/src/crypto/sha1/sha1_test.go
@@ -3274,7 +3268,7 @@ index 85ed126091..71f4b46663 100644
  	}
  	in := []byte("hello, world!")
 diff --git a/src/crypto/sha256/sha256.go b/src/crypto/sha256/sha256.go
-index 2deafbc9fc..282c326b32 100644
+index 0cc7fca0a6..1bfbf904b1 100644
 --- a/src/crypto/sha256/sha256.go
 +++ b/src/crypto/sha256/sha256.go
 @@ -8,7 +8,7 @@ package sha256
@@ -3287,7 +3281,7 @@ index 2deafbc9fc..282c326b32 100644
  	"errors"
  	"hash"
 @@ -148,7 +148,7 @@ func (d *digest) Reset() {
- // encoding.BinaryUnmarshaler to marshal and unmarshal the internal
+ // [encoding.BinaryUnmarshaler] to marshal and unmarshal the internal
  // state of the hash.
  func New() hash.Hash {
 -	if boring.Enabled {
@@ -3434,7 +3428,7 @@ index 921cdbb7bb..a35165bcbf 100644
  	}
  	in := []byte("hello, world!")
 diff --git a/src/crypto/tls/boring.go b/src/crypto/tls/boring.go
-index 140b1a3dd8..fe6fa96d28 100644
+index 401be7064c..66252067f2 100644
 --- a/src/crypto/tls/boring.go
 +++ b/src/crypto/tls/boring.go
 @@ -2,7 +2,7 @@
@@ -3450,13 +3444,13 @@ index 140b1a3dd8..fe6fa96d28 100644
  )
  
  func init() {
--       if boring.Enabled && !boring.ExecutingTest() {
-+       if boring.Enabled() && !boring.ExecutingTest() {
-                fipstls.Force()
-        }
+-	if boring.Enabled && !boring.ExecutingTest() {
++	if boring.Enabled() && !boring.ExecutingTest() {
+ 		fipstls.Force()
+ 	}
  }
 diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
-index 7bfe3f9417..49702f59ba 100644
+index 4e68e705fd..43a3d1b71a 100644
 --- a/src/crypto/tls/boring_test.go
 +++ b/src/crypto/tls/boring_test.go
 @@ -2,14 +2,14 @@
@@ -3485,7 +3479,7 @@ index 7bfe3f9417..49702f59ba 100644
  		test("VersionTLS13", VersionTLS13, "client offered only unsupported versions")
  	} else {
  		test("VersionTLS13", VersionTLS13, "")
-@@ -238,7 +238,7 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
+@@ -236,7 +236,7 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
  
  			clientConfig := testConfig.Clone()
  
@@ -3494,7 +3488,7 @@ index 7bfe3f9417..49702f59ba 100644
  				serverConfig.Rand = boring.RandReader
  				clientConfig.Rand = boring.RandReader
  			}
-@@ -369,7 +369,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -367,7 +367,7 @@ func TestBoringCertAlgs(t *testing.T) {
  		serverConfig.Certificates = []Certificate{{Certificate: list, PrivateKey: key}}
  		serverConfig.BuildNameToCertificate()
  
@@ -3503,7 +3497,7 @@ index 7bfe3f9417..49702f59ba 100644
  			serverConfig.Rand = boring.RandReader
  			clientConfig.Rand = boring.RandReader
  		}
-@@ -400,13 +400,13 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -398,13 +398,13 @@ func TestBoringCertAlgs(t *testing.T) {
  		serverConfig := testConfig.Clone()
  		serverConfig.ClientCAs = pool
  		serverConfig.ClientAuth = RequireAndVerifyClientCert
@@ -3519,7 +3513,7 @@ index 7bfe3f9417..49702f59ba 100644
  			serverConfig.Rand = boring.RandReader
  			clientConfig.Rand = boring.RandReader
  		}
-@@ -432,8 +432,8 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -430,8 +430,8 @@ func TestBoringCertAlgs(t *testing.T) {
  	// exhaustive test with computed answers.
  	r1pool := x509.NewCertPool()
  	r1pool.AddCert(R1.cert)
@@ -3530,7 +3524,7 @@ index 7bfe3f9417..49702f59ba 100644
  	fipstls.Force()
  	testServerCert(t, "basic (fips)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
  	testClientCert(t, "basic (fips, client cert)", r1pool, L2_I.key, [][]byte{L2_I.der, I_R1.der}, false)
-@@ -454,7 +454,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -452,7 +452,7 @@ func TestBoringCertAlgs(t *testing.T) {
  			leaf = L2_I
  		}
  		for i := 0; i < 64; i++ {
@@ -3539,7 +3533,7 @@ index 7bfe3f9417..49702f59ba 100644
  			reachableFIPS := map[string]bool{leaf.parentOrg: leaf.fipsOK}
  			list := [][]byte{leaf.der}
  			listName := leaf.name
-@@ -462,7 +462,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -460,7 +460,7 @@ func TestBoringCertAlgs(t *testing.T) {
  				if cond != 0 {
  					list = append(list, c.der)
  					listName += "," + c.name
@@ -3548,7 +3542,7 @@ index 7bfe3f9417..49702f59ba 100644
  						reachable[c.parentOrg] = true
  					}
  					if reachableFIPS[c.org] && c.fipsOK {
-@@ -486,7 +486,7 @@ func TestBoringCertAlgs(t *testing.T) {
+@@ -484,7 +484,7 @@ func TestBoringCertAlgs(t *testing.T) {
  					if cond != 0 {
  						rootName += "," + c.name
  						pool.AddCert(c.cert)
@@ -3558,7 +3552,7 @@ index 7bfe3f9417..49702f59ba 100644
  						}
  						if reachableFIPS[c.org] && c.fipsOK {
 diff --git a/src/crypto/tls/cipher_suites.go b/src/crypto/tls/cipher_suites.go
-index 669208bb86..15a44e8cf6 100644
+index d352a8cfa8..a8920d151b 100644
 --- a/src/crypto/tls/cipher_suites.go
 +++ b/src/crypto/tls/cipher_suites.go
 @@ -10,7 +10,7 @@ import (
@@ -3570,7 +3564,7 @@ index 669208bb86..15a44e8cf6 100644
  	"crypto/rc4"
  	"crypto/sha1"
  	"crypto/sha256"
-@@ -422,7 +422,7 @@ func macSHA1(key []byte) hash.Hash {
+@@ -446,7 +446,7 @@ func macSHA1(key []byte) hash.Hash {
  	h := sha1.New
  	// The BoringCrypto SHA1 does not have a constant-time
  	// checksum function, so don't try to use it.
@@ -3579,7 +3573,7 @@ index 669208bb86..15a44e8cf6 100644
  		h = newConstantTimeHash(h)
  	}
  	return hmac.New(h, key)
-@@ -514,7 +514,7 @@ func aeadAESGCM(key, noncePrefix []byte) aead {
+@@ -538,7 +538,7 @@ func aeadAESGCM(key, noncePrefix []byte) aead {
  		panic(err)
  	}
  	var aead cipher.AEAD
@@ -3589,7 +3583,7 @@ index 669208bb86..15a44e8cf6 100644
  	} else {
  		boring.Unreachable()
 diff --git a/src/crypto/tls/common.go b/src/crypto/tls/common.go
-index 5edbd19995..a72d4855c1 100644
+index c0087ef5df..251a05cb75 100644
 --- a/src/crypto/tls/common.go
 +++ b/src/crypto/tls/common.go
 @@ -12,7 +12,7 @@ import (
@@ -3601,7 +3595,7 @@ index 5edbd19995..a72d4855c1 100644
  	"crypto/rand"
  	"crypto/rsa"
  	"crypto/sha512"
-@@ -1032,7 +1032,7 @@ const roleServer = false
+@@ -1041,7 +1041,7 @@ var tls10server = godebug.New("tls10server")
  func (c *Config) supportedVersions(isClient bool) []uint16 {
  	versions := make([]uint16, 0, len(supportedVersions))
  	for _, v := range supportedVersions {
@@ -3694,7 +3688,7 @@ index c83a7272c9..0c7dea2f1f 100644
  package x509
  
 diff --git a/src/crypto/x509/x509_test.go b/src/crypto/x509/x509_test.go
-index 0c2cbf3182..e01c24292e 100644
+index 910679756f..44ebc7c15f 100644
 --- a/src/crypto/x509/x509_test.go
 +++ b/src/crypto/x509/x509_test.go
 @@ -12,7 +12,7 @@ import (
@@ -3706,7 +3700,7 @@ index 0c2cbf3182..e01c24292e 100644
  	"crypto/internal/backend/boringtest"
  	"crypto/rand"
  	"crypto/rsa"
-@@ -653,7 +653,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
+@@ -655,7 +655,7 @@ func TestCreateSelfSignedCertificate(t *testing.T) {
  	extraExtensionData := []byte("extra extension")
  
  	for _, test := range tests {
@@ -3715,7 +3709,7 @@ index 0c2cbf3182..e01c24292e 100644
  			key, _ := test.priv.(*rsa.PrivateKey)
  			if key.PublicKey.N.BitLen() < 2048 {
  				t.Logf("skipping short key with BoringCrypto: %d", key.PublicKey.N.BitLen())
-@@ -3716,7 +3716,7 @@ func TestRevocationListCheckSignatureFrom(t *testing.T) {
+@@ -3719,7 +3719,7 @@ func TestRevocationListCheckSignatureFrom(t *testing.T) {
  	var testCurve elliptic.Curve
  	// If OpenSSL supports P224, use the default upstream behavior,
  	// otherwise test with P384
@@ -3725,27 +3719,27 @@ index 0c2cbf3182..e01c24292e 100644
  	} else {
  		testCurve = elliptic.P384()
 diff --git a/src/go.mod b/src/go.mod
-index 3b24053b94..d5cf5c74f9 100644
+index c18ae7760f..0cff10a255 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -3,6 +3,7 @@ module std
- go 1.21
+ go 1.22
  
  require (
-+	github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20231108174110-41b6eb24da28
- 	golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d
- 	golang.org/x/net v0.12.1-0.20231027154334-5ca955b1789c
++	github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20240221195800-576fe0d37788
+ 	golang.org/x/crypto v0.16.1-0.20231129163542-152cdb1503eb
+ 	golang.org/x/net v0.19.0
  )
 diff --git a/src/go.sum b/src/go.sum
-index caf8ff010d..611d232a43 100644
+index 7c3519882a..40a8b2ac04 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,3 +1,5 @@
-+github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20231108174110-41b6eb24da28 h1:tFlW5hU9m5kkVIShxa1FFNLe9gwoygZFHw/d/60VE7s=
-+github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20231108174110-41b6eb24da28/go.mod h1:7tuBqX2Zov8Yq5mJ2yzlKhpnxOnWyEzi38AzeWRuQdg=
- golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d h1:LiA25/KWKuXfIq5pMIBq1s5hz3HQxhJJSu/SUGlD+SM=
- golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d/go.mod h1:xgJhtzW8F9jGdVFWZESrid1U1bjeNy4zgy5cRr/CIio=
- golang.org/x/net v0.12.1-0.20231027154334-5ca955b1789c h1:d+VvAxu4S13DWtf73R5eY//VaCk3aUcVdyYjM1SX7zw=
++github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20240221195800-576fe0d37788 h1:YCg1cLYMq0/36XzGcVt8rqnNCFC4HwK19/h3lbgBymc=
++github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20240221195800-576fe0d37788/go.mod h1:7tuBqX2Zov8Yq5mJ2yzlKhpnxOnWyEzi38AzeWRuQdg=
+ golang.org/x/crypto v0.16.1-0.20231129163542-152cdb1503eb h1:1ceSY7sk6sJuiDREHpfyrqDnDljsLfEP2GuTClhBBfI=
+ golang.org/x/crypto v0.16.1-0.20231129163542-152cdb1503eb/go.mod h1:gCAAfMLgwOJRpTjQ2zCCt2OcSfYMTeZVSRtQlPC7Nq4=
+ golang.org/x/net v0.19.0 h1:zTwKpTd2XuCqf8huc7Fo2iSy+4RHPd10s4KzeTnVr1c=
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/.gitleaks.toml b/src/vendor/github.com/golang-fips/openssl/v2/.gitleaks.toml
 new file mode 100644
 index 0000000000..aed2e22df2
@@ -3862,10 +3856,10 @@ index 0000000000..ba6289ecff
 +This project adopts the Go code of conduct: https://go.dev/conduct.
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/aes.go b/src/vendor/github.com/golang-fips/openssl/v2/aes.go
 new file mode 100644
-index 0000000000..1fc11f00cd
+index 0000000000..231b75e2ad
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/aes.go
-@@ -0,0 +1,90 @@
+@@ -0,0 +1,100 @@
 +//go:build !cmd_go_bootstrap
 +
 +package openssl
@@ -3915,6 +3909,12 @@ index 0000000000..1fc11f00cd
 +	return c.(*aesCipher).NewGCMTLS()
 +}
 +
++// NewGCMTLS13 returns a GCM cipher specific to TLS 1.3 and should not be used
++// for non-TLS purposes.
++func NewGCMTLS13(c cipher.Block) (cipher.AEAD, error) {
++	return c.(*aesCipher).NewGCMTLS13()
++}
++
 +type aesCipher struct {
 +	*evpCipher
 +}
@@ -3954,7 +3954,11 @@ index 0000000000..1fc11f00cd
 +}
 +
 +func (c *aesCipher) NewGCMTLS() (cipher.AEAD, error) {
-+	return c.newGCM(true)
++	return c.newGCM(cipherGCMTLS12)
++}
++
++func (c *aesCipher) NewGCMTLS13() (cipher.AEAD, error) {
++	return c.newGCM(cipherGCMTLS13)
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/bbig/big.go b/src/vendor/github.com/golang-fips/openssl/v2/bbig/big.go
 new file mode 100644
@@ -4018,10 +4022,10 @@ index 0000000000..6461f241f8
 +type BigInt []uint
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/cipher.go b/src/vendor/github.com/golang-fips/openssl/v2/cipher.go
 new file mode 100644
-index 0000000000..b56de6a74e
+index 0000000000..ddaadfa889
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/cipher.go
-@@ -0,0 +1,534 @@
+@@ -0,0 +1,582 @@
 +//go:build !cmd_go_bootstrap
 +
 +package openssl
@@ -4336,17 +4340,39 @@ index 0000000000..b56de6a74e
 +	C.go_openssl_EVP_CIPHER_CTX_free(c.ctx)
 +}
 +
++type cipherGCMTLS uint8
++
++const (
++	cipherGCMTLSNone cipherGCMTLS = iota
++	cipherGCMTLS12
++	cipherGCMTLS13
++)
++
 +type cipherGCM struct {
-+	ctx          C.GO_EVP_CIPHER_CTX_PTR
-+	tls          bool
++	ctx C.GO_EVP_CIPHER_CTX_PTR
++	tls cipherGCMTLS
++	// minNextNonce is the minimum value that the next nonce can be, enforced by
++	// all TLS modes.
 +	minNextNonce uint64
-+	blockSize    int
++	// mask is the nonce mask used in TLS 1.3 mode.
++	mask uint64
++	// maskInitialized is true if mask has been initialized. This happens during
++	// the first Seal. The initialized mask may be 0. Used by TLS 1.3 mode.
++	maskInitialized bool
++	blockSize       int
 +}
 +
 +const (
 +	gcmTagSize           = 16
 +	gcmStandardNonceSize = 12
-+	gcmTlsAddSize        = 13
++	// TLS 1.2 additional data is constructed as:
++	//
++	//     additional_data = seq_num(8) + TLSCompressed.type(1) + TLSCompressed.version(2) + TLSCompressed.length(2);
++	gcmTls12AddSize = 13
++	// TLS 1.3 additional data is constructed as:
++	//
++	//     additional_data = TLSCiphertext.opaque_type(1) || TLSCiphertext.legacy_record_version(2) || TLSCiphertext.length(2)
++	gcmTls13AddSize      = 5
 +	gcmTlsFixedNonceSize = 4
 +)
 +
@@ -4377,10 +4403,10 @@ index 0000000000..b56de6a74e
 +	if tagSize != gcmTagSize {
 +		return cipher.NewGCMWithTagSize(&noGCM{c}, tagSize)
 +	}
-+	return c.newGCM(false)
++	return c.newGCM(cipherGCMTLSNone)
 +}
 +
-+func (c *evpCipher) newGCM(tls bool) (cipher.AEAD, error) {
++func (c *evpCipher) newGCM(tls cipherGCMTLS) (cipher.AEAD, error) {
 +	ctx, err := newCipherCtx(c.kind, cipherModeGCM, cipherOpNone, c.key, nil)
 +	if err != nil {
 +		return nil, err
@@ -4412,15 +4438,41 @@ index 0000000000..b56de6a74e
 +	if len(dst)+len(plaintext)+gcmTagSize < len(dst) {
 +		panic("cipher: message too large for buffer")
 +	}
-+	if g.tls {
-+		if len(additionalData) != gcmTlsAddSize {
-+			panic("cipher: incorrect additional data length given to GCM TLS")
++	if g.tls != cipherGCMTLSNone {
++		if g.tls == cipherGCMTLS12 && len(additionalData) != gcmTls12AddSize {
++			panic("cipher: incorrect additional data length given to GCM TLS 1.2")
++		} else if g.tls == cipherGCMTLS13 && len(additionalData) != gcmTls13AddSize {
++			panic("cipher: incorrect additional data length given to GCM TLS 1.3")
++		}
++		counter := binary.BigEndian.Uint64(nonce[gcmTlsFixedNonceSize:])
++		if g.tls == cipherGCMTLS13 {
++			// In TLS 1.3, the counter in the nonce has a mask and requires
++			// further decoding.
++			if !g.maskInitialized {
++				// According to TLS 1.3 nonce construction details at
++				// https://tools.ietf.org/html/rfc8446#section-5.3:
++				//
++				//   the first record transmitted under a particular traffic
++				//   key MUST use sequence number 0.
++				//
++				//   The padded sequence number is XORed with [a mask].
++				//
++				//   The resulting quantity (of length iv_length) is used as
++				//   the per-record nonce.
++				//
++				// We need to convert from the given nonce to sequence numbers
++				// to keep track of minNextNonce and enforce the counter
++				// maximum. On the first call, we know counter^mask is 0^mask,
++				// so we can simply store it as the mask.
++				g.mask = counter
++				g.maskInitialized = true
++			}
++			counter ^= g.mask
 +		}
 +		// BoringCrypto enforces strictly monotonically increasing explicit nonces
 +		// and to fail after 2^64 - 1 keys as per FIPS 140-2 IG A.5,
 +		// but OpenSSL does not perform this check, so it is implemented here.
 +		const maxUint64 = 1<<64 - 1
-+		counter := binary.BigEndian.Uint64(nonce[gcmTlsFixedNonceSize:])
 +		if counter == maxUint64 {
 +			panic("cipher: nonce counter must be less than 2^64 - 1")
 +		}
@@ -4742,7 +4794,7 @@ index 0000000000..eac2f8bbee
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/ecdh.go b/src/vendor/github.com/golang-fips/openssl/v2/ecdh.go
 new file mode 100644
-index 0000000000..62e23333ce
+index 0000000000..a1e627eff4
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/ecdh.go
 @@ -0,0 +1,323 @@
@@ -5017,12 +5069,12 @@ index 0000000000..62e23333ce
 +	if C.go_openssl_EVP_PKEY_derive_set_peer(ctx, pub._pkey) != 1 {
 +		return nil, newOpenSSLError("EVP_PKEY_derive_set_peer")
 +	}
-+	var outLen C.size_t
-+	if C.go_openssl_EVP_PKEY_derive(ctx, nil, &outLen) != 1 {
++	r := C.go_openssl_EVP_PKEY_derive_wrapper(ctx, nil, 0)
++	if r.result != 1 {
 +		return nil, newOpenSSLError("EVP_PKEY_derive_init")
 +	}
-+	out := make([]byte, outLen)
-+	if C.go_openssl_EVP_PKEY_derive(ctx, base(out), &outLen) != 1 {
++	out := make([]byte, r.keylen)
++	if C.go_openssl_EVP_PKEY_derive_wrapper(ctx, base(out), r.keylen).result != 1 {
 +		return nil, newOpenSSLError("EVP_PKEY_derive_init")
 +	}
 +	return out, nil
@@ -5294,7 +5346,7 @@ index 0000000000..46b16abf48
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/ed25519.go b/src/vendor/github.com/golang-fips/openssl/v2/ed25519.go
 new file mode 100644
-index 0000000000..f66a2a1deb
+index 0000000000..f74bd8f8d7
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/ed25519.go
 @@ -0,0 +1,218 @@
@@ -5445,12 +5497,12 @@ index 0000000000..f66a2a1deb
 +}
 +
 +func extractPKEYPubEd25519(pkey C.GO_EVP_PKEY_PTR, pub []byte) error {
-+	pubSize := C.size_t(publicKeySizeEd25519)
-+	if C.go_openssl_EVP_PKEY_get_raw_public_key(pkey, base(pub), &pubSize) != 1 {
++	r := C.go_openssl_EVP_PKEY_get_raw_public_key_wrapper(pkey, base(pub), C.size_t(publicKeySizeEd25519))
++	if r.result != 1 {
 +		return newOpenSSLError("EVP_PKEY_get_raw_public_key")
 +	}
-+	if pubSize != publicKeySizeEd25519 {
-+		return errors.New("ed25519: bad public key length: " + strconv.Itoa(int(pubSize)))
++	if r.len != publicKeySizeEd25519 {
++		return errors.New("ed25519: bad public key length: " + strconv.Itoa(int(r.len)))
 +	}
 +	return nil
 +}
@@ -5459,12 +5511,12 @@ index 0000000000..f66a2a1deb
 +	if err := extractPKEYPubEd25519(pkey, priv[seedSizeEd25519:]); err != nil {
 +		return err
 +	}
-+	privSize := C.size_t(seedSizeEd25519)
-+	if C.go_openssl_EVP_PKEY_get_raw_private_key(pkey, base(priv), &privSize) != 1 {
++	r := C.go_openssl_EVP_PKEY_get_raw_private_key_wrapper(pkey, base(priv), C.size_t(seedSizeEd25519))
++	if r.result != 1 {
 +		return newOpenSSLError("EVP_PKEY_get_raw_private_key")
 +	}
-+	if privSize != seedSizeEd25519 {
-+		return errors.New("ed25519: bad private key length: " + strconv.Itoa(int(privSize)))
++	if r.len != seedSizeEd25519 {
++		return errors.New("ed25519: bad private key length: " + strconv.Itoa(int(r.len)))
 +	}
 +	return nil
 +}
@@ -5490,12 +5542,12 @@ index 0000000000..f66a2a1deb
 +	if C.go_openssl_EVP_DigestSignInit(ctx, nil, nil, nil, priv._pkey) != 1 {
 +		return newOpenSSLError("EVP_DigestSignInit")
 +	}
-+	siglen := C.size_t(signatureSizeEd25519)
-+	if C.go_openssl_EVP_DigestSign(ctx, base(sig), &siglen, base(message), C.size_t(len(message))) != 1 {
++	r := C.go_openssl_EVP_DigestSign_wrapper(ctx, base(sig), C.size_t(signatureSizeEd25519), base(message), C.size_t(len(message)))
++	if r.result != 1 {
 +		return newOpenSSLError("EVP_DigestSign")
 +	}
-+	if siglen != signatureSizeEd25519 {
-+		return errors.New("ed25519: bad signature length: " + strconv.Itoa(int(siglen)))
++	if r.siglen != signatureSizeEd25519 {
++		return errors.New("ed25519: bad signature length: " + strconv.Itoa(int(r.siglen)))
 +	}
 +	return nil
 +}
@@ -6219,16 +6271,18 @@ index 0000000000..1e428d5269
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/goopenssl.h b/src/vendor/github.com/golang-fips/openssl/v2/goopenssl.h
 new file mode 100644
-index 0000000000..a0e2b623a5
+index 0000000000..e488bf2014
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/goopenssl.h
-@@ -0,0 +1,201 @@
+@@ -0,0 +1,255 @@
 +// This header file describes the OpenSSL ABI as built for use in Go.
 +
 +#include <stdlib.h> // size_t
 +
 +#include "shims.h"
 +
++// Suppress warnings about unused parameters.
++#define UNUSED(x) (void)(x)
 +
 +static inline void
 +go_openssl_do_leak_check(void)
@@ -6330,6 +6384,58 @@ index 0000000000..a0e2b623a5
 +    return go_openssl_EVP_CipherUpdate(ctx, out, &len, in, in_len);
 +}
 +
++// These wrappers also allocate length variables on the C stack to avoid escape to the heap, but do return the result.
++// A struct is returned that contains multiple return values instead of OpenSSL's approach of using pointers.
++
++typedef struct
++{
++    int result;
++    size_t keylen;
++} go_openssl_EVP_PKEY_derive_wrapper_out;
++
++static inline go_openssl_EVP_PKEY_derive_wrapper_out
++go_openssl_EVP_PKEY_derive_wrapper(GO_EVP_PKEY_CTX_PTR ctx, unsigned char *key, size_t keylen)
++{
++    go_openssl_EVP_PKEY_derive_wrapper_out r = {0, keylen};
++    r.result = go_openssl_EVP_PKEY_derive(ctx, key, &r.keylen);
++    return r;
++}
++
++typedef struct
++{
++    int result;
++    size_t len;
++} go_openssl_EVP_PKEY_get_raw_key_out;
++
++static inline go_openssl_EVP_PKEY_get_raw_key_out
++go_openssl_EVP_PKEY_get_raw_public_key_wrapper(const GO_EVP_PKEY_PTR pkey, unsigned char *pub, size_t len)
++{
++    go_openssl_EVP_PKEY_get_raw_key_out r = {0, len};
++    r.result = go_openssl_EVP_PKEY_get_raw_public_key(pkey, pub, &r.len);
++    return r;
++}
++
++static inline go_openssl_EVP_PKEY_get_raw_key_out
++go_openssl_EVP_PKEY_get_raw_private_key_wrapper(const GO_EVP_PKEY_PTR pkey, unsigned char *priv, size_t len)
++{
++    go_openssl_EVP_PKEY_get_raw_key_out r = {0, len};
++    r.result = go_openssl_EVP_PKEY_get_raw_private_key(pkey, priv, &r.len);
++    return r;
++}
++
++typedef struct
++{
++    int result;
++    size_t siglen;
++} go_openssl_EVP_DigestSign_wrapper_out;
++
++static inline go_openssl_EVP_DigestSign_wrapper_out
++go_openssl_EVP_DigestSign_wrapper(GO_EVP_MD_CTX_PTR ctx, unsigned char *sigret, size_t siglen, const unsigned char *tbs, size_t tbslen)
++{
++    go_openssl_EVP_DigestSign_wrapper_out r = {0, siglen};
++    r.result = go_openssl_EVP_DigestSign(ctx, sigret, &r.siglen, tbs, tbslen);
++    return r;
++}
 +
 +// These wrappers allocate out_len on the C stack, and check that it matches the expected
 +// value, to avoid having to pass a pointer from Go, which would escape to the heap.
@@ -7226,7 +7332,7 @@ index 0000000000..646b4ce295
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/hkdf.go b/src/vendor/github.com/golang-fips/openssl/v2/hkdf.go
 new file mode 100644
-index 0000000000..ac3fbba0c2
+index 0000000000..61cf483fed
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/hkdf.go
 @@ -0,0 +1,174 @@
@@ -7330,7 +7436,7 @@ index 0000000000..ac3fbba0c2
 +	}
 +	c.buf = append(c.buf, make([]byte, needLen)...)
 +	outLen := C.size_t(prevLen + needLen)
-+	if C.go_openssl_EVP_PKEY_derive(c.ctx, base(c.buf), &outLen) != 1 {
++	if C.go_openssl_EVP_PKEY_derive_wrapper(c.ctx, base(c.buf), outLen).result != 1 {
 +		return 0, newOpenSSLError("EVP_PKEY_derive")
 +	}
 +	n := copy(p, c.buf[prevLen:outLen])
@@ -7364,15 +7470,15 @@ index 0000000000..ac3fbba0c2
 +			return nil, newOpenSSLError("EVP_PKEY_CTX_set1_hkdf_salt")
 +		}
 +	}
-+	var outLen C.size_t
-+	if C.go_openssl_EVP_PKEY_derive(c.ctx, nil, &outLen) != 1 {
++	r := C.go_openssl_EVP_PKEY_derive_wrapper(c.ctx, nil, 0)
++	if r.result != 1 {
 +		return nil, newOpenSSLError("EVP_PKEY_derive_init")
 +	}
-+	out := make([]byte, outLen)
-+	if C.go_openssl_EVP_PKEY_derive(c.ctx, base(out), &outLen) != 1 {
++	out := make([]byte, r.keylen)
++	if C.go_openssl_EVP_PKEY_derive_wrapper(c.ctx, base(out), r.keylen).result != 1 {
 +		return nil, newOpenSSLError("EVP_PKEY_derive")
 +	}
-+	return out[:outLen], nil
++	return out[:r.keylen], nil
 +}
 +
 +func ExpandHKDF(h func() hash.Hash, pseudorandomKey, info []byte) (io.Reader, error) {
@@ -8488,10 +8594,10 @@ index 0000000000..f88150591e
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/rsa.go b/src/vendor/github.com/golang-fips/openssl/v2/rsa.go
 new file mode 100644
-index 0000000000..5aef65b84f
+index 0000000000..f28d323adc
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/rsa.go
-@@ -0,0 +1,419 @@
+@@ -0,0 +1,435 @@
 +//go:build !cmd_go_bootstrap
 +
 +package openssl
@@ -8878,14 +8984,30 @@ index 0000000000..5aef65b84f
 +		return nil, newOpenSSLError("OSSL_PARAM_BLD_new")
 +	}
 +	defer C.go_openssl_OSSL_PARAM_BLD_free(bld)
-+	var comps = [...]struct {
++
++	type bigIntParam struct{
 +		name *C.char
 +		num  BigInt
-+	}{
-+		{paramRSA_N, N}, {paramRSA_E, E}, {paramRSA_D, D},
-+		{paramRSA_P, P}, {paramRSA_Q, Q},
-+		{paramRSA_Dp, Dp}, {paramRSA_Dq, Dq}, {paramRSA_Qinv, Qinv},
 +	}
++
++	comps := make([]bigIntParam, 0, 8)
++
++	required := [...]bigIntParam{
++		{paramRSA_N, N}, {paramRSA_E, E}, {paramRSA_D, D},
++	}
++	comps = append(comps, required[:]...)
++
++	// OpenSSL 3.0 and 3.1 required all the precomputed values if
++	// P and Q are present. See:
++	// https://github.com/openssl/openssl/pull/22334
++	if P != nil && Q != nil && Dp != nil && Dq != nil && Qinv != nil {
++		precomputed := [...]bigIntParam{
++			{paramRSA_P, P}, {paramRSA_Q, Q},
++			{paramRSA_Dp, Dp}, {paramRSA_Dq, Dq}, {paramRSA_Qinv, Qinv},
++		}
++		comps = append(comps, precomputed[:]...)
++	}
++
 +	for _, comp := range comps {
 +		if comp.num == nil {
 +			continue
@@ -8913,10 +9035,10 @@ index 0000000000..5aef65b84f
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/shims.h b/src/vendor/github.com/golang-fips/openssl/v2/shims.h
 new file mode 100644
-index 0000000000..4457a3e491
+index 0000000000..99656f0cf2
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/shims.h
-@@ -0,0 +1,370 @@
+@@ -0,0 +1,371 @@
 +#include <stdlib.h> // size_t
 +#include <stdint.h> // uint64_t
 +
@@ -9091,6 +9213,7 @@ index 0000000000..4457a3e491
 +DEFINEFUNC_RENAMED_1_1(const char *, OpenSSL_version, SSLeay_version, (int type), (type)) \
 +DEFINEFUNC(void, OPENSSL_init, (void), ()) \
 +DEFINEFUNC_LEGACY_1_0(void, ERR_load_crypto_strings, (void), ()) \
++DEFINEFUNC_LEGACY_1_0(void, ERR_remove_thread_state, (const GO_CRYPTO_THREADID_PTR tid), (tid)) \
 +DEFINEFUNC_LEGACY_1_0(int, CRYPTO_num_locks, (void), ()) \
 +DEFINEFUNC_LEGACY_1_0(int, CRYPTO_THREADID_set_callback, (void (*threadid_func) (GO_CRYPTO_THREADID_PTR)), (threadid_func)) \
 +DEFINEFUNC_LEGACY_1_0(void, CRYPTO_THREADID_set_numeric, (GO_CRYPTO_THREADID_PTR id, unsigned long val), (id, val)) \
@@ -9287,22 +9410,56 @@ index 0000000000..4457a3e491
 +DEFINEFUNC_3_0(GO_EVP_SIGNATURE_PTR, EVP_SIGNATURE_fetch, (GO_OSSL_LIB_CTX_PTR ctx, const char *algorithm, const char *properties), (ctx, algorithm, properties)) \
 +DEFINEFUNC_3_0(void, EVP_SIGNATURE_free, (GO_EVP_SIGNATURE_PTR signature), (signature)) \
 +
+diff --git a/src/vendor/github.com/golang-fips/openssl/v2/thread_setup.go b/src/vendor/github.com/golang-fips/openssl/v2/thread_setup.go
+new file mode 100644
+index 0000000000..5e0da7e362
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl/v2/thread_setup.go
+@@ -0,0 +1,14 @@
++//go:build !cmd_go_bootstrap
++
++package openssl
++
++// Go wrappers for testing the thread setup code as _test.go files cannot import "C".
++
++// #include "thread_setup.h"
++import "C"
++
++// opensslThreadsCleanedUp returns the number of times the thread-local OpenSSL
++// state has been cleaned up since the process started.
++func opensslThreadsCleanedUp() uint {
++	return uint(C.go_openssl_threads_cleaned_up)
++}
+diff --git a/src/vendor/github.com/golang-fips/openssl/v2/thread_setup.h b/src/vendor/github.com/golang-fips/openssl/v2/thread_setup.h
+new file mode 100644
+index 0000000000..98d12f82a2
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl/v2/thread_setup.h
+@@ -0,0 +1,4 @@
++#define CRYPTO_LOCK 0x01
++
++/* Used by unit tests. */
++extern volatile unsigned int go_openssl_threads_cleaned_up;
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/thread_setup_unix.c b/src/vendor/github.com/golang-fips/openssl/v2/thread_setup_unix.c
 new file mode 100644
-index 0000000000..dc2df609b0
+index 0000000000..53ea9d03d7
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/thread_setup_unix.c
-@@ -0,0 +1,35 @@
+@@ -0,0 +1,61 @@
 +//go:build unix
 +
 +#include "goopenssl.h"
++#include "thread_setup.h"
 +#include <pthread.h>
-+ 
-+#define CRYPTO_LOCK 0x01
 +
 +/* This array will store all of the mutexes available to OpenSSL. */ 
 +static pthread_mutex_t *mutex_buf = NULL;
-+ 
++
++static pthread_key_t destructor_key;
++
++/* Used by unit tests. */
++volatile unsigned int go_openssl_threads_cleaned_up = 0;
++
 +static void locking_function(int mode, int n, const char *file, int line)
 +{
 +    if (mode & CRYPTO_LOCK)
@@ -9314,10 +9471,32 @@ index 0000000000..dc2df609b0
 +static void thread_id(GO_CRYPTO_THREADID_PTR tid)
 +{
 +    go_openssl_CRYPTO_THREADID_set_numeric(tid, (unsigned long)pthread_self());
++
++    // OpenSSL fetches the current thread ID whenever it does anything with the
++    // per-thread error state, so this function is guaranteed to be executed at
++    // least once on any thread with associated error state. The thread-local
++    // variable needs to be set to a non-NULL value so that the destructor will
++    // be called when the thread exits. The actual value does not matter.
++    (void) pthread_setspecific(destructor_key, (void*)1);
++}
++
++static void cleanup_thread_state(void *ignored)
++{
++    UNUSED(ignored);
++    go_openssl_ERR_remove_thread_state(NULL);
++    // ERR_remove_thread_state(NULL) in turn calls our registered thread_id
++    // callback via CRYPTO_THREADID_current(), which sets the thread-local
++    // variable associated with this destructor to a non-NULL value. We have to
++    // clear the variable ourselves to prevent pthreads from calling the
++    // destructor again for the same thread.
++    (void) pthread_setspecific(destructor_key, NULL);
++    go_openssl_threads_cleaned_up++;
 +}
 +
 +int go_openssl_thread_setup(void)
 +{
++    if (pthread_key_create(&destructor_key, cleanup_thread_state) != 0)
++        return 0;
 +    mutex_buf = malloc(go_openssl_CRYPTO_num_locks()*sizeof(pthread_mutex_t));
 +    if (!mutex_buf)
 +        return 0;
@@ -9330,21 +9509,25 @@ index 0000000000..dc2df609b0
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/thread_setup_windows.c b/src/vendor/github.com/golang-fips/openssl/v2/thread_setup_windows.c
 new file mode 100644
-index 0000000000..7bc66d8014
+index 0000000000..93281d6cff
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/thread_setup_windows.c
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,64 @@
 +//go:build windows
 +
 +#include "goopenssl.h"
++#include "thread_setup.h"
 +
 +#include <stdlib.h>
 +#include <windows.h>
 +
-+#define CRYPTO_LOCK      0x01
-+
 +/* This array will store all of the mutexes available to OpenSSL. */
 +static HANDLE *mutex_buf = NULL;
++
++static DWORD fls_index = FLS_OUT_OF_INDEXES;
++
++/* Used by unit tests. */
++volatile unsigned int go_openssl_threads_cleaned_up = 0;
 +
 +static void locking_function(int mode, int n, const char *file, int line)
 +{
@@ -9354,8 +9537,33 @@ index 0000000000..7bc66d8014
 +        ReleaseMutex(mutex_buf[n]);
 +}
 +
++static void thread_id(GO_CRYPTO_THREADID_PTR tid)
++{
++    go_openssl_CRYPTO_THREADID_set_numeric(tid, (unsigned long)GetCurrentThreadId());
++
++    // OpenSSL fetches the current thread ID whenever it does anything with the
++    // per-thread error state, so this function is guaranteed to be executed at
++    // least once on any thread with associated error state. As the Win32 API
++    // reference documentation is unclear on whether the fiber-local storage
++    // slot needs to be set to trigger the destructor on thread exit, set it to
++    // a non-NULL value just in case.
++    (void) FlsSetValue(fls_index, (void*)1);
++    go_openssl_threads_cleaned_up++;
++}
++
++static void cleanup_thread_state(void *ignored)
++{
++    UNUSED(ignored);
++    go_openssl_ERR_remove_thread_state(NULL);
++}
++
 +int go_openssl_thread_setup(void)
 +{
++    // Use the fiber-local storage API to hook a callback on thread exit.
++    // https://devblogs.microsoft.com/oldnewthing/20191011-00/?p=102989
++    fls_index = FlsAlloc(cleanup_thread_state);
++    if (fls_index == FLS_OUT_OF_INDEXES)
++        return 0;
 +    mutex_buf = malloc(go_openssl_CRYPTO_num_locks()*sizeof(HANDLE));
 +    if (!mutex_buf)
 +        return 0;
@@ -9363,13 +9571,15 @@ index 0000000000..7bc66d8014
 +    for (i = 0; i < go_openssl_CRYPTO_num_locks(); i++)
 +        mutex_buf[i] = CreateMutex(NULL, FALSE, NULL);
 +    go_openssl_CRYPTO_set_locking_callback(locking_function);
-+    // go_openssl_CRYPTO_set_id_callback is not needed on Windows
++    // go_openssl_CRYPTO_set_id_callback is not strictly needed on Windows
 +    // as OpenSSL uses GetCurrentThreadId() by default.
++    // But we need to piggyback off the callback for our own purposes.
++    go_openssl_CRYPTO_THREADID_set_callback(thread_id);
 +    return 1;
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/tls1prf.go b/src/vendor/github.com/golang-fips/openssl/v2/tls1prf.go
 new file mode 100644
-index 0000000000..3153fc81ec
+index 0000000000..5de62f95a7
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/tls1prf.go
 @@ -0,0 +1,104 @@
@@ -9465,7 +9675,7 @@ index 0000000000..3153fc81ec
 +		}
 +	}
 +	outLen := C.size_t(len(result))
-+	if C.go_openssl_EVP_PKEY_derive(ctx, base(result), &outLen) != 1 {
++	if C.go_openssl_EVP_PKEY_derive_wrapper(ctx, base(result), outLen).result != 1 {
 +		return newOpenSSLError("EVP_PKEY_derive")
 +	}
 +	// The Go standard library expects TLS1PRF to return the requested number of bytes,
@@ -9478,14 +9688,14 @@ index 0000000000..3153fc81ec
 +	return nil
 +}
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index 4de656b0e8..8fdf76a925 100644
+index 338c496bf9..cae6a5f4fe 100644
 --- a/src/vendor/modules.txt
 +++ b/src/vendor/modules.txt
 @@ -1,3 +1,7 @@
-+# github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20231108174110-41b6eb24da28
++# github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20240221195800-576fe0d37788
 +## explicit; go 1.20
 +github.com/golang-fips/openssl/v2
 +github.com/golang-fips/openssl/v2/bbig
- # golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d
- ## explicit; go 1.17
+ # golang.org/x/crypto v0.16.1-0.20231129163542-152cdb1503eb
+ ## explicit; go 1.18
  golang.org/x/crypto/chacha20
