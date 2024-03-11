@@ -39,21 +39,12 @@ diff --git a/src/crypto/tls/handshake_client.go b/src/crypto/tls/handshake_clien
 index f016e01b4b..0ecdd6c1cc 100644
 --- a/src/crypto/tls/handshake_client.go
 +++ b/src/crypto/tls/handshake_client.go
-@@ -25,6 +25,8 @@ import (
- 	"time"
- )
- 
-+import boring "crypto/internal/backend"
-+
- type clientHandshakeState struct {
- 	c            *Conn
- 	ctx          context.Context
 @@ -139,7 +141,9 @@ func (c *Conn) makeClientHello() (*clientHelloMsg, *ecdh.PrivateKey, error) {
  		if len(hello.supportedVersions) == 1 {
  			hello.cipherSuites = nil
  		}
 -		if hasAESGCMHardwareSupport {
-+		if boring.Enabled() {
++		if needFIPS() {
 +			hello.cipherSuites = append(hello.cipherSuites, defaultFIPSCipherSuitesTLS13...)
 +		} else if hasAESGCMHardwareSupport {
  			hello.cipherSuites = append(hello.cipherSuites, defaultCipherSuitesTLS13...)
@@ -76,20 +67,11 @@ diff --git a/src/crypto/tls/handshake_server_tls13.go b/src/crypto/tls/handshake
 index 816ca10858..90256aa27c 100644
 --- a/src/crypto/tls/handshake_server_tls13.go
 +++ b/src/crypto/tls/handshake_server_tls13.go
-@@ -17,6 +17,8 @@ import (
- 	"time"
- )
- 
-+import boring "crypto/internal/backend"
-+
- // maxClientPSKIdentities is the number of client PSK identities the server will
- // attempt to validate. It will ignore the rest not to let cheap ClientHello
- // messages cause too much work in session ticket decryption attempts.
 @@ -159,6 +161,9 @@ func (hs *serverHandshakeStateTLS13) processClientHello() error {
  	if !hasAESGCMHardwareSupport || !aesgcmPreferred(hs.clientHello.cipherSuites) {
  		preferenceList = defaultCipherSuitesTLS13NoAES
  	}
-+	if boring.Enabled() {
++	if needFIPS() {
 +		preferenceList = defaultFIPSCipherSuitesTLS13
 +	}
  	for _, suiteID := range preferenceList {
