@@ -3719,24 +3719,24 @@ index 910679756f..44ebc7c15f 100644
  	} else {
  		testCurve = elliptic.P384()
 diff --git a/src/go.mod b/src/go.mod
-index c18ae7760f..0cff10a255 100644
+index c18ae7760f..12a1a3a4d6 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -3,6 +3,7 @@ module std
  go 1.22
  
  require (
-+	github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20240221195800-576fe0d37788
++	github.com/golang-fips/openssl/v2 v2.0.1
  	golang.org/x/crypto v0.16.1-0.20231129163542-152cdb1503eb
  	golang.org/x/net v0.19.0
  )
 diff --git a/src/go.sum b/src/go.sum
-index 7c3519882a..40a8b2ac04 100644
+index 7c3519882a..aeb3130373 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,3 +1,5 @@
-+github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20240221195800-576fe0d37788 h1:YCg1cLYMq0/36XzGcVt8rqnNCFC4HwK19/h3lbgBymc=
-+github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20240221195800-576fe0d37788/go.mod h1:7tuBqX2Zov8Yq5mJ2yzlKhpnxOnWyEzi38AzeWRuQdg=
++github.com/golang-fips/openssl/v2 v2.0.1 h1:oNIu7tARUHmSIY7Gqn5lbSCnHSduvkFJoM2FRq294lA=
++github.com/golang-fips/openssl/v2 v2.0.1/go.mod h1:7tuBqX2Zov8Yq5mJ2yzlKhpnxOnWyEzi38AzeWRuQdg=
  golang.org/x/crypto v0.16.1-0.20231129163542-152cdb1503eb h1:1ceSY7sk6sJuiDREHpfyrqDnDljsLfEP2GuTClhBBfI=
  golang.org/x/crypto v0.16.1-0.20231129163542-152cdb1503eb/go.mod h1:gCAAfMLgwOJRpTjQ2zCCt2OcSfYMTeZVSRtQlPC7Nq4=
  golang.org/x/net v0.19.0 h1:zTwKpTd2XuCqf8huc7Fo2iSy+4RHPd10s4KzeTnVr1c=
@@ -4022,7 +4022,7 @@ index 0000000000..6461f241f8
 +type BigInt []uint
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/cipher.go b/src/vendor/github.com/golang-fips/openssl/v2/cipher.go
 new file mode 100644
-index 0000000000..ddaadfa889
+index 0000000000..2b983c5411
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/cipher.go
 @@ -0,0 +1,582 @@
@@ -4561,12 +4561,12 @@ index 0000000000..ddaadfa889
 +	return
 +}
 +
-+func newCipherCtx(kind cipherKind, mode cipherMode, encrypt cipherOp, key, iv []byte) (ctx C.GO_EVP_CIPHER_CTX_PTR, err error) {
++func newCipherCtx(kind cipherKind, mode cipherMode, encrypt cipherOp, key, iv []byte) (_ C.GO_EVP_CIPHER_CTX_PTR, err error) {
 +	cipher := loadCipher(kind, mode)
 +	if cipher == nil {
 +		panic("crypto/cipher: unsupported cipher: " + kind.String())
 +	}
-+	ctx = C.go_openssl_EVP_CIPHER_CTX_new()
++	ctx := C.go_openssl_EVP_CIPHER_CTX_new()
 +	if ctx == nil {
 +		return nil, fail("unable to create EVP cipher ctx")
 +	}
@@ -5570,7 +5570,7 @@ index 0000000000..f74bd8f8d7
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/evp.go b/src/vendor/github.com/golang-fips/openssl/v2/evp.go
 new file mode 100644
-index 0000000000..b2886e6906
+index 0000000000..a9237a6a0c
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/evp.go
 @@ -0,0 +1,471 @@
@@ -5725,7 +5725,15 @@ index 0000000000..b2886e6906
 +
 +func setupEVP(withKey withKeyFunc, padding C.int,
 +	h, mgfHash hash.Hash, label []byte, saltLen C.int, ch crypto.Hash,
-+	init initFunc) (ctx C.GO_EVP_PKEY_CTX_PTR, err error) {
++	init initFunc) (_ C.GO_EVP_PKEY_CTX_PTR, err error) {
++	var ctx C.GO_EVP_PKEY_CTX_PTR
++	withKey(func(pkey C.GO_EVP_PKEY_PTR) C.int {
++		ctx = C.go_openssl_EVP_PKEY_CTX_new(pkey, nil)
++		return 1
++	})
++	if ctx == nil {
++		return nil, newOpenSSLError("EVP_PKEY_CTX_new failed")
++	}
 +	defer func() {
 +		if err != nil {
 +			if ctx != nil {
@@ -5734,14 +5742,6 @@ index 0000000000..b2886e6906
 +			}
 +		}
 +	}()
-+
-+	withKey(func(pkey C.GO_EVP_PKEY_PTR) C.int {
-+		ctx = C.go_openssl_EVP_PKEY_CTX_new(pkey, nil)
-+		return 1
-+	})
-+	if ctx == nil {
-+		return nil, newOpenSSLError("EVP_PKEY_CTX_new failed")
-+	}
 +	if err := init(ctx); err != nil {
 +		return nil, err
 +	}
@@ -9688,11 +9688,11 @@ index 0000000000..5de62f95a7
 +	return nil
 +}
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index 338c496bf9..cae6a5f4fe 100644
+index 338c496bf9..187322fab6 100644
 --- a/src/vendor/modules.txt
 +++ b/src/vendor/modules.txt
 @@ -1,3 +1,7 @@
-+# github.com/golang-fips/openssl/v2 v2.0.0-rc.3.0.20240221195800-576fe0d37788
++# github.com/golang-fips/openssl/v2 v2.0.1
 +## explicit; go 1.20
 +github.com/golang-fips/openssl/v2
 +github.com/golang-fips/openssl/v2/bbig
