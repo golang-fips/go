@@ -1,29 +1,28 @@
 diff --git a/src/crypto/ecdsa/ecdsa_hash_sign_verify.go b/src/crypto/ecdsa/ecdsa_hash_sign_verify.go
 new file mode 100644
-index 0000000000..ef1f5c80f6
+index 0000000000..50a39f5d0a
 --- /dev/null
 +++ b/src/crypto/ecdsa/ecdsa_hash_sign_verify.go
-@@ -0,0 +1,46 @@
+@@ -0,0 +1,45 @@
 +package ecdsa
 +
 +import (
 +	"crypto"
 +	"crypto/internal/randutil"
 +	"io"
-+	"math/big"
 +
 +	boring "crypto/internal/backend"
 +)
 +
-+func HashSign(rand io.Reader, priv *PrivateKey, msg []byte, h crypto.Hash) (*big.Int, *big.Int, error) {
++func HashSign(rand io.Reader, priv *PrivateKey, msg []byte, h crypto.Hash) ([]byte, error) {
 +	randutil.MaybeReadByte(rand)
 +
 +	if boring.Enabled() {
 +		b, err := boringPrivateKey(priv)
 +		if err != nil {
-+			return nil, nil, err
++			return nil, err
 +		}
-+		return boring.HashSignECDSA(b, msg, h)
++		return boring.HashSignECDSA(b, h, msg)
 +	}
 +	boring.UnreachableExceptTests()
 +
@@ -31,16 +30,16 @@ index 0000000000..ef1f5c80f6
 +	hash.Write(msg)
 +	d := hash.Sum(nil)
 +
-+	return Sign(rand, priv, d)
++	return SignASN1(rand, priv, d)
 +}
 +
-+func HashVerify(pub *PublicKey, msg []byte, r, s *big.Int, h crypto.Hash) bool {
++func HashVerify(pub *PublicKey, msg, sig []byte, h crypto.Hash) bool {
 +	if boring.Enabled() {
 +		bpk, err := boringPublicKey(pub)
 +		if err != nil {
 +			return false
 +		}
-+		return boring.HashVerifyECDSA(bpk, msg, r, s, h)
++		return boring.HashVerifyECDSA(bpk, h, msg, sig)
 +	}
 +	boring.UnreachableExceptTests()
 +
@@ -48,7 +47,7 @@ index 0000000000..ef1f5c80f6
 +	hash.Write(msg)
 +	d := hash.Sum(nil)
 +
-+	return Verify(pub, d, r, s)
++	return VerifyASN1(pub, d, sig)
 +}
 diff --git a/src/crypto/ecdsa/ecdsa_hashsignverify_test.go b/src/crypto/ecdsa/ecdsa_hashsignverify_test.go
 new file mode 100644
@@ -99,3 +98,27 @@ index 0000000000..721bd4a825
 +	testHashSignAndHashVerify(t, elliptic.P384(), "p384")
 +	testHashSignAndHashVerify(t, elliptic.P521(), "p521")
 +}
+diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
+index 5b0e356dff..e509805288 100644
+--- a/src/crypto/internal/backend/nobackend.go
++++ b/src/crypto/internal/backend/nobackend.go
+@@ -14,7 +14,6 @@ import (
+ 	"crypto/internal/boring/sig"
+ 	"hash"
+ 	"io"
+-	"math/big"
+ )
+ 
+ func init() {
+@@ -167,9 +166,9 @@ func ExpandHKDF(h func() hash.Hash, pseudorandomKey, info []byte) (io.Reader, er
+ func SupportsHKDF() bool {
+ 	panic("boringcrypto: not available")
+ }
+-func HashVerifyECDSA(pub *PublicKeyECDSA, msg []byte, r, s *big.Int, h crypto.Hash) bool {
++func HashVerifyECDSA(pub *PublicKeyECDSA, h crypto.Hash, msg, sig []byte) bool {
+ 	panic("boringcrypto: not available")
+ }
+-func HashSignECDSA(priv *PrivateKeyECDSA, hash []byte, h crypto.Hash) (*big.Int, *big.Int, error) {
++func HashSignECDSA(priv *PrivateKeyECDSA, h crypto.Hash, msg []byte) ([]byte, error) {
+ 	panic("boringcrypto: not available")
+ }
