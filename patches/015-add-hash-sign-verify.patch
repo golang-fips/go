@@ -51,7 +51,7 @@ index 0000000000..50a39f5d0a
 +}
 diff --git a/src/crypto/ecdsa/ecdsa_hashsignverify_test.go b/src/crypto/ecdsa/ecdsa_hashsignverify_test.go
 new file mode 100644
-index 0000000000..721bd4a825
+index 0000000000..6cd4c036a3
 --- /dev/null
 +++ b/src/crypto/ecdsa/ecdsa_hashsignverify_test.go
 @@ -0,0 +1,43 @@
@@ -73,18 +73,18 @@ index 0000000000..721bd4a825
 +
 +	msg := []byte("testing")
 +	h := crypto.SHA256
-+	r, s, err := HashSign(rand.Reader, priv, msg, h)
++	hsm, err := HashSign(rand.Reader, priv, msg, h)
 +	if err != nil {
 +		t.Errorf("%s: error signing: %s", tag, err)
 +		return
 +	}
 +
-+	if !HashVerify(&priv.PublicKey, msg, r, s, h) {
++	if !HashVerify(&priv.PublicKey, msg, hsm, h) {
 +		t.Errorf("%s: Verify failed", tag)
 +	}
 +
 +	msg[0] ^= 0xff
-+	if HashVerify(&priv.PublicKey, msg, r, s, h) {
++	if HashVerify(&priv.PublicKey, msg, hsm, h) {
 +		t.Errorf("%s: Verify should not have succeeded", tag)
 +	}
 +}
