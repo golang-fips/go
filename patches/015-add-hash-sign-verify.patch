@@ -51,7 +51,7 @@ index 0000000000..50a39f5d0a
 +}
 diff --git a/src/crypto/ecdsa/ecdsa_hashsignverify_test.go b/src/crypto/ecdsa/ecdsa_hashsignverify_test.go
 new file mode 100644
-index 0000000000..6cd4c036a3
+index 0000000000..65ca8a4b77
 --- /dev/null
 +++ b/src/crypto/ecdsa/ecdsa_hashsignverify_test.go
 @@ -0,0 +1,43 @@
@@ -92,7 +92,7 @@ index 0000000000..6cd4c036a3
 +func TestHashSignAndHashVerify(t *testing.T) {
 +	testHashSignAndHashVerify(t, elliptic.P256(), "p256")
 +
-+	if testing.Short() && !boring.Enabled {
++	if testing.Short() && !boring.Enabled() {
 +		return
 +	}
 +	testHashSignAndHashVerify(t, elliptic.P384(), "p384")
