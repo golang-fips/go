@@ -3719,7 +3719,7 @@ index 3c592e1136..a594823783 100644
  	} else {
  		testCurve = elliptic.P384()
 diff --git a/src/go.mod b/src/go.mod
-index 04bb1b358c..b656ad46ce 100644
+index 737d78da5d..eafc127352 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -3,6 +3,7 @@ module std
@@ -3728,10 +3728,10 @@ index 04bb1b358c..b656ad46ce 100644
  require (
 +	github.com/golang-fips/openssl/v2 v2.0.1
  	golang.org/x/crypto v0.16.1-0.20231129163542-152cdb1503eb
- 	golang.org/x/net v0.19.1-0.20240327214321-ae3c50b55fdf
+ 	golang.org/x/net v0.19.1-0.20240412193750-db050b07227e
  )
 diff --git a/src/go.sum b/src/go.sum
-index 28d7841926..6454ac2934 100644
+index 86d173c9e6..51fbaeecdf 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,3 +1,5 @@
@@ -3739,7 +3739,7 @@ index 28d7841926..6454ac2934 100644
 +github.com/golang-fips/openssl/v2 v2.0.1/go.mod h1:7tuBqX2Zov8Yq5mJ2yzlKhpnxOnWyEzi38AzeWRuQdg=
  golang.org/x/crypto v0.16.1-0.20231129163542-152cdb1503eb h1:1ceSY7sk6sJuiDREHpfyrqDnDljsLfEP2GuTClhBBfI=
  golang.org/x/crypto v0.16.1-0.20231129163542-152cdb1503eb/go.mod h1:gCAAfMLgwOJRpTjQ2zCCt2OcSfYMTeZVSRtQlPC7Nq4=
- golang.org/x/net v0.19.1-0.20240327214321-ae3c50b55fdf h1:zcMReZfxLPmppTre5oSNPSOgoTRtOplx+QV25LkyAto=
+ golang.org/x/net v0.19.1-0.20240412193750-db050b07227e h1:oDnvqaqHo3ho8OChMtkQbQAyp9eqnm3J7JRtt0+Cabc=
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/.gitleaks.toml b/src/vendor/github.com/golang-fips/openssl/v2/.gitleaks.toml
 new file mode 100644
 index 0000000000..aed2e22df2
@@ -9688,7 +9688,7 @@ index 0000000000..5de62f95a7
 +	return nil
 +}
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index 8c555d28c5..1c8b73a529 100644
+index 9a234e59b1..f65e24f457 100644
 --- a/src/vendor/modules.txt
 +++ b/src/vendor/modules.txt
 @@ -1,3 +1,7 @@
