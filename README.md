@@ -28,17 +28,6 @@ Main differences from the upstream BoringCrypto fork are:
 * FIPS mode (or `boring` mode as the package is named) is enabled either via an environment variable `GOLANG_FIPS=1` or by virtue of the host being in FIPS mode.
 * A few more downstream modifications to ensure complete test coverage, and some downstream code changes to support various versions of OpenSSL
 
-## Branches
-
-The `main` branch contains only a license file and this README. The FIPS patches are stored on versioned branches
-which follow the naming convention: `go1.x-openssl-fips`.
-
-### New branch setup
-
-There is a script called `scripts/setup-initial-patch.sh` which will apply the initial patch and then generate a new one which
-will finalize the OpenSSL FIPS backend support. When setting up a new branch just run the script and supply the name of the upstream Go
-branch you would like to check out in the git submodule like so:
-
-```
-$ ./scripts/setup-initial-patch.sh dev.boringcrypto.go1.x
+## Setup
+To set up an OpenSSL enabled Go toolchain, clone the repository and run `scripts/full-initialize-repo.sh`, then run `make.bash` or `all.bash` in the resulting `go` source repo.
 ```
