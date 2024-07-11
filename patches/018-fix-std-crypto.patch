@@ -1,0 +1,43 @@
+diff --git a/src/crypto/internal/backend/openssl.go b/src/crypto/internal/backend/openssl.go
+index 3d3a9a36ee..b7a65a1f6e 100644
+--- a/src/crypto/internal/backend/openssl.go
++++ b/src/crypto/internal/backend/openssl.go
+@@ -25,6 +25,21 @@ var enabled bool
+ var knownVersions = [...]string{"3", "1.1", "11", "111", "1.0.2", "1.0.0", "10"}
+ 
+ func init() {
++	// 0: FIPS opt-out: abort the process if it is enabled and can't be disabled.
++	// 1: FIPS required: abort the process if it is not enabled and can't be enabled.
++	// other values: do not override OpenSSL configured FIPS mode.
++	var fips string
++	if v, ok := syscall.Getenv("GOLANG_FIPS"); ok {
++		fips = v
++	} else if hostFIPSModeEnabled() {
++		// System configuration can only force FIPS mode.
++		fips = "1"
++	}
++
++	if fips == "" {
++		return
++	}
++
+ 	version, _ := syscall.Getenv("GO_OPENSSL_VERSION_OVERRIDE")
+ 	if version == "" {
+ 		var fallbackVersion string
+@@ -49,16 +64,6 @@ func init() {
+ 	if err := openssl.Init(version); err != nil {
+ 		panic("opensslcrypto: can't initialize OpenSSL " + version + ": " + err.Error())
+ 	}
+-	// 0: FIPS opt-out: abort the process if it is enabled and can't be disabled.
+-	// 1: FIPS required: abort the process if it is not enabled and can't be enabled.
+-	// other values: do not override OpenSSL configured FIPS mode.
+-	var fips string
+-	if v, ok := syscall.Getenv("GOLANG_FIPS"); ok {
+-		fips = v
+-	} else if hostFIPSModeEnabled() {
+-		// System configuration can only force FIPS mode.
+-		fips = "1"
+-	}
+ 	switch fips {
+ 	case "0":
+ 		if openssl.FIPS() {
