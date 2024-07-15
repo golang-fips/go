@@ -19,6 +19,8 @@ Fixes CVE-2023-45290
 Fixes #65389
 For #65383
 
+Backported to Go 1.19 by the Golang FIPS Authors.
+
 Change-Id: I7f9264d25752009e95f6b2c80e3d76aaf321d658
 Reviewed-on: https://team-review.git.corp.google.com/c/golang/go-private/+/2134435
 Reviewed-by: Roland Shoemaker <bracewell@google.com>
