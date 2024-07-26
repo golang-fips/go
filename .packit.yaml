@@ -48,11 +48,8 @@ actions:
 jobs:
     # Build the package in Fedora ELN when a pull request is opened.
     # It can be requested by adding a comment with the text: /packit copr-build
-    # This will run the job in the Copr project `alexsaezm/golang-fips`.
   - job: copr_build
     trigger: pull_request
-    owner: alexsaezm
-    project: go-fips
     targets:
     - fedora-eln-aarch64
     - fedora-eln-ppc64le
