@@ -16,8 +16,6 @@ specfile_path: .packit_rpm/golang.spec
 files_to_sync:
   - .packit.yaml
   - ./scripts/packit.sh
-  - src: .packit_rpm/golang.spec
-    dest: golang.spec
 
 srpm_build_deps:
   - golang
