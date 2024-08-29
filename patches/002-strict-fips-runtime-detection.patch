@@ -34,12 +34,12 @@ index 15c1ee8cbe..efb7555948 100644
  	"crypto/cipher"
  	"crypto/internal/boring/sig"
 -	"math/big"
--	"github.com/golang-fips/openssl-fips/openssl"
+-	"github.com/golang-fips/openssl/openssl"
  	"hash"
  	"io"
 +	"math/big"
 +
-+	"github.com/golang-fips/openssl-fips/openssl"
++	"github.com/golang-fips/openssl/openssl"
  )
  
 +func init() {
@@ -70,7 +70,7 @@ index 2087c555a4..3e5ee01efc 100644
 --- a/src/crypto/internal/backend/openssl.go
 +++ b/src/crypto/internal/backend/openssl.go
 @@ -14,6 +14,10 @@ import (
- 	"github.com/golang-fips/openssl-fips/openssl"
+ 	"github.com/golang-fips/openssl/openssl"
  )
  
 +func init() {
