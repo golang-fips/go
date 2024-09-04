@@ -1,0 +1,258 @@
+This patch backports elements of the following
+changes from go1.22-fips-release:
+* 004-fixes.patch
+* 005-fixes-2.patch
+* 006-fixes-3.patch
+* 007-fixes-4.patch
+* 008-fixes-5.patch
+* 009-fixes-6.patch
+* 010-fixes-7.patch
+
+diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
+index d0edf58e3e..33a53a8601 100644
+--- a/src/crypto/internal/backend/nobackend.go
++++ b/src/crypto/internal/backend/nobackend.go
+@@ -24,10 +24,6 @@ func init() {
+ 
+ var enabled = false
+ 
+-func IsStrictFIPSMode() bool {
+-  return false
+-}
+-
+ // Unreachable marks code that should be unreachable
+ // when BoringCrypto is in use. It is a no-op without BoringCrypto.
+ func Unreachable() {
+@@ -37,6 +33,10 @@ func Unreachable() {
+ 	sig.StandardCrypto()
+ }
+ 
++func IsStrictFIPSMode() bool {
++	return false
++}
++
+ // UnreachableExceptTests marks code that should be unreachable
+ // when BoringCrypto is in use. It is a no-op without BoringCrypto.
+ func UnreachableExceptTests() {}
+diff --git a/src/crypto/rsa/pkcs1v15_test.go b/src/crypto/rsa/pkcs1v15_test.go
+index 16eb37734b..443f9976f7 100644
+--- a/src/crypto/rsa/pkcs1v15_test.go
++++ b/src/crypto/rsa/pkcs1v15_test.go
+@@ -11,7 +11,6 @@ import (
+ 	"crypto/internal/backend/boringtest"
+ 	"crypto/rand"
+ 	. "crypto/rsa"
+-	"crypto/sha1"
+ 	"crypto/sha256"
+ 	"crypto/x509"
+ 	"encoding/base64"
+@@ -210,16 +209,16 @@ type signPKCS1v15Test struct {
+ //
+ //	`openssl rsautl -verify -inkey pk -in signature | hexdump -C`
+ var signPKCS1v15Tests = []signPKCS1v15Test{
+-	{"Test.\n", "0c7c85d938862248846cba06b06ac9bfe752aafed3092c224f257855006aa35b43d101e6c8e59cbc4c20b07c81552963f189dea700e042d4b70c236a031a29a9273cc138e69dc1a5834491de4822d8cb6acf218789d2586cb0f3892236b0948ffaf8691f6fa04597caa45068f9be39b8ea8b5336a8c94e2696f872120778abcfea711e5fbf75f835f0f5204ccdd020013c2ceae25e9d1378a1d10cf86ca269eef48fee8ebb5e8dfb08f0c48d22d1a7162e080ec1f6e48541288aaaa1f2370f0688cf1786a32abed41df1d3b96b665794bf7a772743fc8b62d73901cea4569494c794a01ccc7dda0d42199f5b58739c0c0e280774b56ccf51993f5ea3d4954319"},
++	{"Test.\n", "0c7da2fe34372c9e433ca668b6edf4cd7f7eb29f11c11c44d99cb6dc6fe4344cc656075015de6d0249d25b6e01bf22276e9f97f6e64f5905ce96cfc69e3c30e3813eb80553b1e53993482b97c920d030e1daf6c5f11f532a166a4b4aea34c6f8ed5579ccf6bfd5e20250d1979e97c358363da8ae15a095f07e9c54bfb948a94a75a6c8a0cbe4b9970d780ddf49369b2f134915e9a8ccf20e7b07981d0b95978630ee754f20bad163cdcff8c56c9bc66fd1060961779f1554894597086477d15346955d1a1c67d9718c4d25d840cf83fe203fd4e5681fc388a0395b79b94b1ade281f3682fb08a02ed6fa209caf489e9ccf501a86e99a36737b241c1e8ab2c2a4"},
+ }
+ 
+ func TestSignPKCS1v15(t *testing.T) {
+ 	for i, test := range signPKCS1v15Tests {
+-		h := sha1.New()
++		h := sha256.New()
+ 		h.Write([]byte(test.in))
+ 		digest := h.Sum(nil)
+ 
+-		s, err := SignPKCS1v15(nil, boringRsaPrivateKey, crypto.SHA1, digest)
++		s, err := SignPKCS1v15(nil, boringRsaPrivateKey, crypto.SHA256, digest)
+ 		if err != nil {
+ 			t.Errorf("#%d %s", i, err)
+ 		}
+@@ -233,13 +232,13 @@ func TestSignPKCS1v15(t *testing.T) {
+ 
+ func TestVerifyPKCS1v15(t *testing.T) {
+ 	for i, test := range signPKCS1v15Tests {
+-		h := sha1.New()
++		h := sha256.New()
+ 		h.Write([]byte(test.in))
+ 		digest := h.Sum(nil)
+ 
+ 		sig, _ := hex.DecodeString(test.out)
+ 
+-		err := VerifyPKCS1v15(&boringRsaPrivateKey.PublicKey, crypto.SHA1, digest, sig)
++		err := VerifyPKCS1v15(&boringRsaPrivateKey.PublicKey, crypto.SHA256, digest, sig)
+ 		if err != nil {
+ 			t.Errorf("#%d %s", i, err)
+ 		}
+diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
+index e7ae7fc5ca..01d3c35f35 100644
+--- a/src/crypto/tls/boring_test.go
++++ b/src/crypto/tls/boring_test.go
+@@ -7,6 +7,7 @@
+ package tls
+ 
+ import (
++	"crypto"
+ 	"crypto/ecdsa"
+ 	"crypto/elliptic"
+ 	boring "crypto/internal/backend"
+@@ -216,7 +217,10 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
+ 
+ 			testingOnlyForceClientHelloSignatureAlgorithms = []SignatureScheme{sigHash}
+ 
+-			sigType, _, _ := typeAndHashFromSignatureScheme(sigHash)
++			sigType, hashFunc, _ := typeAndHashFromSignatureScheme(sigHash)
++			if hashFunc == crypto.SHA1 && !boringtest.Supports(t, "SHA1") {
++				t.Skip("unsupported in FIPS mode")
++			}
+ 			switch sigType {
+ 			case signaturePKCS1v15, signatureRSAPSS:
+ 				serverConfig.CipherSuites = []uint16{TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256}
+@@ -329,7 +333,7 @@ func TestBoringCertAlgs(t *testing.T) {
+ 	// Set up some roots, intermediate CAs, and leaf certs with various algorithms.
+ 	// X_Y is X signed by Y.
+ 	R1 := boringCert(t, "R1", boringRSAKey(t, 2048), nil, boringCertCA|boringCertFIPSOK)
+-	R2 := boringCert(t, "R2", NotBoringRSAKey(t, 512), nil, boringCertCA)
++	R2 := boringCert(t, "R2", NotBoringRSAKey(t, 2560), nil, boringCertCA)
+ 
+ 	M1_R1 := boringCert(t, "M1_R1", boringECDSAKey(t, elliptic.P256()), R1, boringCertCA|boringCertFIPSOK)
+ 
+diff --git a/src/crypto/x509/boring_test.go b/src/crypto/x509/boring_test.go
+index 88b69937be..38790b33af 100644
+--- a/src/crypto/x509/boring_test.go
++++ b/src/crypto/x509/boring_test.go
+@@ -63,7 +63,7 @@ type boringCertificate struct {
+ 
+ func TestBoringAllowCert(t *testing.T) {
+ 	R1 := testBoringCert(t, "R1", boringRSAKey(t, 2048), nil, boringCertCA|boringCertFIPSOK)
+-	R2 := testBoringCert(t, "R2", notBoringRSAKey(t, 512), nil, boringCertCA)
++	R2 := testBoringCert(t, "R2", notBoringRSAKey(t, 2560), nil, boringCertCA)
+ 	R3 := testBoringCert(t, "R3", boringRSAKey(t, 4096), nil, boringCertCA|boringCertFIPSOK)
+ 
+ 	M1_R1 := testBoringCert(t, "M1_R1", boringECDSAKey(t, elliptic.P256()), R1, boringCertCA|boringCertFIPSOK)
+diff --git a/src/crypto/x509/verify_test.go b/src/crypto/x509/verify_test.go
+index d4cbb822c4..39c7c7aa18 100644
+--- a/src/crypto/x509/verify_test.go
++++ b/src/crypto/x509/verify_test.go
+@@ -8,6 +8,7 @@ import (
+ 	"crypto"
+ 	"crypto/ecdsa"
+ 	"crypto/elliptic"
++	boring "crypto/internal/backend"
+ 	"crypto/rand"
+ 	"crypto/x509/pkix"
+ 	"encoding/asn1"
+@@ -37,6 +38,8 @@ type verifyTest struct {
+ 
+ 	errorCallback  func(*testing.T, error)
+ 	expectedChains [][]string
++
++	boringSkip bool
+ }
+ 
+ var verifyTests = []verifyTest{
+@@ -131,6 +134,7 @@ var verifyTests = []verifyTest{
+ 		// The StartCom root is not trusted by Windows when the default
+ 		// ServerAuth EKU is requested.
+ 		systemSkip: true,
++		boringSkip: true,
+ 
+ 		expectedChains: [][]string{
+ 			{"dnssec-exp", "StartCom Class 1", "StartCom Certification Authority"},
+@@ -143,6 +147,7 @@ var verifyTests = []verifyTest{
+ 		roots:         []string{startComRoot},
+ 		currentTime:   1302726541,
+ 		keyUsages:     []ExtKeyUsage{ExtKeyUsageAny},
++		boringSkip:    true,
+ 
+ 		expectedChains: [][]string{
+ 			{"dnssec-exp", "StartCom Class 1", "StartCom Certification Authority"},
+@@ -155,6 +160,7 @@ var verifyTests = []verifyTest{
+ 		roots:         []string{startComRoot},
+ 		currentTime:   1302726541,
+ 		systemSkip:    true, // see dnssec-exp test
++		boringSkip:    true,
+ 
+ 		expectedChains: [][]string{
+ 			{"dnssec-exp", "StartCom Class 1", "StartCom Certification Authority"},
+@@ -216,6 +222,7 @@ var verifyTests = []verifyTest{
+ 		roots:         []string{globalSignRoot},
+ 		currentTime:   1382387896,
+ 		dnsName:       "secure.iddl.vt.edu",
++		boringSkip:    true,
+ 
+ 		expectedChains: [][]string{
+ 			{
+@@ -545,6 +552,9 @@ func TestGoVerify(t *testing.T) {
+ 
+ 	for _, test := range verifyTests {
+ 		t.Run(test.name, func(t *testing.T) {
++			if test.boringSkip && boring.Enabled() {
++				t.Skip("skipping test with BoringCrypto")
++			}
+ 			testVerify(t, test, false)
+ 		})
+ 	}
+diff --git a/src/crypto/x509/x509_test.go b/src/crypto/x509/x509_test.go
+index 8f77ffda62..8f1f3bb730 100644
+--- a/src/crypto/x509/x509_test.go
++++ b/src/crypto/x509/x509_test.go
+@@ -3563,6 +3563,9 @@ func TestParseUniqueID(t *testing.T) {
+ }
+ 
+ func TestDisableSHA1ForCertOnly(t *testing.T) {
++	if boring.Enabled() && !boringtest.Supports(t, "SHA1") {
++		t.Skip("unsupported in FIPS mode")
++	}
+ 	t.Setenv("GODEBUG", "")
+ 
+ 	tmpl := &Certificate{
+diff --git a/src/crypto/x509/x509_test_import.go b/src/crypto/x509/x509_test_import.go
+index 2474e3d810..492cb0a875 100644
+--- a/src/crypto/x509/x509_test_import.go
++++ b/src/crypto/x509/x509_test_import.go
+@@ -42,14 +42,38 @@ func main() {
+ 	}
+ }
+ 
+-var pemPrivateKey = testingKey(`-----BEGIN RSA TESTING KEY-----
+-MIIBOgIBAAJBALKZD0nEffqM1ACuak0bijtqE2QrI/KLADv7l3kK3ppMyCuLKoF0
+-fd7Ai2KW5ToIwzFofvJcS/STa6HA5gQenRUCAwEAAQJBAIq9amn00aS0h/CrjXqu
+-/ThglAXJmZhOMPVn4eiu7/ROixi9sex436MaVeMqSNf7Ex9a8fRNfWss7Sqd9eWu
+-RTUCIQDasvGASLqmjeffBNLTXV2A5g4t+kLVCpsEIZAycV5GswIhANEPLmax0ME/
+-EO+ZJ79TJKN5yiGBRsv5yvx5UiHxajEXAiAhAol5N4EUyq6I9w1rYdhPMGpLfk7A
+-IU2snfRJ6Nq2CQIgFrPsWRCkV+gOYcajD17rEqmuLrdIRexpg8N1DOSXoJ8CIGlS
+-tAboUGBxTDq3ZroNism3DaMIbKPyYrAqhKov1h5V
++// This key is generated with the following command:
++//
++//   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out key.pem
++//   openssl pkey -traditional -in key.pem > key-traditional.pem
++//
++var pemPrivateKey = testingKey(`
++-----BEGIN RSA TESTING KEY-----
++MIIEogIBAAKCAQEAp5qgUIj096pw8U+AjcJucLWenR3oe+tEthXiAuqcYgslW5UU
++lMim34U/h7NbLvbG2KJ2chUsmLtuCFaoIe/YKW5DKm3SPytK/KCBsVa+MQ7zuF/1
++ks5p7yBqFBl6QTekMzwskt/zyDIG9f3A+38akruHNBvUgYqwbWPx4ycclQ52GSev
++/Cfx0I68TGT5SwN/eCJ/ghq3iGAf0mX1bkVaW1seKbL49aAA94KnDCRdl813+S2R
++EPDf2tZwlT0JpZm5QtAqthonZjkjHocZNxhkKF3XWUntE/+l6R4A+CWZlC2vmUc1
++hJTEraksy2JUIjxAaq//FnDpIEVG/N2ofmNpaQIDAQABAoIBAAYH7h9fwkLcNvqz
++8+oF9k/ndSjtr9UvstYDhRG6S/zKLmK0g1xUOQ7/fjj9lvkiZ6bZd74krWlkizHR
++HnU0KnjZLyEKeR+NSQI8q1YMi0T8JwB6MX3CIDU62x5UiV3p6OZwEqGJXf4U8MOu
++ySAzo2rmxRd2reeobC9Pgp98I47oeqaSRwFVZRPfKk5RvfI7KRmL58BAB0XS56PA
++PJ+3l0fB/oIV11iaBEKildxLDtrvlepQ2KPNf7Dpk0/CPRtS/jxyxIyML8tjR3F0
++KuHplsRjTANyzW/aHddO1fnfnXsVo+0PzSPTHCbxKSu5XmChqsKoB1jM+/tJci4y
++ST5hUXUCgYEAzfA5XEMkR/NNJMfR+FBbdfpQ1b0wqH3qtWZx/tBjKC2Y0XnDQ8ZR
++SEWONLVZMRtTlJaHIPZ9i6anQRR5harrff0OpsKiJUGDout8ehE6eiN8ABWGNlCI
++AiLCerVJZMDcSuDU7xsdHVIdSxYh88Z9g54vUQ4214BG/G0Qm1emV3UCgYEA0FjP
++wq5cEGt9xDCg+oXk0bLm4Wn4FkabJH7M+oCosHHY9W1vgvv50bpNoAbaB5r1mlan
++T6gEtkQPB2juMTnuIwRL+kvOmSKqZGlAsyrq8smTuBUv7brbybkYN3Rg51KV6u1J
++vCdGpMYWHUNRkkQ88cr6iFPodYU+CzRR4ABif6UCgYBc0jDYb/7TW0tjD5mJJZcD
++xw5WOE7NMuvuVT1+T6jRvDOL/yjOzH1oaMle4npQEvQKHgrMBa2ymyv5vmPDprU7
++9Sp8aW+yASR281MIpelIkePbGdiDdKrI46fqrPlmqzLfoRT4rKzjwVYouNIW0VlT
++UKIdE54OZegY8IOysL/t3QKBgDZnSnECiIW9G80UCaUBO3vKZGFuA1sFutMvzSSI
++XgQc5lNH7TtdwqESLdzgjSQ5QXK4t92j+P8DDI2Zx8DQ6K76G0DTdLImDCpGFZ/z
++UABvxIPn/GjuRyAIlhs852Tf+seqiHt6Igc6tmGTx4QTD3rvzrW0e1ncnhPc6Jg+
++YXoFAoGARD9OPrd4J2N+nkSWif9VOuPHvOXEczwBDJbsAGrOW1kTbDStF0OIVOt0
++Ukj+mnnL8ZNyVLgTrZDRfXvlA94EbPK5/rMAYwjMlXHP8R22ts3eDMNUdw0/Zl1g
++QOhL8wXZcdwHKsONy55kZHo8pmneqi9EnqqLGguLwx5WIMzWvZ8=
+ -----END RSA TESTING KEY-----
+ `)
+ 
