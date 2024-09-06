@@ -17,7 +17,7 @@ index 3d3a9a36ee..b7a65a1f6e 100644
 +		fips = "1"
 +	}
 +
-+	if fips == "" {
++	if fips != "1" {
 +		return
 +	}
 +
