@@ -58,3 +58,34 @@ index 9b28acdc2d..1733060948 100644
  }
  
  // defaultCurvePreferencesFIPS are the FIPS-allowed curves,
+diff --git a/src/crypto/tls/defaults.go b/src/crypto/tls/defaults.go
+index 1733060948..82b462261c 100644
+--- a/src/crypto/tls/defaults.go
++++ b/src/crypto/tls/defaults.go
+@@ -8,11 +8,18 @@ import (
+ 	"internal/godebug"
+ 	"slices"
+ 	_ "unsafe" // for linkname
++	boring "crypto/internal/backend"
+ )
+ 
+ // Defaults are collected in this file to allow distributions to more easily patch
+ // them to apply local policies.
+ 
++func init() {
++  if boring.Enabled() && supportsHKDF() {
++    defaultSupportedVersionsFIPS = append(defaultSupportedVersionsFIPS, VersionTLS13)
++  }
++}
++
+ var tlskyber = godebug.New("tlskyber")
+ 
+ func defaultCurvePreferences() []CurveID {
+@@ -92,7 +99,6 @@ var defaultCipherSuitesTLS13NoAES = []uint16{
+ 
+ var defaultSupportedVersionsFIPS = []uint16{
+ 	VersionTLS12,
+-	VersionTLS13,
+ }
+ 
+ // defaultCurvePreferencesFIPS are the FIPS-allowed curves,
