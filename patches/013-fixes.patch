@@ -2,26 +2,13 @@ diff --git a/src/crypto/tls/boring.go b/src/crypto/tls/boring.go
 index 66252067f2..5be6dcea23 100644
 --- a/src/crypto/tls/boring.go
 +++ b/src/crypto/tls/boring.go
-@@ -22,6 +22,10 @@ func needFIPS() bool {
+@@ -22,2 +22,6 @@ func needFIPS() bool {
  	return fipstls.Required()
  }
- 
 +func supportsHKDF() bool {
 +	return boring.SupportsHKDF()
 +}
 +
- // fipsMinVersion replaces c.minVersion in FIPS-only mode.
- func fipsMinVersion(c *Config) uint16 {
- 	// FIPS requires TLS 1.2 or later.
-@@ -33,7 +37,7 @@ func fipsMaxVersion(c *Config) uint16 {
- 	// FIPS requires TLS 1.2 or later.
- 	if boring.SupportsHKDF() {
- 		return VersionTLS13
--	}  else {
-+	} else {
- 		return VersionTLS12
- 	}
- }
 diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
 index 8943422ae0..10a4bc296c 100644
 --- a/src/crypto/tls/boring_test.go

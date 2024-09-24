@@ -37,14 +37,15 @@ import \"github.com/golang-fips/openssl/v2\"
 // This definition allows us to avoid importing math/big.
 // Conversion between BigInt and *big.Int is in crypto/internal/boring/bbig.
 type BigInt = openssl.BigInt
-""" > src/crypto/internal/boring/doc.go
+""" >src/crypto/internal/boring/doc.go
 
 # Add new openssl backend to module and vendor it.
+export GOROOT=$(pwd)
 cd src
 SCRIPT_DIR=$(readlink -f $(dirname $0))
 CONFIG_DIR=$(readlink -f $(dirname $0)/../config)
 OPENSSL_FIPS_REF=$(../bin/go run ${SCRIPT_DIR}/versions.go ${CONFIG_DIR}/versions.json \
-			github.com/golang-fips/openssl)
+	github.com/golang-fips/openssl)
 ../bin/go get github.com/golang-fips/openssl/v2@${OPENSSL_FIPS_REF}
 
 replace="${1}"
@@ -56,4 +57,4 @@ fi
 
 # Generate the final patch.
 git add .
-git diff --cached --binary > ../../patches/001-initial-openssl-for-fips.patch
+git diff --cached --binary >../../patches/001-initial-openssl-for-fips.patch

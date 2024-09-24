@@ -163,9 +163,9 @@ index 02e744362c..4ac7f480cf 100644
 --- a/src/internal/goexperiment/flags.go
 +++ b/src/internal/goexperiment/flags.go
 @@ -100,4 +100,6 @@ type Flags struct {
- 	// ExecTracer2 controls whether to use the new execution trace
- 	// implementation.
- 	ExecTracer2 bool
+ 	// Requires that gotypesalias=1 is set with GODEBUG.
+ 	// This flag will be removed with Go 1.24.
+ 	AliasTypeParams bool
 +
 +	StrictFIPSRuntime bool
  }

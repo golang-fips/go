@@ -1,0 +1,91 @@
+diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
+index 6734dfe354..90d66bafcf 100644
+--- a/src/crypto/tls/boring_test.go
++++ b/src/crypto/tls/boring_test.go
+@@ -36,6 +36,12 @@ func TestBoringServerProtocolVersion(t *testing.T) {
+ 			clientConfig := testConfig.Clone()
+ 			clientConfig.MinVersion = v
+ 			clientConfig.MaxVersion = v
++			if boring.Enabled() {
++				serverConfig.Certificates = []Certificate{{Certificate: [][]byte{testP256Certificate}, PrivateKey: testP256PrivateKey}}
++				serverConfig.CurvePreferences = defaultCurvePreferencesFIPS
++				clientConfig.Certificates = []Certificate{{Certificate: [][]byte{testP256Certificate}, PrivateKey: testP256PrivateKey}}
++				clientConfig.CurvePreferences = defaultCurvePreferencesFIPS
++			}
+ 			_, _, err := testHandshake(t, clientConfig, serverConfig)
+ 			if msg == "" {
+ 				if err != nil {
+@@ -52,11 +58,13 @@ func TestBoringServerProtocolVersion(t *testing.T) {
+ 		})
+ 	}
+ 
+-	test(t, "VersionTLS10", VersionTLS10, "")
+-	test(t, "VersionTLS11", VersionTLS11, "")
+-	test(t, "VersionTLS12", VersionTLS12, "")
++	if !boring.Enabled() {
++		test(t, "VersionTLS10", VersionTLS10, "")
++		test(t, "VersionTLS11", VersionTLS11, "")
++		test(t, "VersionTLS12", VersionTLS12, "")
++	}
+ 	if boring.Enabled() && !boring.SupportsHKDF() {
+-		test(t, "VersionTLS13", VersionTLS13, "client offered only unsupported versions")
++		test(t, "VersionTLS13", VersionTLS13, "supported versions")
+ 	} else {
+ 		test(t, "VersionTLS13", VersionTLS13, "")
+ 	}
+@@ -67,9 +75,9 @@ func TestBoringServerProtocolVersion(t *testing.T) {
+ 		test(t, "VersionTLS10", VersionTLS10, "supported versions")
+ 		test(t, "VersionTLS11", VersionTLS11, "supported versions")
+ 		test(t, "VersionTLS12", VersionTLS12, "")
+- 		if boring.SupportsHKDF() {
+- 			test(t, "VersionTLS13/fipstls", VersionTLS13, "")
+-	}
++		if boring.SupportsHKDF() {
++			test(t, "VersionTLS13/fipstls", VersionTLS13, "")
++		}
+ 	})
+ }
+ 
+diff --git a/src/crypto/tls/defaults.go b/src/crypto/tls/defaults.go
+index 9b28acdc2d..1733060948 100644
+--- a/src/crypto/tls/defaults.go
++++ b/src/crypto/tls/defaults.go
+@@ -92,6 +92,7 @@ var defaultCipherSuitesTLS13NoAES = []uint16{
+ 
+ var defaultSupportedVersionsFIPS = []uint16{
+ 	VersionTLS12,
++	VersionTLS13,
+ }
+ 
+ // defaultCurvePreferencesFIPS are the FIPS-allowed curves,
+diff --git a/src/crypto/tls/defaults.go b/src/crypto/tls/defaults.go
+index 1733060948..82b462261c 100644
+--- a/src/crypto/tls/defaults.go
++++ b/src/crypto/tls/defaults.go
+@@ -8,11 +8,18 @@ import (
+ 	"internal/godebug"
+ 	"slices"
+ 	_ "unsafe" // for linkname
++	boring "crypto/internal/backend"
+ )
+ 
+ // Defaults are collected in this file to allow distributions to more easily patch
+ // them to apply local policies.
+ 
++func init() {
++  if boring.Enabled() && supportsHKDF() {
++    defaultSupportedVersionsFIPS = append(defaultSupportedVersionsFIPS, VersionTLS13)
++  }
++}
++
+ var tlskyber = godebug.New("tlskyber")
+ 
+ func defaultCurvePreferences() []CurveID {
+@@ -92,7 +99,6 @@ var defaultCipherSuitesTLS13NoAES = []uint16{
+ 
+ var defaultSupportedVersionsFIPS = []uint16{
+ 	VersionTLS12,
+-	VersionTLS13,
+ }
+ 
+ // defaultCurvePreferencesFIPS are the FIPS-allowed curves,

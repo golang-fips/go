@@ -190,6 +190,10 @@ index 0000000000..6c8c00d11e
 diff --git a/src/crypto/internal/backend/dummy.s b/src/crypto/internal/backend/dummy.s
 new file mode 100644
 index 0000000000..e69de29bb2
+--- /dev/null
++++ b/src/crypto/internal/backend/dummy.s
+@@ -0,0 +1,1 @@
++//go:build linux && cgo && !android && !gocrypt && !cmd_go_bootstrap && !msan && !no_openssl && !purego
 diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
 new file mode 100644
 index 0000000000..15c1ee8cbe
@@ -200,8 +204,8 @@ index 0000000000..15c1ee8cbe
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
 +
-+//go:build !linux || !cgo || android || cmd_go_bootstrap || msan || no_openssl
-+// +build !linux !cgo android cmd_go_bootstrap msan no_openssl
++//go:build !linux || !cgo || android || cmd_go_bootstrap || msan || no_openssl || purego
++// +build !linux !cgo android cmd_go_bootstrap msan no_openssl purego
 +
 +package backend
 +
@@ -369,8 +373,8 @@ index 0000000000..2087c555a4
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
 +
-+//go:build linux && cgo && !android && !gocrypt && !cmd_go_bootstrap && !msan && !no_openssl
-+// +build linux,cgo,!android,!gocrypt,!cmd_go_bootstrap,!msan,!no_openssl
++//go:build linux && cgo && !android && !gocrypt && !cmd_go_bootstrap && !msan && !no_openssl && !purego
++// +build linux,cgo,!android,!gocrypt,!cmd_go_bootstrap,!msan,!no_openssl,!purego
 +
 +// Package openssl provides access to OpenSSLCrypto implementation functions.
 +// Check the variable Enabled to find out whether OpenSSLCrypto is available.
@@ -883,13 +887,11 @@ diff --git a/src/crypto/tls/boring.go b/src/crypto/tls/boring.go
 index aad96b1c74..bbf3d38339 100644
 --- a/src/crypto/tls/boring.go
 +++ b/src/crypto/tls/boring.go
-@@ -6,9 +6,16 @@
+@@ -6,7 +6,16 @@
  
  package tls
  
--import (
--	"crypto/internal/boring/fipstls"
--)
+-import "crypto/internal/boring/fipstls"
 +import (
 +	boring "crypto/internal/backend"
 +	"crypto/internal/boring/fipstls"
@@ -901,30 +903,8 @@ index aad96b1c74..bbf3d38339 100644
 +	}
 +}
  
- // needFIPS returns fipstls.Required(); it avoids a new import in common.go.
- func needFIPS() bool {
-@@ -17,14 +24,18 @@ func needFIPS() bool {
-
- // fipsMinVersion replaces c.minVersion in FIPS-only mode.
- func fipsMinVersion(c *Config) uint16 {
--	// FIPS requires TLS 1.2.
-+	// FIPS requires TLS 1.2 or later.
- 	return VersionTLS12
- }
-
- // fipsMaxVersion replaces c.maxVersion in FIPS-only mode.
- func fipsMaxVersion(c *Config) uint16 {
--	// FIPS requires TLS 1.2.
--	return VersionTLS12
-+	// FIPS requires TLS 1.2 or later.
-+	if boring.SupportsHKDF() {
-+		return VersionTLS13
-+	}  else {
-+		return VersionTLS12
-+	}
- }
-
- // default defaultFIPSCurvePreferences is the FIPS-allowed curves,
+ // needFIPS returns fipstls.Required(), which is not available without the
+ // boringcrypto build tag.
 diff --git a/src/crypto/tls/boring_test.go b/src/crypto/tls/boring_test.go
 index ba68f355eb..7bfe3f9417 100644
 --- a/src/crypto/tls/boring_test.go
@@ -939,26 +919,27 @@ index ba68f355eb..7bfe3f9417 100644
  	"crypto/rand"
  	"crypto/rsa"
 @@ -44,7 +46,11 @@ func TestBoringServerProtocolVersion(t *testing.T) {
- 	test("VersionTLS10", VersionTLS10, "")
- 	test("VersionTLS11", VersionTLS11, "")
- 	test("VersionTLS12", VersionTLS12, "")
--	test("VersionTLS13", VersionTLS13, "")
+ 	test(t, "VersionTLS10", VersionTLS10, "")
+ 	test(t, "VersionTLS11", VersionTLS11, "")
+ 	test(t, "VersionTLS12", VersionTLS12, "")
+-	test(t, "VersionTLS13", VersionTLS13, "")
 +	if boring.Enabled && !boring.SupportsHKDF() {
-+		test("VersionTLS13", VersionTLS13, "client offered only unsupported versions")
++		test(t, "VersionTLS13", VersionTLS13, "client offered only unsupported versions")
 +	} else {
-+		test("VersionTLS13", VersionTLS13, "")
++		test(t, "VersionTLS13", VersionTLS13, "")
 +	}
 
- 	fipstls.Force()
- 	defer fipstls.Abandon()
+ 	t.Run("fipstls", func(t *testing.T) {
+ 		fipstls.Force()
 @@ -52,11 +58,13 @@ func TestBoringServerProtocolVersion(t *testing.T) {
- 	test("VersionTLS10", VersionTLS10, "client offered only unsupported versions")
- 	test("VersionTLS11", VersionTLS11, "client offered only unsupported versions")
- 	test("VersionTLS12", VersionTLS12, "")
--	test("VersionTLS13", VersionTLS13, "client offered only unsupported versions")
-+	if boring.SupportsHKDF() {
-+		test("VersionTLS13/fipstls", VersionTLS13, "")
+ 		test(t, "VersionTLS10", VersionTLS10, "supported versions")
+ 		test(t, "VersionTLS11", VersionTLS11, "supported versions")
+ 		test(t, "VersionTLS12", VersionTLS12, "")
+-		test(t, "VersionTLS13", VersionTLS13, "supported versions")
++ 		if boring.SupportsHKDF() {
++ 			test(t, "VersionTLS13/fipstls", VersionTLS13, "")
 +	}
+ 	})
  }
 
  func isBoringVersion(v uint16) bool {
@@ -966,7 +947,6 @@ index ba68f355eb..7bfe3f9417 100644
 +	return v == VersionTLS12 || (boring.SupportsHKDF() && v == VersionTLS13)
  }
 
- func isBoringCipherSuite(id uint16) bool {
 @@ -226,7 +236,14 @@ func TestBoringServerSignatureAndHash(t *testing.T) {
  			// 1.3, and the ECDSA ones bind to the curve used.
  			serverConfig.MaxVersion = VersionTLS12
@@ -1125,7 +1105,7 @@ index 04e6dfe018..b6ed936cd1 100644
 --- a/src/crypto/tls/cipher_suites.go
 +++ b/src/crypto/tls/cipher_suites.go
 @@ -354,6 +354,11 @@ var defaultCipherSuitesTLS13NoAES = []uint16{
- 	TLS_AES_256_GCM_SHA384,
+ 	TLS_RSA_WITH_3DES_EDE_CBC_SHA:       true,
  }
 
 +var defaultFIPSCipherSuitesTLS13 = []uint16{
@@ -1155,7 +1135,7 @@ index 5394d64ac6..db4e2dbf60 100644
 +		if boring.Enabled && !boring.SupportsHKDF() && v > VersionTLS12 {
 +			continue
 +		}
- 		if needFIPS() && (v < fipsMinVersion(c) || v > fipsMaxVersion(c)) {
+ 		if needFIPS() && !slices.Contains(defaultSupportedVersionsFIPS, v) {
  			continue
  		}
 diff --git a/src/crypto/tls/handshake_client_test.go b/src/crypto/tls/handshake_client_test.go
@@ -1178,10 +1158,10 @@ index ae8f80a7cf..30a8450f40 100644
  import (
  	"crypto/ecdh"
  	"crypto/hmac"
+ 	"crypto/internal/mlkem768"
 +	"crypto/internal/boring"
  	"errors"
  	"fmt"
- 	"hash"
 @@ -58,9 +59,20 @@ func (c *cipherSuiteTLS13) expandLabel(secret []byte, label string, context []by
  		panic(fmt.Errorf("failed to construct HKDF label: %s", err))
  	}
@@ -1412,7 +1392,7 @@ index 08452c7b1d..0732db0662 100644
 
  	crypto/internal/alias
 @@ -427,11 +429,13 @@ var depsRules = `
- 	crypto/sha512
+ 	golang.org/x/crypto/sha3
  	< CRYPTO;
 
 -	CGO, fmt, net !< CRYPTO;
@@ -1424,8 +1404,8 @@ index 08452c7b1d..0732db0662 100644
  	< crypto/internal/boring/bbig
 +	< crypto/internal/backend/bbig
  	< crypto/rand
+ 	< crypto/internal/mlkem768
  	< crypto/ed25519
- 	< encoding/asn1
 @@ -629,6 +633,7 @@ func listStdPkgs(goroot string) ([]string, error) {
  }
 
@@ -1452,66 +1432,6 @@ index 08452c7b1d..0732db0662 100644
  		haveImport["C"] = true // kludge: prevent C from appearing in crypto/internal/boring imports
  	}
  	fset := token.NewFileSet()
-diff --git a/src/runtime/pprof/proto_test.go b/src/runtime/pprof/proto_test.go
-index 780b481de8..63db9e9ed7 100644
---- a/src/runtime/pprof/proto_test.go
-+++ b/src/runtime/pprof/proto_test.go
-@@ -15,6 +15,7 @@ import (
- 	"os/exec"
- 	"reflect"
- 	"runtime"
-+	"strconv"
- 	"strings"
- 	"testing"
- 	"unsafe"
-@@ -95,11 +96,15 @@ func testPCs(t *testing.T) (addr1, addr2 uint64, map1, map2 *profile.Mapping) {
- 			// region of memory.
- 			t.Skipf("need 2 or more mappings, got %v", len(mprof.Mapping))
- 		}
--		addr1 = mprof.Mapping[0].Start
-+		addr1 = findAddrInExecutableSection(t, mmap, mprof.Mapping[0])
- 		map1 = mprof.Mapping[0]
-+		map1.Offset = (addr1 - map1.Start) + map1.Offset
-+		map1.Start = addr1
- 		map1.BuildID, _ = elfBuildID(map1.File)
--		addr2 = mprof.Mapping[1].Start
-+		addr2 = findAddrInExecutableSection(t, mmap, mprof.Mapping[1])
- 		map2 = mprof.Mapping[1]
-+		map2.Offset = (addr2 - map2.Start) + map2.Offset
-+		map2.Start = addr2
- 		map2.BuildID, _ = elfBuildID(map2.File)
- 	case "windows", "darwin", "ios":
- 		addr1 = uint64(abi.FuncPCABIInternal(f1))
-@@ -145,6 +150,29 @@ func testPCs(t *testing.T) (addr1, addr2 uint64, map1, map2 *profile.Mapping) {
- 	return
- }
-
-+func findAddrInExecutableSection(t *testing.T, mmap []byte, m *profile.Mapping) uint64 {
-+	mappings := strings.Split(string(mmap), "\n")
-+	for _, mapping := range mappings {
-+		parts := strings.Fields(mapping)
-+		if len(parts) < 6 {
-+			continue
-+		}
-+		if !strings.Contains(parts[1], "x") {
-+			continue
-+		}
-+		addr, err := strconv.ParseUint(strings.Split(parts[0], "-")[0], 16, 64)
-+		if err != nil {
-+			t.Fatal(err)
-+		}
-+		if addr >= m.Start && addr < m.Limit {
-+			return addr
-+		}
-+	}
-+
-+	t.Error("could not find executable section in /proc/self/maps")
-+	return 0
-+}
-+
- func TestConvertCPUProfile(t *testing.T) {
- 	addr1, addr2, map1, map2 := testPCs(t)
-
 diff --git a/src/runtime/runtime_boring.go b/src/runtime/runtime_boring.go
 index 5a98b20253..dc25cdcfd5 100644
 --- a/src/runtime/runtime_boring.go

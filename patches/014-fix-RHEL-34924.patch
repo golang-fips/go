@@ -2,10 +2,6 @@ diff --git a/src/crypto/tls/notboring.go b/src/crypto/tls/notboring.go
 index fe2719485b..06bc933b0a 100644
 --- a/src/crypto/tls/notboring.go
 +++ b/src/crypto/tls/notboring.go
-@@ -16,5 +16,6 @@ func fipsMinVersion(c *Config) uint16          { panic("fipsMinVersion") }
- func fipsMaxVersion(c *Config) uint16          { panic("fipsMaxVersion") }
- func fipsCurvePreferences(c *Config) []CurveID { panic("fipsCurvePreferences") }
- func fipsCipherSuites(c *Config) []uint16      { panic("fipsCipherSuites") }
+@@ -16,1 +16,2 @@ func fipsMinVersion(c *Config) uint16          { panic("fipsMinVersion") }
+ func needFIPS() bool { return false }
 +func supportsHKDF() bool                       { panic("supportsHKDF") }
- 
- var fipsSupportedSignatureAlgorithms []SignatureScheme

@@ -258,12 +258,3 @@ index 22a104f338..8f77ffda62 100644
  	if err != nil {
  		t.Errorf("failed to generate key for TestUnknownExtKey")
  	}
-@@ -3090,7 +3090,7 @@ func TestCreateCertificateBrokenSigner(t *testing.T) {
- 		SerialNumber: big.NewInt(10),
- 		DNSNames:     []string{"example.com"},
- 	}
--	k, err := rsa.GenerateKey(rand.Reader, 1024)
-+	k, err := rsa.GenerateKey(rand.Reader, 2048)
- 	if err != nil {
- 		t.Fatalf("failed to generate test key: %s", err)
- 	}
