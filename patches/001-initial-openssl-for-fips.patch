@@ -2348,24 +2348,24 @@ index 0c2cbf3182..e01c24292e 100644
  	} else {
  		testCurve = elliptic.P384()
 diff --git a/src/go.mod b/src/go.mod
-index 01d759c800..f13af41b7a 100644
+index 01d759c800..6e5466f449 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -3,6 +3,7 @@ module std
  go 1.21
  
  require (
-+	github.com/golang-fips/openssl v0.0.0-20240830121749-972af39412e2
++	github.com/golang-fips/openssl v0.0.0-20241001010402-8c1c6aa53546
  	golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d
  	golang.org/x/net v0.12.1-0.20240412193743-ef58d90fdfc5
  )
 diff --git a/src/go.sum b/src/go.sum
-index f83343a0a1..2d926818b8 100644
+index f83343a0a1..c27d2bad04 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,3 +1,5 @@
-+github.com/golang-fips/openssl v0.0.0-20240830121749-972af39412e2 h1:YcC2OtDNGCcn2qTnNhGb2Zl4lUwOgTMVAc42hPaf7hk=
-+github.com/golang-fips/openssl v0.0.0-20240830121749-972af39412e2/go.mod h1:LBziBt5PA8FeliZ0KnhnWMrrHzvAsMWZUlYWOYKkpBI=
++github.com/golang-fips/openssl v0.0.0-20241001010402-8c1c6aa53546 h1:ji9DKOcO2q26wofiA4O7aJFd/bb4CX7E2SOh8gYXB/0=
++github.com/golang-fips/openssl v0.0.0-20241001010402-8c1c6aa53546/go.mod h1:LBziBt5PA8FeliZ0KnhnWMrrHzvAsMWZUlYWOYKkpBI=
  golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d h1:LiA25/KWKuXfIq5pMIBq1s5hz3HQxhJJSu/SUGlD+SM=
  golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d/go.mod h1:xgJhtzW8F9jGdVFWZESrid1U1bjeNy4zgy5cRr/CIio=
  golang.org/x/net v0.12.1-0.20240412193743-ef58d90fdfc5 h1:BIx9jz/hjPE1CesqfHzRaf2JsOjDxZrKAVr//XXJh0U=
@@ -3403,10 +3403,10 @@ index 0000000000..46d2bdd068
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/openssl/goopenssl.h b/src/vendor/github.com/golang-fips/openssl/openssl/goopenssl.h
 new file mode 100644
-index 0000000000..ac6c64f86d
+index 0000000000..1e2d8465b8
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/openssl/goopenssl.h
-@@ -0,0 +1,1054 @@
+@@ -0,0 +1,1058 @@
 +// Copyright 2017 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -3418,13 +3418,17 @@ index 0000000000..ac6c64f86d
 +
 +// This header file describes the OpenSSL ABI as built for use in Go.
 +
++#define OPENSSL_VERSION_3_0_0 0x30000000L
++#define OPENSSL_VERSION_1_1_0 0x10100000L
++#define OPENSSL_VERSION_1_1_1 0x10101000L
++
 +#include <stdlib.h> // size_t
 +#include <stdint.h> // uint8_t
 +#include <string.h> // memset
 +
 +#include <openssl/ossl_typ.h>
 +
-+#if OPENSSL_VERSION_NUMBER < 0x30000000
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_3_0_0
 +#define OPENSSL_DLSYM_CALL(handle, func) dlsym(handle, func)
 +#else
 +#define __USE_GNU
@@ -3473,9 +3477,9 @@ index 0000000000..ac6c64f86d
 +	{
 +		return handle;
 +	}
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +	handle = dlopen("libcrypto.so.10", RTLD_NOW | RTLD_GLOBAL);
-+#elif OPENSSL_VERSION_NUMBER < 0x30000000L
++#elif OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_3_0_0
 +	handle = dlopen("libcrypto.so.1.1", RTLD_NOW | RTLD_GLOBAL);
 +#else
 +	handle = dlopen("libcrypto.so.3", RTLD_NOW | RTLD_GLOBAL);
@@ -3499,7 +3503,7 @@ index 0000000000..ac6c64f86d
 +
 +#include <openssl/err.h>
 +DEFINEFUNCINTERNAL(void, ERR_print_errors_fp, (FILE* fp), (fp))
-+#if OPENSSL_VERSION_NUMBER < 0x30000000
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_3_0_0
 +DEFINEFUNCINTERNAL(unsigned long, ERR_get_error_line_data,
 +		   (const char **file, int *line, const char **data, int *flags),
 +		   (file, line, data, flags))
@@ -3521,7 +3525,7 @@ index 0000000000..ac6c64f86d
 +
 +#include <openssl/crypto.h>
 +
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +DEFINEFUNC(int, CRYPTO_num_locks, (void), ())
 +#else
 +static inline int
@@ -3529,7 +3533,7 @@ index 0000000000..ac6c64f86d
 +	return CRYPTO_num_locks(); /* defined as macro */
 +}
 +#endif
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +DEFINEFUNC(void, CRYPTO_set_id_callback, (unsigned long (*id_function)(void)), (id_function))
 +#else
 +static inline void
@@ -3537,7 +3541,7 @@ index 0000000000..ac6c64f86d
 +	CRYPTO_set_id_callback(id_function); /* defined as macro */
 +}
 +#endif
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +DEFINEFUNC(void, CRYPTO_set_locking_callback,
 +	(void (*locking_function)(int mode, int n, const char *file, int line)), 
 +	(locking_function))
@@ -3550,7 +3554,7 @@ index 0000000000..ac6c64f86d
 +
 +int _goboringcrypto_OPENSSL_thread_setup(void);
 +
-+#if OPENSSL_VERSION_NUMBER < 0x30000000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_3_0_0
 +DEFINEFUNC(int, FIPS_mode, (void), ())
 +DEFINEFUNC(int, FIPS_mode_set, (int r), (r))
 +#else
@@ -3626,7 +3630,7 @@ index 0000000000..ac6c64f86d
 +DEFINEFUNC(const GO_EVP_MD *, EVP_sha384, (void), ())
 +DEFINEFUNC(const GO_EVP_MD *, EVP_sha512, (void), ())
 +DEFINEFUNC(const GO_EVP_MD *, EVP_md_null, (void), ())
-+#if OPENSSL_VERSION_NUMBER < 0x30000000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_3_0_0
 +DEFINEFUNCINTERNAL(int, EVP_MD_type, (const GO_EVP_MD *arg0), (arg0))
 +DEFINEFUNCINTERNAL(int, EVP_MD_size, (const GO_EVP_MD *arg0), (arg0))
 +static inline int
@@ -3647,7 +3651,7 @@ index 0000000000..ac6c64f86d
 +
 +static inline int
 +_goboringcrypto_EVP_MD_type(const GO_EVP_MD *md) {
-+#if OPENSSL_VERSION_NUMBER < 0x30000000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_3_0_0
 +	return _goboringcrypto_internal_EVP_MD_type(md);
 +#else
 +	return _goboringcrypto_internal_EVP_MD_get_type(md);
@@ -3657,7 +3661,7 @@ index 0000000000..ac6c64f86d
 +const GO_EVP_MD* _goboringcrypto_backport_EVP_md5_sha1(void);
 +static inline const GO_EVP_MD*
 +_goboringcrypto_EVP_md5_sha1(void) {
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +	return _goboringcrypto_backport_EVP_md5_sha1();
 +#else
 +	return _goboringcrypto_internal_EVP_md5_sha1();
@@ -3673,7 +3677,7 @@ index 0000000000..ac6c64f86d
 +int _goboringcrypto_HMAC_CTX_reset(GO_HMAC_CTX *ctx);
 +void _goboringcrypto_HMAC_CTX_free(GO_HMAC_CTX *ctx);
 +int _goboringcrypto_HMAC_Final(GO_HMAC_CTX *ctx,
-+			       unsigned char *md, unsigned int *len);
++			       unsigned char *md, unsigned int len);
 +
 +#include <openssl/evp.h>
 +#include <openssl/aes.h>
@@ -3727,7 +3731,7 @@ index 0000000000..ac6c64f86d
 +	return ((_goboringcrypto_BN_num_bits(a)+7)/8);
 +}
 +
-+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1_0
 +DEFINEFUNC(GO_BIGNUM *, BN_lebin2bn, (const unsigned char *s, int len, GO_BIGNUM *ret), (s, len, ret))
 +DEFINEFUNC(int, BN_bn2lebinpad, (const GO_BIGNUM *a, unsigned char *to, int tolen), (a, to, tolen))
 +DEFINEFUNC(int, BN_bn2binpad, (const GO_BIGNUM *a, unsigned char *to, int tolen), (a, to, tolen))
@@ -3827,7 +3831,7 @@ index 0000000000..ac6c64f86d
 +DEFINEFUNC(size_t, EC_POINT_point2oct, (const GO_EC_GROUP *group, const GO_EC_POINT *p, point_conversion_form_t form, unsigned char *buf, size_t len, GO_BN_CTX *ctx), (group, p, form, buf, len, ctx))
 +DEFINEFUNC(int, EC_POINT_oct2point, (const GO_EC_GROUP *group, GO_EC_POINT *p, const unsigned char *buf, size_t len, GO_BN_CTX *ctx), (group, p, buf, len, ctx))
 +
-+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1_0
 +DEFINEFUNC(int, EC_KEY_oct2key, (GO_EC_KEY *arg0, const unsigned char *arg1, size_t arg2, BN_CTX *arg3), (arg0, arg1, arg2, arg3))
 +#else
 +static inline int
@@ -3856,7 +3860,7 @@ index 0000000000..ac6c64f86d
 +
 +DEFINEFUNC(size_t, ECDSA_size, (const GO_EC_KEY *arg0), (arg0))
 +
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +DEFINEFUNC(EVP_MD_CTX*, EVP_MD_CTX_create, (void), ())
 +#else
 +DEFINEFUNCINTERNAL(EVP_MD_CTX*, EVP_MD_CTX_new, (void), ())
@@ -3902,7 +3906,7 @@ index 0000000000..ac6c64f86d
 +int _goboringcrypto_EVP_sign(EVP_MD* md, EVP_PKEY_CTX *ctx, const uint8_t *msg, size_t msgLen, uint8_t *sig, size_t *slen, EVP_PKEY *eckey);
 +int _goboringcrypto_EVP_verify(EVP_MD* md, EVP_PKEY_CTX *ctx, const uint8_t *msg, size_t msgLen, const uint8_t *sig, unsigned int slen, EVP_PKEY *key);
 +
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +DEFINEFUNCINTERNAL(void, EVP_MD_CTX_destroy, (EVP_MD_CTX *ctx), (ctx))
 +static inline void _goboringcrypto_EVP_MD_CTX_free(EVP_MD_CTX *ctx) {
 +	return _goboringcrypto_internal_EVP_MD_CTX_destroy(ctx);
@@ -3942,7 +3946,7 @@ index 0000000000..ac6c64f86d
 +
 +static inline int
 +_goboringcrypto_RSA_set0_factors(GO_RSA * r, GO_BIGNUM *p, GO_BIGNUM *q) {
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +    /* If the fields p and q in r are NULL, the corresponding input
 +     * parameters MUST be non-NULL.
 +     */
@@ -3971,7 +3975,7 @@ index 0000000000..ac6c64f86d
 +
 +static inline int
 +_goboringcrypto_RSA_set0_crt_params(GO_RSA * r, GO_BIGNUM *dmp1, GO_BIGNUM *dmq1, GO_BIGNUM *iqmp) {
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +    /* If the fields dmp1, dmq1 and iqmp in r are NULL, the corresponding input
 +     * parameters MUST be non-NULL.
 +     */
@@ -4004,7 +4008,7 @@ index 0000000000..ac6c64f86d
 +		   (r, dmp1, dmq1, iqmp))
 +static inline void
 +_goboringcrypto_RSA_get0_crt_params(const GO_RSA *r, const GO_BIGNUM **dmp1, const GO_BIGNUM **dmq1, const GO_BIGNUM **iqmp) {
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +    if (dmp1 != NULL)
 +        *dmp1 = r->dmp1;
 +    if (dmq1 != NULL)
@@ -4022,7 +4026,7 @@ index 0000000000..ac6c64f86d
 +		   (r, n, e, d))
 +static inline int
 +_goboringcrypto_RSA_set0_key(GO_RSA * r, GO_BIGNUM *n, GO_BIGNUM *e, GO_BIGNUM *d) {
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +    /* If the fields n and e in r are NULL, the corresponding input
 +     * parameters MUST be non-NULL for n and e.  d may be
 +     * left NULL (in case only the public key is used).
@@ -4055,7 +4059,7 @@ index 0000000000..ac6c64f86d
 +		   (rsa, p, q))
 +static inline void 
 +_goboringcrypto_RSA_get0_factors(const GO_RSA *rsa, const GO_BIGNUM **p, const GO_BIGNUM **q) {
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +	if (p)
 +		*p = rsa->p;
 +	if (q)
@@ -4070,7 +4074,7 @@ index 0000000000..ac6c64f86d
 +		   (rsa, n, e, d))
 +static inline void 
 +_goboringcrypto_RSA_get0_key(const GO_RSA *rsa, const GO_BIGNUM **n, const GO_BIGNUM **e, const GO_BIGNUM **d) {
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +	if (n)
 +		*n = rsa->n;
 +	if (e)
@@ -4181,14 +4185,14 @@ index 0000000000..ac6c64f86d
 +
 +static inline int
 +_goboringcrypto_EVP_PKEY_CTX_set_rsa_padding(GO_EVP_PKEY_CTX* ctx, int pad) {
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +	return _goboringcrypto_EVP_PKEY_CTX_ctrl(ctx, EVP_PKEY_RSA, -1, EVP_PKEY_CTRL_RSA_PADDING, pad, NULL);
 +#else
 +    return _goboringcrypto_internal_RSA_pkey_ctx_ctrl(ctx, -1, EVP_PKEY_CTRL_RSA_PADDING, pad, NULL);
 +#endif
 +}
 +
-+#if OPENSSL_VERSION_NUMBER < 0x30000000
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_3_0_0
 +static inline int
 +_goboringcrypto_EVP_PKEY_CTX_set0_rsa_oaep_label(GO_EVP_PKEY_CTX *ctx, uint8_t *l, int llen)
 +{
@@ -4265,11 +4269,11 @@ index 0000000000..ac6c64f86d
 +
 +DEFINEFUNC(int, EVP_PKEY_derive_init, (GO_EVP_PKEY_CTX *arg0), (arg0))
 +DEFINEFUNC(int, EVP_PKEY_derive, (GO_EVP_PKEY_CTX *arg0, unsigned char *arg1, size_t *arg2), (arg0, arg1, arg2))
-+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_3_0_0
 +DEFINEFUNC(int, EVP_PKEY_derive_set_peer_ex, (GO_EVP_PKEY_CTX *arg0, GO_EVP_PKEY *arg1, int arg2), (arg0, arg1, arg2));
 +#else
 +DEFINEFUNCINTERNAL(int, EVP_PKEY_derive_set_peer, (EVP_PKEY_CTX *ctx, EVP_PKEY *peer), (ctx, peer))
-+# if OPENSSL_VERSION_NUMBER >= 0x10100000L
++# if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1_0
 +DEFINEFUNC(int, EVP_PKEY_public_check, (EVP_PKEY_CTX *arg0), (arg0))
 +
 +static inline int
@@ -4297,7 +4301,7 @@ index 0000000000..ac6c64f86d
 +# endif
 +#endif
 +
-+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1_1
 +#include <openssl/kdf.h>
 +
 +enum {
@@ -4309,7 +4313,7 @@ index 0000000000..ac6c64f86d
 +	GO_EVP_PKEY_HKDEF_MODE_EXPAND_ONLY = EVP_PKEY_HKDEF_MODE_EXPAND_ONLY,
 +};
 +
-+#if OPENSSL_VERSION_NUMBER >= 0x30000000
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_3_0_0
 +DEFINEFUNC(int, EVP_PKEY_CTX_set_hkdf_mode, (GO_EVP_PKEY_CTX *arg0, int arg1), (arg0, arg1))
 +DEFINEFUNC(int, EVP_PKEY_CTX_set_hkdf_md, (GO_EVP_PKEY_CTX *arg0, const GO_EVP_MD *arg1), (arg0, arg1))
 +DEFINEFUNC(int, EVP_PKEY_CTX_set1_hkdf_salt, (GO_EVP_PKEY_CTX *arg0, unsigned char *arg1, int arg2), (arg0, arg1, arg2))
@@ -4420,7 +4424,7 @@ index 0000000000..ac6c64f86d
 +};
 +
 +DEFINEFUNC(int, EC_POINT_mul, (const GO_EC_GROUP *group, GO_EC_POINT *r, const GO_BIGNUM *n, const GO_EC_POINT *q, const GO_BIGNUM *m, GO_BN_CTX *ctx), (group, r, n, q, m, ctx))
-+#if OPENSSL_VERSION_NUMBER >= 0x30000000
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_3_0_0
 +DEFINEFUNC(int, EVP_PKEY_get_bits, (const GO_EVP_PKEY *pkey), (pkey));
 +#else
 +DEFINEFUNCINTERNAL(int, EVP_PKEY_bits, (const GO_EVP_PKEY *pkey), (pkey));
@@ -4439,7 +4443,7 @@ index 0000000000..ac6c64f86d
 +	GO_POINT_CONVERSION_UNCOMPRESSED = 4,
 +};
 +
-+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1_0
 +DEFINEFUNC(int, EVP_PKEY_set1_encoded_public_key, (GO_EVP_PKEY *pkey, const unsigned char *pub, size_t publen), (pkey, pub, publen))
 +DEFINEFUNC(size_t, EVP_PKEY_get1_encoded_public_key, (GO_EVP_PKEY *pkey, unsigned char **ppub), (pkey, ppub))
 +#endif
@@ -4579,7 +4583,7 @@ diff --git a/src/crypto/internal/boring/hmac.go b/src/vendor/github.com/golang-f
 similarity index 65%
 rename from src/crypto/internal/boring/hmac.go
 rename to src/vendor/github.com/golang-fips/openssl/openssl/hmac.go
-index 6241a65f5f..3af1924884 100644
+index 6241a65f5f..c76d6690aa 100644
 --- a/src/crypto/internal/boring/hmac.go
 +++ b/src/vendor/github.com/golang-fips/openssl/openssl/hmac.go
 @@ -2,14 +2,14 @@
@@ -4652,7 +4656,7 @@ index 6241a65f5f..3af1924884 100644
  		h.needCleanup = true
  		// Note: Because of the finalizer, any time h.ctx is passed to cgo,
  		// that call must be followed by a call to runtime.KeepAlive(h),
-@@ -101,26 +109,19 @@ func (h *boringHMAC) Reset() {
+@@ -101,26 +109,21 @@ func (h *boringHMAC) Reset() {
  		// call returns.
  		runtime.SetFinalizer(h, (*boringHMAC).finalize)
  	}
@@ -4678,12 +4682,19 @@ index 6241a65f5f..3af1924884 100644
  func (h *boringHMAC) Write(p []byte) (int, error) {
  	if len(p) > 0 {
 -		C._goboringcrypto_HMAC_Update(&h.ctx, (*C.uint8_t)(unsafe.Pointer(&p[0])), C.size_t(len(p)))
-+		C._goboringcrypto_HMAC_Update(h.ctx, (*C.uint8_t)(unsafe.Pointer(&p[0])), C.size_t(len(p)))
++		if C._goboringcrypto_HMAC_Update(h.ctx, (*C.uint8_t)(unsafe.Pointer(&p[0])), C.size_t(len(p))) == 0 {
++			panic("boringcrypto: HMAC_Update failed")
++		}
  	}
  	runtime.KeepAlive(h)
  	return len(p), nil
-@@ -139,15 +140,6 @@ func (h *boringHMAC) Sum(in []byte) []byte {
- 		size := h.Size()
+@@ -135,19 +138,12 @@ func (h *boringHMAC) BlockSize() int {
+ }
+ 
+ func (h *boringHMAC) Sum(in []byte) []byte {
++	size := h.Size()
+ 	if h.sum == nil {
+-		size := h.Size()
  		h.sum = make([]byte, size)
  	}
 -	// Make copy of context because Go hash.Hash mandates
@@ -4693,10 +4704,11 @@ index 6241a65f5f..3af1924884 100644
 -	C._goboringcrypto_HMAC_CTX_init(&h.ctx2)
 -	if C._goboringcrypto_HMAC_CTX_copy_ex(&h.ctx2, &h.ctx) == 0 {
 -		panic("boringcrypto: HMAC_CTX_copy_ex failed")
--	}
++	if C._goboringcrypto_HMAC_Final(h.ctx, (*C.uint8_t)(unsafe.Pointer(&h.sum[0])), C.uint(size)) == 0 {
++		panic("boringcrypto: HMAC_Final failed")
+ 	}
 -	C._goboringcrypto_HMAC_Final(&h.ctx2, (*C.uint8_t)(unsafe.Pointer(&h.sum[0])), nil)
 -	C._goboringcrypto_HMAC_CTX_cleanup(&h.ctx2)
-+	C._goboringcrypto_HMAC_Final(h.ctx, (*C.uint8_t)(unsafe.Pointer(&h.sum[0])), nil)
  	return append(in, h.sum...)
  }
 diff --git a/src/crypto/internal/boring/notboring.go b/src/vendor/github.com/golang-fips/openssl/openssl/notboring.go
@@ -5310,7 +5322,7 @@ index 0000000000..7ce9833326
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/openssl/openssl_evp.c b/src/vendor/github.com/golang-fips/openssl/openssl/openssl_evp.c
 new file mode 100644
-index 0000000000..a45ed601cf
+index 0000000000..ddc57f05cf
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/openssl/openssl_evp.c
 @@ -0,0 +1,136 @@
@@ -5384,7 +5396,7 @@ index 0000000000..a45ed601cf
 +  return ret;
 +}
 +
-+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1_0
 +DEFINEFUNCINTERNAL(int, EVP_PKEY_up_ref, (GO_EVP_PKEY *pkey), (pkey))
 +
 +GO_EVP_PKEY *
@@ -5433,7 +5445,7 @@ index 0000000000..a45ed601cf
 +}
 +#endif
 +
-+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1_0
 +DEFINEFUNCINTERNAL(const GO_EC_KEY *, EVP_PKEY_get0_EC_KEY, (const GO_EVP_PKEY *pkey), (pkey));
 +
 +const GO_EC_KEY *
@@ -5703,7 +5715,7 @@ index 0000000000..df4ebe3297
 +}
 diff --git a/src/vendor/github.com/golang-fips/openssl/openssl/openssl_port_ecdh.c b/src/vendor/github.com/golang-fips/openssl/openssl/openssl_port_ecdh.c
 new file mode 100644
-index 0000000000..8205b040c5
+index 0000000000..d4f4d8b54b
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/openssl/openssl_port_ecdh.c
 @@ -0,0 +1,342 @@
@@ -5762,7 +5774,7 @@ index 0000000000..8205b040c5
 +	return len;
 +}
 +
-+#if OPENSSL_VERSION_NUMBER >= 0x30000000
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_3_0_0
 +
 +DEFINEFUNCINTERNAL(const char *, OBJ_nid2sn, (int n), (n))
 +DEFINEFUNCINTERNAL(OSSL_PARAM_BLD *, OSSL_PARAM_BLD_new, (void), ())
@@ -6051,7 +6063,7 @@ index 0000000000..8205b040c5
 +#endif
 diff --git a/src/vendor/github.com/golang-fips/openssl/openssl/openssl_port_evp_md5_sha1.c b/src/vendor/github.com/golang-fips/openssl/openssl/openssl_port_evp_md5_sha1.c
 new file mode 100644
-index 0000000000..2eedd5b8c6
+index 0000000000..7aa37945d7
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/openssl/openssl_port_evp_md5_sha1.c
 @@ -0,0 +1,90 @@
@@ -6068,7 +6080,7 @@ index 0000000000..2eedd5b8c6
 +
 +#include "goopenssl.h"
 +
-+#if OPENSSL_VERSION_NUMBER < 0x10100000L
++#if OPENSSL_VERSION_NUMBER < OPENSSL_VERSION_1_1_0
 +// New in OpenSSL 1.1.
 +static inline void *
 +_goboringcrypto_internal_EVP_MD_CTX_md_data(EVP_MD_CTX *ctx) {
@@ -6147,10 +6159,10 @@ index 0000000000..2eedd5b8c6
 +#endif
 diff --git a/src/vendor/github.com/golang-fips/openssl/openssl/openssl_port_hmac.c b/src/vendor/github.com/golang-fips/openssl/openssl/openssl_port_hmac.c
 new file mode 100644
-index 0000000000..d26ce90c82
+index 0000000000..6f987320f5
 --- /dev/null
 +++ b/src/vendor/github.com/golang-fips/openssl/openssl/openssl_port_hmac.c
-@@ -0,0 +1,236 @@
+@@ -0,0 +1,237 @@
 +// This file contains HMAC portability wrappers.
 +// +build linux
 +// +build !android
@@ -6160,7 +6172,7 @@ index 0000000000..d26ce90c82
 +
 +#include "goopenssl.h"
 +
-+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_1_1_0
 +
 +DEFINEFUNCINTERNAL(EVP_PKEY *,
 +		   EVP_PKEY_new_mac_key,
@@ -6168,7 +6180,7 @@ index 0000000000..d26ce90c82
 +		   (type, e, key, keylen))
 +DEFINEFUNCINTERNAL(int, EVP_MD_CTX_reset, (EVP_MD_CTX *ctx), (ctx))
 +
-+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_3_0_0
 +DEFINEFUNCINTERNAL(const EVP_MD *, EVP_MD_CTX_get0_md, (const EVP_MD_CTX *ctx), (ctx))
 +#else
 +DEFINEFUNCINTERNAL(const EVP_MD *, EVP_MD_CTX_md, (const EVP_MD_CTX *ctx), (ctx))
@@ -6176,7 +6188,7 @@ index 0000000000..d26ce90c82
 +DEFINEFUNCINTERNAL(int, EVP_MD_CTX_copy_ex, (EVP_MD_CTX *out, const EVP_MD_CTX *in), (out, in))
 +
 +/* EVP_DigestSignUpdate is converted from a macro in 3.0 */
-+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_3_0_0
 +DEFINEFUNCINTERNAL(int, EVP_DigestSignUpdate,
 +		   (EVP_MD_CTX* ctx, const void *d, size_t cnt),
 +		   (ctx, d, cnt))
@@ -6225,7 +6237,7 @@ index 0000000000..d26ce90c82
 +int _goboringcrypto_HMAC_Update(GO_HMAC_CTX *ctx,
 +				const unsigned char *data, size_t len)
 +{
-+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_3_0_0
 +  return _goboringcrypto_internal_EVP_DigestSignUpdate(ctx->mdctx, data, len);
 +#else
 +  return _goboringcrypto_EVP_DigestUpdate(ctx->mdctx, data, len);
@@ -6238,7 +6250,7 @@ index 0000000000..d26ce90c82
 +  const EVP_MD *md;
 +
 +
-+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
++#if OPENSSL_VERSION_NUMBER >= OPENSSL_VERSION_3_0_0
 +  md = _goboringcrypto_internal_EVP_MD_CTX_get0_md(ctx->mdctx);
 +#else
 +  md = _goboringcrypto_internal_EVP_MD_CTX_md(ctx->mdctx);
@@ -6268,10 +6280,10 @@ index 0000000000..d26ce90c82
 +}
 +
 +int _goboringcrypto_HMAC_Final(GO_HMAC_CTX *ctx,
-+			       unsigned char *md, unsigned int *len)
++			       unsigned char *md, unsigned int len)
 +{
 +  EVP_MD_CTX *mdctx = NULL;
-+  size_t slen;
++  size_t slen = len;
 +  int ret = 0;
 +
 +  mdctx = _goboringcrypto_EVP_MD_CTX_create();
@@ -6281,9 +6293,10 @@ index 0000000000..d26ce90c82
 +  if (_goboringcrypto_internal_EVP_MD_CTX_copy_ex(mdctx, ctx->mdctx) != 1)
 +    goto err;
 +
-+  ret = _goboringcrypto_EVP_DigestSignFinal(mdctx, md, &slen);
-+  if (ret == 1 && len)
-+    *len = slen;
++  if (_goboringcrypto_EVP_DigestSignFinal(mdctx, md, &slen) != 1)
++    goto err;
++
++  ret = 1;
 +
 + err:
 +  _goboringcrypto_EVP_MD_CTX_free(mdctx);
@@ -6372,7 +6385,7 @@ index 0000000000..d26ce90c82
 +}
 +
 +int _goboringcrypto_HMAC_Final(GO_HMAC_CTX *ctx,
-+			       unsigned char *md, unsigned int *len)
++			       unsigned char *md, unsigned int len)
 +{
 +  HMAC_CTX hctx;
 +  int ret;
@@ -6381,7 +6394,7 @@ index 0000000000..d26ce90c82
 +  if (ret != 1)
 +    return ret;
 +
-+  ret = _goboringcrypto_internal_HMAC_Final(&hctx, md, len);
++  ret = _goboringcrypto_internal_HMAC_Final(&hctx, md, &len);
 +  _goboringcrypto_internal_HMAC_CTX_cleanup(&hctx);
 +  return ret;
 +}
@@ -6875,7 +6888,8 @@ index fa693ea319..7870b934b5 100644
  	key := C._goboringcrypto_RSA_new()
  	if key == nil {
 -		return nil, fail("RSA_new")
--	}
++		return nil, NewOpenSSLError("RSA_new failed")
+ 	}
 -	if !bigToBn(&key.n, N) ||
 -		!bigToBn(&key.e, E) ||
 -		!bigToBn(&key.d, D) ||
@@ -6885,8 +6899,6 @@ index fa693ea319..7870b934b5 100644
 -		!bigToBn(&key.dmq1, Dq) ||
 -		!bigToBn(&key.iqmp, Qinv) {
 -		return nil, fail("BN_bin2bn")
-+		return nil, NewOpenSSLError("RSA_new failed")
-+	}
 +	var n, e, d, p, q, dp, dq, qinv *C.GO_BIGNUM
 +	n = bigToBN(N)
 +	e = bigToBN(E)
@@ -7089,14 +7101,6 @@ index fa693ea319..7870b934b5 100644
 -	// it, and lengths < -2, before we convert to the BoringSSL sentinel values.
 -	if saltLen <= -2 {
 -		return nil, invalidSaltLenErr
--	}
--
--	// BoringSSL uses sentinel salt length values like we do, but the values don't
--	// fully match what we use. We both use -1 for salt length equal to hash length,
--	// but BoringSSL uses -2 to mean maximal size where we use 0. In the latter
--	// case convert to the BoringSSL version.
--	if saltLen == 0 {
--		saltLen = -2
 +	switch saltLen {
 +	case saltLengthAuto:
 +		saltLen = C.GO_RSA_PSS_SALTLEN_AUTO
@@ -7109,6 +7113,14 @@ index fa693ea319..7870b934b5 100644
 +			return nil, invalidSaltLenErr
 +		}
  	}
+-
+-	// BoringSSL uses sentinel salt length values like we do, but the values don't
+-	// fully match what we use. We both use -1 for salt length equal to hash length,
+-	// but BoringSSL uses -2 to mean maximal size where we use 0. In the latter
+-	// case convert to the BoringSSL version.
+-	if saltLen == 0 {
+-		saltLen = -2
+-	}
 -
  	var out []byte
 -	var outLen C.size_t
@@ -7131,14 +7143,6 @@ index fa693ea319..7870b934b5 100644
 -	// it, and lengths < -2, before we convert to the BoringSSL sentinel values.
 -	if saltLen <= -2 {
 -		return invalidSaltLenErr
--	}
--
--	// BoringSSL uses sentinel salt length values like we do, but the values don't
--	// fully match what we use. We both use -1 for salt length equal to hash length,
--	// but BoringSSL uses -2 to mean maximal size where we use 0. In the latter
--	// case convert to the BoringSSL version.
--	if saltLen == 0 {
--		saltLen = -2
 +	switch saltLen {
 +	case saltLengthAuto:
 +		saltLen = C.GO_RSA_PSS_SALTLEN_AUTO
@@ -7151,6 +7155,14 @@ index fa693ea319..7870b934b5 100644
 +			return invalidSaltLenErr
 +		}
  	}
+-
+-	// BoringSSL uses sentinel salt length values like we do, but the values don't
+-	// fully match what we use. We both use -1 for salt length equal to hash length,
+-	// but BoringSSL uses -2 to mean maximal size where we use 0. In the latter
+-	// case convert to the BoringSSL version.
+-	if saltLen == 0 {
+-		saltLen = -2
+-	}
 -
  	if pub.withKey(func(key *C.GO_RSA) C.int {
 -		return C._goboringcrypto_RSA_verify_pss_mgf1(key, base(hashed), C.size_t(len(hashed)),
@@ -7191,20 +7203,37 @@ index fa693ea319..7870b934b5 100644
 +		return signRSAPKCS1v15Raw(priv, msg, md)
 +	}
 +
++	var out []byte
++	var outLen C.size_t
++
++	if priv.withKey(func(key *C.GO_RSA) C.int {
++		out = make([]byte, C._goboringcrypto_RSA_size(key))
++		outLen = C.size_t(len(out))
++		return C._goboringcrypto_RSA_sign(md, base(msg), C.uint(len(msg)), base(out), &outLen, key)
++	}) == 0 {
++		return nil, NewOpenSSLError("RSA_sign")
++	}
++	return out[:outLen], nil
++}
++
++func signRSAPKCS1v15Raw(priv *PrivateKeyRSA, msg []byte, md *C.GO_EVP_MD) ([]byte, error) {
  	var out []byte
 -	var outLen C.uint
 +	var outLen C.size_t
++	PanicIfStrictFIPS("You must provide a raw unhashed message for PKCS1v15 signing and use HashSignPKCS1v15 instead of SignPKCS1v15")
 +
  	if priv.withKey(func(key *C.GO_RSA) C.int {
  		out = make([]byte, C._goboringcrypto_RSA_size(key))
 -		return C._goboringcrypto_RSA_sign(nid, base(hashed), C.uint(len(hashed)),
 -			base(out), &outLen, key)
 +		outLen = C.size_t(len(out))
-+		return C._goboringcrypto_RSA_sign(md, base(msg), C.uint(len(msg)), base(out), &outLen, key)
++		return C._goboringcrypto_RSA_sign_raw(md, base(msg),
++			C.size_t(len(msg)), base(out), &outLen, key)
  	}) == 0 {
 -		return nil, fail("RSA_sign")
 +		return nil, NewOpenSSLError("RSA_sign")
  	}
++	runtime.KeepAlive(priv)
  	return out[:outLen], nil
  }
  
@@ -7223,23 +7252,6 @@ index fa693ea319..7870b934b5 100644
 -			return fail("RSA_verify")
 -		}
 -		return nil
-+func signRSAPKCS1v15Raw(priv *PrivateKeyRSA, msg []byte, md *C.GO_EVP_MD) ([]byte, error) {
-+	var out []byte
-+	var outLen C.size_t
-+	PanicIfStrictFIPS("You must provide a raw unhashed message for PKCS1v15 signing and use HashSignPKCS1v15 instead of SignPKCS1v15")
-+
-+	if priv.withKey(func(key *C.GO_RSA) C.int {
-+		out = make([]byte, C._goboringcrypto_RSA_size(key))
-+		outLen = C.size_t(len(out))
-+		return C._goboringcrypto_RSA_sign_raw(md, base(msg),
-+			C.size_t(len(msg)), base(out), &outLen, key)
-+	}) == 0 {
-+		return nil, NewOpenSSLError("RSA_sign")
-+	}
-+	runtime.KeepAlive(priv)
-+	return out[:outLen], nil
-+}
-+
 +func VerifyRSAPKCS1v15(pub *PublicKeyRSA, h crypto.Hash, msg, sig []byte, msgIsHashed bool) error {
 +	if h == 0 && ExecutingTest() {
 +		return verifyRSAPKCS1v15Raw(pub, msg, sig, nil)
@@ -7556,11 +7568,11 @@ index cf82f3f64f..0b55cedc91 100644
  
  type sha512Ctx struct {
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index 53ad662c63..8126524580 100644
+index 53ad662c63..5b49f3a7c9 100644
 --- a/src/vendor/modules.txt
 +++ b/src/vendor/modules.txt
 @@ -1,3 +1,6 @@
-+# github.com/golang-fips/openssl v0.0.0-20240830121749-972af39412e2
++# github.com/golang-fips/openssl v0.0.0-20241001010402-8c1c6aa53546
 +## explicit; go 1.18
 +github.com/golang-fips/openssl/openssl
  # golang.org/x/crypto v0.11.1-0.20230711161743-2e82bdd1719d
