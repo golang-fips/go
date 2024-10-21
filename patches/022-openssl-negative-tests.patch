@@ -801,3 +801,19 @@ index 210bd9bc43..780814d126 100644
  }
  
  func TestVerifyNilPubKey(t *testing.T) {
+diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
+index d160dccd43..284995adf6 100644
+--- a/src/crypto/rsa/rsa_test.go
++++ b/src/crypto/rsa/rsa_test.go
+@@ -104,6 +104,11 @@ func TestNPrimeKeyGeneration(t *testing.T) {
+ 		if err == nil {
+ 			testKeyBasics(t, priv)
+ 		} else {
++			if boring.Enabled() {
++				if strings.Contains(err.Error(), "invalid primes or bits for boring") {
++					continue
++				}
++			}
+ 			t.Errorf("failed to generate %d-prime key", n)
+ 		}
+ 	}
