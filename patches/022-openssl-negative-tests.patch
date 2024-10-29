@@ -838,35 +838,6 @@ index 780814d126..b16184f32a 100644
  				if err == nil {
  					t.Fatal("expected an error to be returned in boring mode")
  				}
-diff --git a/src/crypto/internal/backend/boringtest/config.go b/src/crypto/internal/backend/boringtest/config.go
-index 6c8c00d11e..1ab507a2dc 100644
---- a/src/crypto/internal/backend/boringtest/config.go
-+++ b/src/crypto/internal/backend/boringtest/config.go
-@@ -23,17 +23,17 @@ var testConfig map[string]bool
- 
- func init() {
- 	testConfig = map[string]bool{
--		"PKCSv1.5": false,
--		"SHA1": false,
-+		"PKCSv1.5": true,
-+		"SHA1": true,
- 		// really this is anything < 2048
--		"RSA1024": false,
-+		"RSA1024":         false,
- 		"RSA4096LeafCert": true,
--		"RSA1024LeafCert": false,
-+		"RSA1024LeafCert": true,
- 		"TLS13": true,
- 		"CurveP224": true,
--		"CurveP256": true,
--		"CurveP384": true,
--		"CurveP521": true,
-+		"CurveP256":       true,
-+		"CurveP384":       true,
-+		"CurveP521":       true,
- 	}
- }
- 
 diff --git a/src/crypto/rsa/pkcs1v15_test.go b/src/crypto/rsa/pkcs1v15_test.go
 index a03aa1cb62..8af84825a2 100644
 --- a/src/crypto/rsa/pkcs1v15_test.go
