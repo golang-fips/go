@@ -319,7 +319,7 @@ index ab4607b4a7..d160dccd43 100644
  	primeSize := 64
  	maxN := 24
  	if testing.Short() {
-@@ -144,19 +141,19 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
+@@ -144,19 +141,16 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
  	}
  
  	if boring.Enabled() {
@@ -336,10 +336,7 @@ index ab4607b4a7..d160dccd43 100644
  		msg := []byte("hi!")
  		enc, err := EncryptOAEP(sha256, rand.Reader, &priv.PublicKey, msg, nil)
  		if err != nil {
-+			fmt.Println(priv.N.BitLen())
 +			if bits := priv.N.BitLen(); bits < 2048 {
-+				// t.Logf("skipping short key with BoringCrypto: %d", bits)
-+				// return
 +				if strings.Contains(err.Error(), "invalid key length") || strings.Contains(err.Error(), "message too long for RSA key size") {
 +					return
 +				}
@@ -973,12 +970,11 @@ index b16184f32a..578d114f63 100644
  
  		expectedChains: [][]string{
  			{
-@@ -428,6 +392,18 @@ var verifyTests = []verifyTest{
+@@ -428,6 +392,17 @@ var verifyTests = []verifyTest{
  	},
  }
  
 +func expectBoringError(t *testing.T, err error) {
-+	fmt.Println("boring SHA1 support:", boringtest.Supports(t, "SHA1"))
 +	if boring.Enabled() && !boringtest.Supports(t, "SHA1") {
 +		if err == nil {
 +			t.Fatal("expected an error to be returned in boring mode")
@@ -1042,13 +1038,12 @@ index e412a29269..015f47fda0 100644
  		h := New(tt.hash, tt.key)
  		if s := h.Size(); s != tt.size {
  			t.Errorf("Size: got %v, want %v", s, tt.size)
-@@ -587,7 +592,8 @@ func TestHMAC(t *testing.T) {
+@@ -587,7 +592,7 @@ func TestHMAC(t *testing.T) {
  
  			// Third and fourth iteration: make sure hmac works on
  			// hashes without MarshalBinary/UnmarshalBinary
 -			if j == 1 {
 +			if j == 1 && !boring.Enabled() { // Skip in boring mode as the hash is obscured and won't be recognized.
-+				fmt.Println("JUST HASH!!!")
  				h = New(func() hash.Hash { return justHash{tt.hash()} }, tt.key)
  			}
  		}
@@ -1082,26 +1077,6 @@ diff --git a/src/vendor/github.com/golang-fips/openssl/v2/evp.go b/src/vendor/gi
 index a9237a6a0c..19df5a1adb 100644
 --- a/src/vendor/github.com/golang-fips/openssl/v2/evp.go
 +++ b/src/vendor/github.com/golang-fips/openssl/v2/evp.go
-@@ -4,9 +4,11 @@ package openssl
- 
- // #include "goopenssl.h"
- import "C"
-+
- import (
- 	"crypto"
- 	"errors"
-+	"fmt"
- 	"hash"
- 	"strconv"
- 	"sync"
-@@ -39,6 +41,7 @@ func hashToMD(h hash.Hash) C.GO_EVP_MD_PTR {
- 	case *sha3_512Hash:
- 		ch = crypto.SHA3_512
- 	}
-+	fmt.Printf("CH: %#v h: %#v\n", ch, h)
- 	if ch != 0 {
- 		return cryptoHashToMD(ch)
- 	}
 @@ -142,14 +145,17 @@ func generateEVPPKey(id C.int, bits int, curve string) (C.GO_EVP_PKEY_PTR, error
  	return pkey, nil
  }
@@ -1147,25 +1122,4 @@ index a9237a6a0c..19df5a1adb 100644
  	ctx, err := setupEVP(withKey, padding, h, nil, label, saltLen, ch, init)
  	if err != nil {
  		return err
-diff --git a/src/vendor/github.com/golang-fips/openssl/v2/hmac.go b/src/vendor/github.com/golang-fips/openssl/v2/hmac.go
-index ef8116ce66..7fa99d9653 100644
---- a/src/vendor/github.com/golang-fips/openssl/v2/hmac.go
-+++ b/src/vendor/github.com/golang-fips/openssl/v2/hmac.go
-@@ -4,7 +4,9 @@ package openssl
- 
- // #include "goopenssl.h"
- import "C"
-+
- import (
-+	"fmt"
- 	"hash"
- 	"runtime"
- 	"sync"
-@@ -26,6 +28,7 @@ func NewHMAC(h func() hash.Hash, key []byte) hash.Hash {
- 	ch := h()
- 	md := hashToMD(ch)
- 	if md == nil {
-+		fmt.Printf("MD == nil, h: %#v, md: %#v", h(), md)
- 		return nil
- 	}
  
