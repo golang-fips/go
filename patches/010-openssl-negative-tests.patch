@@ -1064,5 +1064,62 @@ index c7efa8cea1..feae2663f6 100644
  				if strings.Contains(err.Error(), "invalid key length") {
  					continue
  				}
-diff --git a/src/vendor/github.com/golang-fips/openssl/v2/evp.go b/src/vendor/github.com/golang-fips/openssl/v2/evp.go
-index a9237a6a0c..19df5a1adb 100644
+diff --git a/src/crypto/rsa/pss_test.go b/src/crypto/rsa/pss_test.go
+index 90cc22ab98..8c5a8814a1 100644
+--- a/src/crypto/rsa/pss_test.go
++++ b/src/crypto/rsa/pss_test.go
+@@ -236,10 +236,8 @@ func TestPSSSigning(t *testing.T) {
+ 		opts.SaltLength = test.signSaltLength
+ 		sig, err := SignPSS(rand.Reader, rsaPrivateKey, hash, hashed, &opts)
+ 		if err != nil {
+-			if boring.Enabled() && hash == crypto.SHA1 && !boringtest.Supports(t, "SHA1") {
+-				if strings.Contains(err.Error(), "invalid key length") {
+-					continue
+-				}
++			if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") {
++				continue
+ 			}
+ 
+ 			t.Errorf("#%d: error while signing: %s", i, err)
+diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
+index 48d3b0c6e6..0a6b636800 100644
+--- a/src/crypto/rsa/rsa_test.go
++++ b/src/crypto/rsa/rsa_test.go
+@@ -250,7 +250,7 @@ func testEverything(t *testing.T, priv *PrivateKey) {
+ 	if err == ErrMessageTooLong {
+ 		t.Log("key too small for EncryptPKCS1v15")
+ 	} else if err != nil {
+-		if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") || strings.Contains(err.Error(), "EVP_PKEY_encrypt_init failed") {
++		if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") || strings.Contains(err.Error(), "EVP_PKEY_encrypt_init failed") || strings.Contains(err.Error(), "EVP_PKEY_operation_init failed") {
+ 			t.Log("invalid key length in FIPS mode, ignoring...")
+ 		} else {
+ 			t.Errorf("EncryptPKCS1v15: %v", err)
+@@ -331,6 +331,7 @@ func testEverything(t *testing.T, priv *PrivateKey) {
+ 			strings.Contains(err.Error(), "EVP_PKEY_encrypt_init failed") ||
+ 			strings.Contains(err.Error(), "data too large for key size") ||
+ 			strings.Contains(err.Error(), "EVP_PKEY_sign failed") ||
++			strings.Contains(err.Error(), "RSA_sign_pss_mgf1 failed") ||
+ 			strings.Contains(err.Error(), "EVP_PKEY_sign_init failed") {
+ 			t.Log("invalid key length in FIPS mode, ignoring...")
+ 		} else {
+@@ -364,6 +365,7 @@ func testEverything(t *testing.T, priv *PrivateKey) {
+ 		if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") ||
+ 			strings.Contains(err.Error(), "data too large for key size") ||
+ 			strings.Contains(err.Error(), "EVP_PKEY_sign failed") ||
++			strings.Contains(err.Error(), "RSA_sign_pss_mgf1 failed") ||
+ 			strings.Contains(err.Error(), "EVP_PKEY_sign_init failed") {
+ 			t.Log("invalid key length in FIPS mode, ignoring...")
+ 		} else {
+diff --git a/src/vendor/github.com/golang-fips/openssl/openssl/rsa.go b/src/vendor/github.com/golang-fips/openssl/openssl/rsa.go
+index 7870b934b5..b492b8df36 100644
+--- a/src/vendor/github.com/golang-fips/openssl/openssl/rsa.go
++++ b/src/vendor/github.com/golang-fips/openssl/openssl/rsa.go
+@@ -293,7 +293,7 @@ func SignRSAPSS(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte, saltLen int)
+ 		return C._goboringcrypto_RSA_sign_pss_mgf1(key, &outLen, base(out), C.uint(len(out)),
+ 			base(hashed), C.uint(len(hashed)), md, nil, C.int(saltLen))
+ 	}) == 0 {
+-		return nil, fail("RSA_sign_pss_mgf1")
++		return nil, NewOpenSSLError("RSA_sign_pss_mgf1 failed")
+ 	}
+ 
+ 	return out[:outLen], nil
