@@ -14,7 +14,7 @@ if [ -z "${GIT_REF}" ]; then
     fi
 fi
 
-git submodule add --force https://github.com/golang/go.git
+git submodule add --force ${GOLANG_REPO:-https://github.com/golang/go.git}
 git submodule update
 
 pushd go
