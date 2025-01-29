@@ -476,6 +476,7 @@ func testCrossVersionResume(t *testing.T, version uint16) {
 		InsecureSkipVerify: true,
 		ClientSessionCache: NewLRUClientSessionCache(1),
 		ServerName:         "servername",
+		Time:               testTime,
 	}
 
 	// Establish a session at TLS 1.1.
