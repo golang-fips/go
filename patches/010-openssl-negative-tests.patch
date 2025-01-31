@@ -1,0 +1,1125 @@
+diff --git a/src/crypto/ecdsa/ecdsa_test.go b/src/crypto/ecdsa/ecdsa_test.go
+index 06957f8c14..7803ae997f 100644
+--- a/src/crypto/ecdsa/ecdsa_test.go
++++ b/src/crypto/ecdsa/ecdsa_test.go
+@@ -9,8 +9,8 @@ import (
+ 	"bytes"
+ 	"compress/bzip2"
+ 	"crypto/elliptic"
+-	"crypto/internal/backend/boringtest"
+ 	boring "crypto/internal/backend"
++	"crypto/internal/backend/boringtest"
+ 	"crypto/internal/bigmod"
+ 	"crypto/rand"
+ 	"crypto/sha1"
+@@ -46,9 +46,6 @@ func testAllCurves(t *testing.T, f func(*testing.T, elliptic.Curve)) {
+ 		tests = append(tests, p224)
+ 	}
+ 	for _, test := range tests {
+-		if boring.Enabled() && !boringtest.Supports(t, "Curve"+test.name) {
+-			t.Skip("unsupported test in FIPS mode")
+-		}
+ 		curve := test.curve
+ 		t.Run(test.name, func(t *testing.T) {
+ 			t.Parallel()
+diff --git a/src/crypto/hmac/hmac.go b/src/crypto/hmac/hmac.go
+index 1b99c68577..3e98ba3717 100644
+--- a/src/crypto/hmac/hmac.go
++++ b/src/crypto/hmac/hmac.go
+@@ -132,6 +132,7 @@ func New(h func() hash.Hash, key []byte) hash.Hash {
+ 		if hm != nil {
+ 			return hm
+ 		}
++		panic("unrecognized hmac in FIPS mode")
+ 		// BoringCrypto did not recognize h, so fall through to standard Go code.
+ 	}
+ 	hm := new(hmac)
+diff --git a/src/crypto/hmac/hmac_test.go b/src/crypto/hmac/hmac_test.go
+index 3898f7f12c..e412a29269 100644
+--- a/src/crypto/hmac/hmac_test.go
++++ b/src/crypto/hmac/hmac_test.go
+@@ -13,6 +13,7 @@ import (
+ 	"crypto/sha512"
+ 	"fmt"
+ 	"hash"
++	"strings"
+ 	"testing"
+ )
+ 
+@@ -549,6 +550,16 @@ var hmacTests = []hmacTest{
+ 
+ func TestHMAC(t *testing.T) {
+ 	for i, tt := range hmacTests {
++		if boring.Enabled() && tt.size == sha1.New().Size() {
++			defer func() {
++				r := recover()
++				if s, ok := r.(string); ok {
++					if !strings.Contains(s, "unrecognized hmac in FIPS mode") {
++						panic(s)
++					}
++				}
++			}()
++		}
+ 		h := New(tt.hash, tt.key)
+ 		if s := h.Size(); s != tt.size {
+ 			t.Errorf("Size: got %v, want %v", s, tt.size)
+ 
+diff --git a/src/crypto/rsa/pkcs1v15_test.go b/src/crypto/rsa/pkcs1v15_test.go
+index 0e38bbfbef..a03aa1cb62 100644
+--- a/src/crypto/rsa/pkcs1v15_test.go
++++ b/src/crypto/rsa/pkcs1v15_test.go
+@@ -17,6 +17,7 @@ import (
+ 	"encoding/hex"
+ 	"encoding/pem"
+ 	"io"
++	"strings"
+ 	"testing"
+ 	"testing/quick"
+ )
+@@ -55,10 +56,6 @@ var decryptPKCS1v15Tests = []DecryptPKCS1v15Test{
+ }
+ 
+ func TestDecryptPKCS1v15(t *testing.T) {
+-	if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
+-		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
+-	}
+-
+ 	decryptionFuncs := []func([]byte) ([]byte, error){
+ 		func(ciphertext []byte) (plaintext []byte, err error) {
+ 			return DecryptPKCS1v15(nil, rsaPrivateKey, ciphertext)
+@@ -72,7 +69,14 @@ func TestDecryptPKCS1v15(t *testing.T) {
+ 		for i, test := range decryptPKCS1v15Tests {
+ 			out, err := decryptFunc(decodeBase64(test.in))
+ 			if err != nil {
+-				t.Errorf("#%d error decrypting: %v", i, err)
++				if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
++					if !strings.Contains(err.Error(), "decryption error") {
++						t.Fatalf("unexpected error in FIPS mode: %s", err.Error())
++					}
++					continue
++				} else {
++					t.Errorf("#%d error decrypting: %v", i, err)
++				}
+ 			}
+ 			want := []byte(test.out)
+ 			if !bytes.Equal(out, want) {
+@@ -83,10 +87,6 @@ func TestDecryptPKCS1v15(t *testing.T) {
+ }
+ 
+ func TestEncryptPKCS1v15(t *testing.T) {
+-	if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
+-		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
+-	}
+-
+ 	random := rand.Reader
+ 	k := (rsaPrivateKey.N.BitLen() + 7) / 8
+ 
+@@ -97,6 +97,11 @@ func TestEncryptPKCS1v15(t *testing.T) {
+ 
+ 		ciphertext, err := EncryptPKCS1v15(random, &rsaPrivateKey.PublicKey, in)
+ 		if err != nil {
++			if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
++				if strings.Contains(err.Error(), "invalid key length") {
++					return false
++				}
++			}
+ 			t.Errorf("error encrypting: %s", err)
+ 			return false
+ 		}
+@@ -148,15 +153,16 @@ var decryptPKCS1v15SessionKeyTests = []DecryptPKCS1v15Test{
+ }
+ 
+ func TestEncryptPKCS1v15SessionKey(t *testing.T) {
+-	if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
+-		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
+-	}
+-
+ 	for i, test := range decryptPKCS1v15SessionKeyTests {
+ 		key := []byte("FAIL")
+ 		err := DecryptPKCS1v15SessionKey(nil, rsaPrivateKey, decodeBase64(test.in), key)
+ 		if err != nil {
+-			t.Errorf("#%d error decrypting", i)
++			if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
++				if strings.Contains(err.Error(), "invalid key length") {
++					continue
++				}
++			}
++			t.Errorf("#%d error decrypting: %#v", i, err)
+ 		}
+ 		want := []byte(test.out)
+ 		if !bytes.Equal(key, want) {
+@@ -166,13 +172,14 @@ func TestEncryptPKCS1v15SessionKey(t *testing.T) {
+ }
+ 
+ func TestEncryptPKCS1v15DecrypterSessionKey(t *testing.T) {
+-	if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
+-		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
+-	}
+-
+ 	for i, test := range decryptPKCS1v15SessionKeyTests {
+ 		plaintext, err := rsaPrivateKey.Decrypt(rand.Reader, decodeBase64(test.in), &PKCS1v15DecryptOptions{SessionKeyLen: 4})
+ 		if err != nil {
++			if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
++				if strings.Contains(err.Error(), "invalid key length") {
++					continue
++				}
++			}
+ 			t.Fatalf("#%d: error decrypting: %s", i, err)
+ 		}
+ 		if len(plaintext) != 4 {
+@@ -246,9 +252,5 @@ func TestVerifyPKCS1v15(t *testing.T) {
+ }
+ 
+ func TestOverlongMessagePKCS1v15(t *testing.T) {
+-	// OpenSSL now returns a random string instead of an error
+-	if boring.Enabled() {
+-		t.Skip("Not relevant in boring mode")
+-	}
+ 	ciphertext := decodeBase64("fjOVdirUzFoLlukv80dBllMLjXythIf22feqPrNo0YoIjzyzyoMFiLjAc/Y4krkeZ11XFThIrEvw\nkRiZcCq5ng==")
+ 	_, err := DecryptPKCS1v15(nil, rsaPrivateKey, ciphertext)
+@@ -279,14 +283,15 @@ func TestUnpaddedSignature(t *testing.T) {
+ }
+ 
+ func TestShortSessionKey(t *testing.T) {
+-	if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
+-		t.Skip("skipping PKCS#1 v1.5 encryption test with BoringCrypto")
+-	}
+-
+ 	// This tests that attempting to decrypt a session key where the
+ 	// ciphertext is too small doesn't run outside the array bounds.
+ 	ciphertext, err := EncryptPKCS1v15(rand.Reader, &rsaPrivateKey.PublicKey, []byte{1})
+ 	if err != nil {
++		if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
++			if strings.Contains(err.Error(), "invalid key length") {
++				return
++			}
++		}
+ 		t.Fatalf("Failed to encrypt short message: %s", err)
+ 	}
+ 
+diff --git a/src/crypto/rsa/pss_test.go b/src/crypto/rsa/pss_test.go
+index 42298618e4..3e24cd2b1d 100644
+--- a/src/crypto/rsa/pss_test.go
++++ b/src/crypto/rsa/pss_test.go
+@@ -79,9 +79,6 @@ func TestEMSAPSS(t *testing.T) {
+ // TestPSSGolden tests all the test vectors in pss-vect.txt from
+ // ftp://ftp.rsasecurity.com/pub/pkcs/pkcs-1/pkcs-1v2-1-vec.zip
+ func TestPSSGolden(t *testing.T) {
+-	if boring.Enabled() && !boringtest.Supports(t, "SHA1") {
+-		t.Skip("skipping PSS test with BoringCrypto: SHA-1 not allowed")
+-	}
+ 	inFile, err := os.Open("testdata/pss-vect.txt.bz2")
+ 	if err != nil {
+ 		t.Fatalf("Failed to open input file: %s", err)
+@@ -162,6 +159,11 @@ func TestPSSGolden(t *testing.T) {
+ 			hashed = h.Sum(hashed[:0])
+ 
+ 			if err := VerifyPSS(key, hash, hashed, sig, opts); err != nil {
++				if boring.Enabled() && !boringtest.Supports(t, "SHA1") {
++					if strings.Contains(err.Error(), "verification error") {
++						continue
++					}
++				}
+ 				t.Error(err)
+ 			}
+ 		default:
+@@ -173,10 +175,6 @@ func TestPSSGolden(t *testing.T) {
+ // TestPSSOpenSSL ensures that we can verify a PSS signature from OpenSSL with
+ // the default options. OpenSSL sets the salt length to be maximal.
+ func TestPSSOpenSSL(t *testing.T) {
+-	if boring.Enabled() {
+-		t.Skip("skipping PSS test with BoringCrypto: too short key")
+-	}
+-
+ 	hash := crypto.SHA256
+ 	h := hash.New()
+ 	h.Write([]byte("testing"))
+@@ -194,7 +192,11 @@ func TestPSSOpenSSL(t *testing.T) {
+ 	}
+ 
+ 	if err := VerifyPSS(&rsaPrivateKey.PublicKey, hash, hashed, sig, nil); err != nil {
+-		t.Error(err)
++		if !boring.Enabled() {
++			t.Error(err)
++		}
++	} else if boring.Enabled() {
++		t.Error("expected error but received none")
+ 	}
+ }
+ 
+@@ -209,10 +211,6 @@ func TestPSSNilOpts(t *testing.T) {
+ }
+ 
+ func TestPSSSigning(t *testing.T) {
+-	if boring.Enabled() && !boringtest.Supports(t, "SHA1") {
+-		t.Skip("skipping PSS test with BoringCrypto: too short key")
+-	}
+-
+ 	var saltLengthCombinations = []struct {
+ 		signSaltLength, verifySaltLength int
+ 		good                             bool
+@@ -238,6 +236,12 @@ func TestPSSSigning(t *testing.T) {
+ 		opts.SaltLength = test.signSaltLength
+ 		sig, err := SignPSS(rand.Reader, rsaPrivateKey, hash, hashed, &opts)
+ 		if err != nil {
++			if boring.Enabled() && !boringtest.Supports(t, "SHA1") {
++				if strings.Contains(err.Error(), "invalid key length") {
++					continue
++				}
++			}
++
+ 			t.Errorf("#%d: error while signing: %s", i, err)
+ 			continue
+ 		}
+diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
+index ab4607b4a7..d160dccd43 100644
+--- a/src/crypto/rsa/rsa_test.go
++++ b/src/crypto/rsa/rsa_test.go
+@@ -9,6 +9,7 @@ import (
+ 	"bytes"
+ 	"crypto"
+ 	boring "crypto/internal/backend"
++	"crypto/internal/backend/boringtest"
+ 	"crypto/rand"
+ 	. "crypto/rsa"
+ 	"crypto/sha1"
+@@ -17,14 +18,13 @@ import (
+ 	"encoding/pem"
+ 	"flag"
+ 	"fmt"
+-	"internal/testenv"
+ 	"math/big"
+ 	"strings"
+ 	"testing"
++
++	"internal/testenv"
+ )
+ 
+-import "crypto/internal/backend/boringtest"
+-
+ func TestKeyGeneration(t *testing.T) {
+ 	testKeys := []int{128, 1024}
+ 	if boring.Enabled() {
+@@ -92,9 +92,6 @@ func Test4PrimeKeyGeneration(t *testing.T) {
+ }
+ 
+ func TestNPrimeKeyGeneration(t *testing.T) {
+-	if boring.Enabled() {
+-		t.Skip("Not supported in boring mode")
+-	}
+ 	primeSize := 64
+ 	maxN := 24
+ 	if testing.Short() {
+@@ -144,19 +141,16 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
+ 	}
+ 
+ 	if boring.Enabled() {
+-		// Cannot call encrypt/decrypt with raw RSA. PKCSv1.5
+-		// not supported in some configurations.  Test with
+-		// OAEP if possible (i.e., key size is equal to or
+-		// longer than 2048 bits).
+-		if bits := priv.N.BitLen(); boring.Enabled() && bits < 2048 {
+-			t.Logf("skipping short key with BoringCrypto: %d", bits)
+-			return
+-		}
+ 		sha256 := sha256.New()
+ 
+ 		msg := []byte("hi!")
+ 		enc, err := EncryptOAEP(sha256, rand.Reader, &priv.PublicKey, msg, nil)
+ 		if err != nil {
++			if bits := priv.N.BitLen(); bits < 2048 {
++				if strings.Contains(err.Error(), "invalid key length") || strings.Contains(err.Error(), "message too long for RSA key size") {
++					return
++				}
++			}
+ 			t.Errorf("EncryptOAEP: %v", err)
+ 			return
+ 		}
+@@ -236,9 +233,6 @@ func TestEverything(t *testing.T) {
+ 			if bits := priv.N.BitLen(); bits != size {
+ 				t.Errorf("key too short (%d vs %d)", bits, size)
+ 			}
+-			if boring.Enabled() && size < 2048 {
+-				t.Skip("skipping short key with BoringCrypto")
+-			}
+ 			testEverything(t, priv)
+ 		})
+ 	}
+@@ -254,7 +248,11 @@ func testEverything(t *testing.T, priv *PrivateKey) {
+ 	if err == ErrMessageTooLong {
+ 		t.Log("key too small for EncryptPKCS1v15")
+ 	} else if err != nil {
+-		t.Errorf("EncryptPKCS1v15: %v", err)
++		if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") || strings.Contains(err.Error(), "EVP_PKEY_encrypt_init failed") {
++			t.Log("invalid key length in FIPS mode, ignoring...")
++		} else {
++			t.Errorf("EncryptPKCS1v15: %v", err)
++		}
+ 	}
+ 	if err == nil {
+ 		dec, err := DecryptPKCS1v15(nil, priv, enc)
+@@ -275,7 +273,11 @@ func testEverything(t *testing.T, priv *PrivateKey) {
+ 	if err == ErrMessageTooLong {
+ 		t.Log("key too small for EncryptOAEP")
+ 	} else if err != nil {
+-		t.Errorf("EncryptOAEP: %v", err)
++		if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") || strings.Contains(err.Error(), "EVP_PKEY_encrypt_init failed") {
++			t.Log("invalid key length in FIPS mode, ignoring...")
++		} else {
++			t.Errorf("EncryptOAEP: %v", err)
++		}
+ 	}
+ 	if err == nil {
+ 		dec, err := DecryptOAEP(sha256.New(), nil, priv, enc, label)
+@@ -292,7 +294,12 @@ func testEverything(t *testing.T, priv *PrivateKey) {
+ 	if err == ErrMessageTooLong {
+ 		t.Log("key too small for SignPKCS1v15")
+ 	} else if err != nil {
+-		t.Errorf("SignPKCS1v15: %v", err)
++		if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") ||
++			strings.Contains(err.Error(), "EVP_PKEY_sign_init failed") {
++			t.Log("invalid key length in FIPS mode, ignoring...")
++		} else {
++			t.Errorf("SignPKCS1v15: %v", err)
++		}
+ 	}
+ 	if err == nil {
+ 		err = VerifyPKCS1v15(&priv.PublicKey, crypto.SHA256, hash[:], sig)
+@@ -318,7 +325,13 @@ func testEverything(t *testing.T, priv *PrivateKey) {
+ 	if err == ErrMessageTooLong {
+ 		t.Log("key too small for SignPSS with PSSSaltLengthAuto")
+ 	} else if err != nil {
+-		t.Errorf("SignPSS: %v", err)
++		if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") ||
++			strings.Contains(err.Error(), "EVP_PKEY_encrypt_init failed") ||
++			strings.Contains(err.Error(), "EVP_PKEY_sign_init failed") {
++			t.Log("invalid key length in FIPS mode, ignoring...")
++		} else {
++			t.Errorf("SignPSS: %v", err)
++		}
+ 	}
+ 	if err == nil {
+ 		err = VerifyPSS(&priv.PublicKey, crypto.SHA256, hash[:], sig, opts)
+@@ -344,7 +357,12 @@ func testEverything(t *testing.T, priv *PrivateKey) {
+ 	if err == ErrMessageTooLong {
+ 		t.Log("key too small for SignPSS with PSSSaltLengthEqualsHash")
+ 	} else if err != nil {
+-		t.Errorf("SignPSS: %v", err)
++		if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") ||
++			strings.Contains(err.Error(), "EVP_PKEY_sign_init failed") {
++			t.Log("invalid key length in FIPS mode, ignoring...")
++		} else {
++			t.Errorf("SignPSS: %v", err)
++		}
+ 	}
+ 	if err == nil {
+ 		err = VerifyPSS(&priv.PublicKey, crypto.SHA256, hash[:], sig, opts)
+@@ -774,13 +792,12 @@ func Test2DecryptOAEP(t *testing.T) {
+ 	sha1 := crypto.SHA1
+ 	sha256 := crypto.SHA256
+ 
+-	if boring.Enabled() && n.BitLen() < 2048 {
+-		t.Skipf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
+-	}
+-
+ 	out, err := priv.Decrypt(random, in, &OAEPOptions{MGFHash: sha1, Hash: sha256})
+ 
+ 	if err != nil {
++		if boring.Enabled() && n.BitLen() < 2048 && strings.Contains(err.Error(), "decryption error") {
++			return
++		}
+ 		t.Errorf("error: %s", err)
+ 	} else if !bytes.Equal(out, msg) {
+ 		t.Errorf("bad result %#v (want %#v)", out, msg)
+@@ -793,10 +810,6 @@ func TestEncryptDecryptOAEP(t *testing.T) {
+ 	d := new(big.Int)
+ 	for i, test := range testEncryptOAEPData {
+ 		n.SetString(test.modulus, 16)
+-		if boring.Enabled() && !boringtest.Supports(t, "RSA1024") && n.BitLen() < 2048 {
+-			t.Logf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
+-			continue
+-		}
+ 		d.SetString(test.d, 16)
+ 		priv := new(PrivateKey)
+ 		priv.PublicKey = PublicKey{N: n, E: test.e}
+@@ -806,6 +819,14 @@ func TestEncryptDecryptOAEP(t *testing.T) {
+ 			label := []byte(fmt.Sprintf("hi#%d", j))
+ 			enc, err := EncryptOAEP(sha256, rand.Reader, &priv.PublicKey, message.in, label)
+ 			if err != nil {
++				if boring.Enabled() && !boringtest.Supports(t, "RSA1024") && n.BitLen() < 2048 {
++					// t.Logf("skipping encryption tests with BoringCrypto: too short key: %d", n.BitLen())
++					// continue
++					if strings.Contains(err.Error(), "invalid key length") {
++						// This is an expected failure
++						continue
++					}
++				}
+ 				t.Errorf("#%d,%d: EncryptOAEP: %v", i, j, err)
+ 				continue
+ 			}
+@@ -824,22 +845,26 @@ func TestEncryptDecryptOAEP(t *testing.T) {
+ // testEncryptOAEPData contains a subset of the vectors from RSA's "Test vectors for RSA-OAEP".
+ var testEncryptOAEPData = []testEncryptOAEPStruct{
+ 	// Key 1
+-	{"a8b3b284af8eb50b387034a860f146c4919f318763cd6c5598c8ae4811a1e0abc4c7e0b082d693a5e7fced675cf4668512772c0cbc64a742c6c630f533c8cc72f62ae833c40bf25842e984bb78bdbf97c0107d55bdb662f5c4e0fab9845cb5148ef7392dd3aaff93ae1e6b667bb3d4247616d4f5ba10d4cfd226de88d39f16fb",
++	{
++		"a8b3b284af8eb50b387034a860f146c4919f318763cd6c5598c8ae4811a1e0abc4c7e0b082d693a5e7fced675cf4668512772c0cbc64a742c6c630f533c8cc72f62ae833c40bf25842e984bb78bdbf97c0107d55bdb662f5c4e0fab9845cb5148ef7392dd3aaff93ae1e6b667bb3d4247616d4f5ba10d4cfd226de88d39f16fb",
+ 		65537,
+ 		"53339cfdb79fc8466a655c7316aca85c55fd8f6dd898fdaf119517ef4f52e8fd8e258df93fee180fa0e4ab29693cd83b152a553d4ac4d1812b8b9fa5af0e7f55fe7304df41570926f3311f15c4d65a732c483116ee3d3d2d0af3549ad9bf7cbfb78ad884f84d5beb04724dc7369b31def37d0cf539e9cfcdd3de653729ead5d1",
+ 		[]testEncryptOAEPMessage{
+ 			// Example 1.1
+ 			{
+-				[]byte{0x66, 0x28, 0x19, 0x4e, 0x12, 0x07, 0x3d, 0xb0,
++				[]byte{
++					0x66, 0x28, 0x19, 0x4e, 0x12, 0x07, 0x3d, 0xb0,
+ 					0x3b, 0xa9, 0x4c, 0xda, 0x9e, 0xf9, 0x53, 0x23, 0x97,
+ 					0xd5, 0x0d, 0xba, 0x79, 0xb9, 0x87, 0x00, 0x4a, 0xfe,
+ 					0xfe, 0x34,
+ 				},
+-				[]byte{0x18, 0xb7, 0x76, 0xea, 0x21, 0x06, 0x9d, 0x69,
++				[]byte{
++					0x18, 0xb7, 0x76, 0xea, 0x21, 0x06, 0x9d, 0x69,
+ 					0x77, 0x6a, 0x33, 0xe9, 0x6b, 0xad, 0x48, 0xe1, 0xdd,
+ 					0xa0, 0xa5, 0xef,
+ 				},
+-				[]byte{0x35, 0x4f, 0xe6, 0x7b, 0x4a, 0x12, 0x6d, 0x5d,
++				[]byte{
++					0x35, 0x4f, 0xe6, 0x7b, 0x4a, 0x12, 0x6d, 0x5d,
+ 					0x35, 0xfe, 0x36, 0xc7, 0x77, 0x79, 0x1a, 0x3f, 0x7b,
+ 					0xa1, 0x3d, 0xef, 0x48, 0x4e, 0x2d, 0x39, 0x08, 0xaf,
+ 					0xf7, 0x22, 0xfa, 0xd4, 0x68, 0xfb, 0x21, 0x69, 0x6d,
+@@ -858,16 +883,19 @@ var testEncryptOAEPData = []testEncryptOAEPStruct{
+ 			},
+ 			// Example 1.2
+ 			{
+-				[]byte{0x75, 0x0c, 0x40, 0x47, 0xf5, 0x47, 0xe8, 0xe4,
++				[]byte{
++					0x75, 0x0c, 0x40, 0x47, 0xf5, 0x47, 0xe8, 0xe4,
+ 					0x14, 0x11, 0x85, 0x65, 0x23, 0x29, 0x8a, 0xc9, 0xba,
+ 					0xe2, 0x45, 0xef, 0xaf, 0x13, 0x97, 0xfb, 0xe5, 0x6f,
+ 					0x9d, 0xd5,
+ 				},
+-				[]byte{0x0c, 0xc7, 0x42, 0xce, 0x4a, 0x9b, 0x7f, 0x32,
++				[]byte{
++					0x0c, 0xc7, 0x42, 0xce, 0x4a, 0x9b, 0x7f, 0x32,
+ 					0xf9, 0x51, 0xbc, 0xb2, 0x51, 0xef, 0xd9, 0x25, 0xfe,
+ 					0x4f, 0xe3, 0x5f,
+ 				},
+-				[]byte{0x64, 0x0d, 0xb1, 0xac, 0xc5, 0x8e, 0x05, 0x68,
++				[]byte{
++					0x64, 0x0d, 0xb1, 0xac, 0xc5, 0x8e, 0x05, 0x68,
+ 					0xfe, 0x54, 0x07, 0xe5, 0xf9, 0xb7, 0x01, 0xdf, 0xf8,
+ 					0xc3, 0xc9, 0x1e, 0x71, 0x6c, 0x53, 0x6f, 0xc7, 0xfc,
+ 					0xec, 0x6c, 0xb5, 0xb7, 0x1c, 0x11, 0x65, 0x98, 0x8d,
+@@ -886,7 +914,8 @@ var testEncryptOAEPData = []testEncryptOAEPStruct{
+ 			},
+ 			// Example 1.3
+ 			{
+-				[]byte{0xd9, 0x4a, 0xe0, 0x83, 0x2e, 0x64, 0x45, 0xce,
++				[]byte{
++					0xd9, 0x4a, 0xe0, 0x83, 0x2e, 0x64, 0x45, 0xce,
+ 					0x42, 0x33, 0x1c, 0xb0, 0x6d, 0x53, 0x1a, 0x82, 0xb1,
+ 					0xdb, 0x4b, 0xaa, 0xd3, 0x0f, 0x74, 0x6d, 0xc9, 0x16,
+ 					0xdf, 0x24, 0xd4, 0xe3, 0xc2, 0x45, 0x1f, 0xff, 0x59,
+@@ -894,11 +923,13 @@ var testEncryptOAEPData = []testEncryptOAEPStruct{
+ 					0x46, 0xcf, 0x69, 0x9d, 0xfd, 0x81, 0x8c, 0x6e, 0x97,
+ 					0xb0, 0x51,
+ 				},
+-				[]byte{0x25, 0x14, 0xdf, 0x46, 0x95, 0x75, 0x5a, 0x67,
++				[]byte{
++					0x25, 0x14, 0xdf, 0x46, 0x95, 0x75, 0x5a, 0x67,
+ 					0xb2, 0x88, 0xea, 0xf4, 0x90, 0x5c, 0x36, 0xee, 0xc6,
+ 					0x6f, 0xd2, 0xfd,
+ 				},
+-				[]byte{0x42, 0x37, 0x36, 0xed, 0x03, 0x5f, 0x60, 0x26,
++				[]byte{
++					0x42, 0x37, 0x36, 0xed, 0x03, 0x5f, 0x60, 0x26,
+ 					0xaf, 0x27, 0x6c, 0x35, 0xc0, 0xb3, 0x74, 0x1b, 0x36,
+ 					0x5e, 0x5f, 0x76, 0xca, 0x09, 0x1b, 0x4e, 0x8c, 0x29,
+ 					0xe2, 0xf0, 0xbe, 0xfe, 0xe6, 0x03, 0x59, 0x5a, 0xa8,
+@@ -918,22 +949,26 @@ var testEncryptOAEPData = []testEncryptOAEPStruct{
+ 		},
+ 	},
+ 	// Key 10
+-	{"ae45ed5601cec6b8cc05f803935c674ddbe0d75c4c09fd7951fc6b0caec313a8df39970c518bffba5ed68f3f0d7f22a4029d413f1ae07e4ebe9e4177ce23e7f5404b569e4ee1bdcf3c1fb03ef113802d4f855eb9b5134b5a7c8085adcae6fa2fa1417ec3763be171b0c62b760ede23c12ad92b980884c641f5a8fac26bdad4a03381a22fe1b754885094c82506d4019a535a286afeb271bb9ba592de18dcf600c2aeeae56e02f7cf79fc14cf3bdc7cd84febbbf950ca90304b2219a7aa063aefa2c3c1980e560cd64afe779585b6107657b957857efde6010988ab7de417fc88d8f384c4e6e72c3f943e0c31c0c4a5cc36f879d8a3ac9d7d59860eaada6b83bb",
++	{
++		"ae45ed5601cec6b8cc05f803935c674ddbe0d75c4c09fd7951fc6b0caec313a8df39970c518bffba5ed68f3f0d7f22a4029d413f1ae07e4ebe9e4177ce23e7f5404b569e4ee1bdcf3c1fb03ef113802d4f855eb9b5134b5a7c8085adcae6fa2fa1417ec3763be171b0c62b760ede23c12ad92b980884c641f5a8fac26bdad4a03381a22fe1b754885094c82506d4019a535a286afeb271bb9ba592de18dcf600c2aeeae56e02f7cf79fc14cf3bdc7cd84febbbf950ca90304b2219a7aa063aefa2c3c1980e560cd64afe779585b6107657b957857efde6010988ab7de417fc88d8f384c4e6e72c3f943e0c31c0c4a5cc36f879d8a3ac9d7d59860eaada6b83bb",
+ 		65537,
+ 		"056b04216fe5f354ac77250a4b6b0c8525a85c59b0bd80c56450a22d5f438e596a333aa875e291dd43f48cb88b9d5fc0d499f9fcd1c397f9afc070cd9e398c8d19e61db7c7410a6b2675dfbf5d345b804d201add502d5ce2dfcb091ce9997bbebe57306f383e4d588103f036f7e85d1934d152a323e4a8db451d6f4a5b1b0f102cc150e02feee2b88dea4ad4c1baccb24d84072d14e1d24a6771f7408ee30564fb86d4393a34bcf0b788501d193303f13a2284b001f0f649eaf79328d4ac5c430ab4414920a9460ed1b7bc40ec653e876d09abc509ae45b525190116a0c26101848298509c1c3bf3a483e7274054e15e97075036e989f60932807b5257751e79",
+ 		[]testEncryptOAEPMessage{
+ 			// Example 10.1
+ 			{
+-				[]byte{0x8b, 0xba, 0x6b, 0xf8, 0x2a, 0x6c, 0x0f, 0x86,
++				[]byte{
++					0x8b, 0xba, 0x6b, 0xf8, 0x2a, 0x6c, 0x0f, 0x86,
+ 					0xd5, 0xf1, 0x75, 0x6e, 0x97, 0x95, 0x68, 0x70, 0xb0,
+ 					0x89, 0x53, 0xb0, 0x6b, 0x4e, 0xb2, 0x05, 0xbc, 0x16,
+ 					0x94, 0xee,
+ 				},
+-				[]byte{0x47, 0xe1, 0xab, 0x71, 0x19, 0xfe, 0xe5, 0x6c,
++				[]byte{
++					0x47, 0xe1, 0xab, 0x71, 0x19, 0xfe, 0xe5, 0x6c,
+ 					0x95, 0xee, 0x5e, 0xaa, 0xd8, 0x6f, 0x40, 0xd0, 0xaa,
+ 					0x63, 0xbd, 0x33,
+ 				},
+-				[]byte{0x53, 0xea, 0x5d, 0xc0, 0x8c, 0xd2, 0x60, 0xfb,
++				[]byte{
++					0x53, 0xea, 0x5d, 0xc0, 0x8c, 0xd2, 0x60, 0xfb,
+ 					0x3b, 0x85, 0x85, 0x67, 0x28, 0x7f, 0xa9, 0x15, 0x52,
+ 					0xc3, 0x0b, 0x2f, 0xeb, 0xfb, 0xa2, 0x13, 0xf0, 0xae,
+ 					0x87, 0x70, 0x2d, 0x06, 0x8d, 0x19, 0xba, 0xb0, 0x7f,
+diff --git a/src/crypto/x509/verify_test.go b/src/crypto/x509/verify_test.go
+index 210bd9bc43..780814d126 100644
+--- a/src/crypto/x509/verify_test.go
++++ b/src/crypto/x509/verify_test.go
+@@ -15,7 +15,6 @@ import (
+ 	"encoding/pem"
+ 	"errors"
+ 	"fmt"
+-	"internal/testenv"
+ 	"math/big"
+ 	"os/exec"
+ 	"reflect"
+@@ -25,6 +24,8 @@ import (
+ 	"strings"
+ 	"testing"
+ 	"time"
++
++	"internal/testenv"
+ )
+ 
+ type verifyTest struct {
+@@ -40,8 +41,6 @@ type verifyTest struct {
+ 
+ 	errorCallback  func(*testing.T, error)
+ 	expectedChains [][]string
+-
+-	boringSkip bool
+ }
+ 
+ var verifyTests = []verifyTest{
+@@ -148,7 +147,16 @@ var verifyTests = []verifyTest{
+ 		// The StartCom root is not trusted by Windows when the default
+ 		// ServerAuth EKU is requested.
+ 		systemSkip: true,
+-		boringSkip: true,
++		errorCallback: func(t *testing.T, err error) {
++			if boring.Enabled() {
++				if err == nil {
++					t.Fatal("expected an error to be returned in boring mode")
++				}
++				if !strings.Contains(err.Error(), "certificate signed by unknown authority") {
++					t.Fatalf("unexpected error returned: %s", err.Error())
++				}
++			}
++		},
+ 
+ 		expectedChains: [][]string{
+ 			{"dnssec-exp", "StartCom Class 1", "StartCom Certification Authority"},
+@@ -161,7 +169,16 @@ var verifyTests = []verifyTest{
+ 		roots:         []string{startComRoot},
+ 		currentTime:   1302726541,
+ 		keyUsages:     []ExtKeyUsage{ExtKeyUsageAny},
+-		boringSkip:    true,
++		errorCallback: func(t *testing.T, err error) {
++			if boring.Enabled() {
++				if err == nil {
++					t.Fatal("expected an error to be returned in boring mode")
++				}
++				if !strings.Contains(err.Error(), "certificate signed by unknown authority") {
++					t.Fatalf("unexpected error returned: %s", err.Error())
++				}
++			}
++		},
+ 
+ 		expectedChains: [][]string{
+ 			{"dnssec-exp", "StartCom Class 1", "StartCom Certification Authority"},
+@@ -174,7 +191,16 @@ var verifyTests = []verifyTest{
+ 		roots:         []string{startComRoot},
+ 		currentTime:   1302726541,
+ 		systemSkip:    true, // see dnssec-exp test
+-		boringSkip:    true,
++		errorCallback: func(t *testing.T, err error) {
++			if boring.Enabled() {
++				if err == nil {
++					t.Fatal("expected an error to be returned in boring mode")
++				}
++				if !strings.Contains(err.Error(), "certificate signed by unknown authority") {
++					t.Fatalf("unexpected error returned: %s", err.Error())
++				}
++			}
++		},
+ 
+ 		expectedChains: [][]string{
+ 			{"dnssec-exp", "StartCom Class 1", "StartCom Certification Authority"},
+@@ -236,7 +262,16 @@ var verifyTests = []verifyTest{
+ 		roots:         []string{globalSignRoot},
+ 		currentTime:   1382387896,
+ 		dnsName:       "secure.iddl.vt.edu",
+-		boringSkip:    true,
++		errorCallback: func(t *testing.T, err error) {
++			if boring.Enabled() {
++				if err == nil {
++					t.Fatal("expected an error to be returned in boring mode")
++				}
++				if !strings.Contains(err.Error(), "certificate signed by unknown authority") {
++					t.Fatalf("unexpected error returned: %s", err.Error())
++				}
++			}
++		},
+ 
+ 		expectedChains: [][]string{
+ 			{
+@@ -566,8 +601,8 @@ func TestGoVerify(t *testing.T) {
+ 
+ 	for _, test := range verifyTests {
+ 		t.Run(test.name, func(t *testing.T) {
+-			if test.boringSkip && boring.Enabled() {
+-				t.Skip("skipping test with BoringCrypto")
++			if boring.Enabled() && test.errorCallback != nil {
++				test.expectedChains = nil
+ 			}
+ 			testVerify(t, test, false)
+ 		})
+@@ -1595,6 +1630,7 @@ jP5cBaVl50t4qoCuVIE9cOucnxYXnI7X5HpXWvu8Pfxo4SwVjb1az8Fk5s8ZnxGe
+ fPB6Q3L/pKBe0SEe5GywpwtokPLB3lAygcuHbxp/1FlQ1NQZqq+vgXRIla26bNJf
+ IuYkJwt6w+LH/9HZgf8=
+ -----END CERTIFICATE-----`
++
+ const selfSignedNoCommonNameWithOrgName = `-----BEGIN CERTIFICATE-----
+ MIIC+zCCAeOgAwIBAgIBADANBgkqhkiG9w0BAQsFADAaMQswCQYDVQQKEwJjYTEL
+ MAkGA1UEAxMCY2EwHhcNMTYwODI4MTgxMzQ4WhcNMjEwODI3MTgxMzQ4WjANMQsw
+@@ -1613,6 +1649,7 @@ rD8cNkHf74v98KvBhcwBlDifVzmkWzMG6TL1EkRXUyLKiWgoTUFSkCDV927oXXMR
+ DKnszq+AVw+K8hbeV2A7GqT7YfeqOAvSbatTDnDtKOPmlCnQui8A149VgZzXv7eU
+ 29ssJSqjUPyp58dlV6ZuynxPho1QVZUOQgnJToXIQ3/5vIvJRXy52GJCs4/Gh/w=
+ -----END CERTIFICATE-----`
++
+ const selfSignedNoCommonNameNoOrgName = `-----BEGIN CERTIFICATE-----
+ MIIC7jCCAdagAwIBAgIBADANBgkqhkiG9w0BAQsFADAaMQswCQYDVQQKEwJjYTEL
+ MAkGA1UEAxMCY2EwHhcNMTYwODI4MTgxOTQ1WhcNMjEwODI3MTgxOTQ1WjAAMIIB
+@@ -1872,7 +1909,7 @@ func TestSystemRootsError(t *testing.T) {
+ }
+ 
+ func TestSystemRootsErrorUnwrap(t *testing.T) {
+-	var err1 = errors.New("err1")
++	err1 := errors.New("err1")
+ 	err := SystemRootsError{Err: err1}
+ 	if !errors.Is(err, err1) {
+ 		t.Error("errors.Is failed, wanted success")
+@@ -2628,21 +2665,21 @@ func TestEKUEnforcement(t *testing.T) {
+ 		{
+ 			name:       "valid, full chain",
+ 			root:       ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}},
+-			inters:     []ekuDescs{ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}}},
++			inters:     []ekuDescs{{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}}},
+ 			leaf:       ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}},
+ 			verifyEKUs: []ExtKeyUsage{ExtKeyUsageServerAuth},
+ 		},
+ 		{
+ 			name:       "valid, only leaf has EKU",
+ 			root:       ekuDescs{},
+-			inters:     []ekuDescs{ekuDescs{}},
++			inters:     []ekuDescs{{}},
+ 			leaf:       ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}},
+ 			verifyEKUs: []ExtKeyUsage{ExtKeyUsageServerAuth},
+ 		},
+ 		{
+ 			name:       "invalid, serverAuth not nested",
+ 			root:       ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageClientAuth}},
+-			inters:     []ekuDescs{ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth, ExtKeyUsageClientAuth}}},
++			inters:     []ekuDescs{{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth, ExtKeyUsageClientAuth}}},
+ 			leaf:       ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth, ExtKeyUsageClientAuth}},
+ 			verifyEKUs: []ExtKeyUsage{ExtKeyUsageServerAuth},
+ 			err:        "x509: certificate specifies an incompatible key usage",
+@@ -2650,7 +2687,7 @@ func TestEKUEnforcement(t *testing.T) {
+ 		{
+ 			name:       "valid, two EKUs, one path",
+ 			root:       ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}},
+-			inters:     []ekuDescs{ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth, ExtKeyUsageClientAuth}}},
++			inters:     []ekuDescs{{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth, ExtKeyUsageClientAuth}}},
+ 			leaf:       ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth, ExtKeyUsageClientAuth}},
+ 			verifyEKUs: []ExtKeyUsage{ExtKeyUsageServerAuth, ExtKeyUsageClientAuth},
+ 		},
+@@ -2658,10 +2695,10 @@ func TestEKUEnforcement(t *testing.T) {
+ 			name: "invalid, ladder",
+ 			root: ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}},
+ 			inters: []ekuDescs{
+-				ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth, ExtKeyUsageClientAuth}},
+-				ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageClientAuth}},
+-				ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth, ExtKeyUsageClientAuth}},
+-				ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}},
++				{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth, ExtKeyUsageClientAuth}},
++				{EKUs: []ExtKeyUsage{ExtKeyUsageClientAuth}},
++				{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth, ExtKeyUsageClientAuth}},
++				{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}},
+ 			},
+ 			leaf:       ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}},
+ 			verifyEKUs: []ExtKeyUsage{ExtKeyUsageServerAuth, ExtKeyUsageClientAuth},
+@@ -2670,14 +2707,14 @@ func TestEKUEnforcement(t *testing.T) {
+ 		{
+ 			name:       "valid, intermediate has no EKU",
+ 			root:       ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}},
+-			inters:     []ekuDescs{ekuDescs{}},
++			inters:     []ekuDescs{{}},
+ 			leaf:       ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}},
+ 			verifyEKUs: []ExtKeyUsage{ExtKeyUsageServerAuth},
+ 		},
+ 		{
+ 			name:       "invalid, intermediate has no EKU and no nested path",
+ 			root:       ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageClientAuth}},
+-			inters:     []ekuDescs{ekuDescs{}},
++			inters:     []ekuDescs{{}},
+ 			leaf:       ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}},
+ 			verifyEKUs: []ExtKeyUsage{ExtKeyUsageServerAuth, ExtKeyUsageClientAuth},
+ 			err:        "x509: certificate specifies an incompatible key usage",
+@@ -2685,7 +2722,7 @@ func TestEKUEnforcement(t *testing.T) {
+ 		{
+ 			name:       "invalid, intermediate has unknown EKU",
+ 			root:       ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}},
+-			inters:     []ekuDescs{ekuDescs{Unknown: []asn1.ObjectIdentifier{{1, 2, 3}}}},
++			inters:     []ekuDescs{{Unknown: []asn1.ObjectIdentifier{{1, 2, 3}}}},
+ 			leaf:       ekuDescs{EKUs: []ExtKeyUsage{ExtKeyUsageServerAuth}},
+ 			verifyEKUs: []ExtKeyUsage{ExtKeyUsageServerAuth},
+ 			err:        "x509: certificate specifies an incompatible key usage",
+@@ -2800,7 +2837,6 @@ func TestVerifyEKURootAsLeaf(t *testing.T) {
+ 			}
+ 		})
+ 	}
+-
+ }
+ 
+ func TestVerifyNilPubKey(t *testing.T) {
+diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
+index d160dccd43..284995adf6 100644
+--- a/src/crypto/rsa/rsa_test.go
++++ b/src/crypto/rsa/rsa_test.go
+@@ -104,6 +104,11 @@ func TestNPrimeKeyGeneration(t *testing.T) {
+ 		if err == nil {
+ 			testKeyBasics(t, priv)
+ 		} else {
++			if boring.Enabled() {
++				if strings.Contains(err.Error(), "invalid primes or bits for boring") {
++					continue
++				}
++			}
+ 			t.Errorf("failed to generate %d-prime key", n)
+ 		}
+ 	}
+diff --git a/src/crypto/x509/verify_test.go b/src/crypto/x509/verify_test.go
+index 780814d126..b16184f32a 100644
+--- a/src/crypto/x509/verify_test.go
++++ b/src/crypto/x509/verify_test.go
+@@ -9,6 +9,7 @@ import (
+ 	"crypto/ecdsa"
+ 	"crypto/elliptic"
+ 	boring "crypto/internal/backend"
++	"crypto/internal/backend/boringtest"
+ 	"crypto/rand"
+ 	"crypto/x509/pkix"
+ 	"encoding/asn1"
+@@ -170,7 +171,7 @@ var verifyTests = []verifyTest{
+ 		currentTime:   1302726541,
+ 		keyUsages:     []ExtKeyUsage{ExtKeyUsageAny},
+ 		errorCallback: func(t *testing.T, err error) {
+-			if boring.Enabled() {
++			if boring.Enabled() && !boringtest.Supports(t, "SHA1") {
+ 				if err == nil {
+ 					t.Fatal("expected an error to be returned in boring mode")
+ 				}
+diff --git a/src/crypto/rsa/pkcs1v15_test.go b/src/crypto/rsa/pkcs1v15_test.go
+index a03aa1cb62..8af84825a2 100644
+--- a/src/crypto/rsa/pkcs1v15_test.go
++++ b/src/crypto/rsa/pkcs1v15_test.go
+@@ -255,7 +255,7 @@ func TestVerifyPKCS1v15(t *testing.T) {
+ func TestOverlongMessagePKCS1v15(t *testing.T) {
+ 	ciphertext := decodeBase64("fjOVdirUzFoLlukv80dBllMLjXythIf22feqPrNo0YoIjzyzyoMFiLjAc/Y4krkeZ11XFThIrEvw\nkRiZcCq5ng==")
+ 	_, err := DecryptPKCS1v15(nil, rsaPrivateKey, ciphertext)
+-	if err == nil {
++	if err == nil && !boringtest.Supports(t, "PKCSv1.5") {
+ 		t.Error("RSA decrypted a message that was too long.")
+ 	}
+ }
+diff --git a/src/crypto/rsa/pss_test.go b/src/crypto/rsa/pss_test.go
+index 3e24cd2b1d..c7efa8cea1 100644
+--- a/src/crypto/rsa/pss_test.go
++++ b/src/crypto/rsa/pss_test.go
+@@ -195,7 +195,7 @@ func TestPSSOpenSSL(t *testing.T) {
+ 		if !boring.Enabled() {
+ 			t.Error(err)
+ 		}
+-	} else if boring.Enabled() {
++	} else if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
+ 		t.Error("expected error but received none")
+ 	}
+ }
+@@ -211,7 +211,7 @@ func TestPSSNilOpts(t *testing.T) {
+ }
+ 
+ func TestPSSSigning(t *testing.T) {
+-	var saltLengthCombinations = []struct {
++	saltLengthCombinations := []struct {
+ 		signSaltLength, verifySaltLength int
+ 		good                             bool
+ 	}{
+diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
+index 284995adf6..4f7d8a0a71 100644
+--- a/src/crypto/rsa/rsa_test.go
++++ b/src/crypto/rsa/rsa_test.go
+@@ -332,6 +332,8 @@ func testEverything(t *testing.T, priv *PrivateKey) {
+ 	} else if err != nil {
+ 		if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") ||
+ 			strings.Contains(err.Error(), "EVP_PKEY_encrypt_init failed") ||
++			strings.Contains(err.Error(), "data too large for key size") ||
++			strings.Contains(err.Error(), "EVP_PKEY_sign failed") ||
+ 			strings.Contains(err.Error(), "EVP_PKEY_sign_init failed") {
+ 			t.Log("invalid key length in FIPS mode, ignoring...")
+ 		} else {
+@@ -363,6 +365,8 @@ func testEverything(t *testing.T, priv *PrivateKey) {
+ 		t.Log("key too small for SignPSS with PSSSaltLengthEqualsHash")
+ 	} else if err != nil {
+ 		if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") ||
++			strings.Contains(err.Error(), "data too large for key size") ||
++			strings.Contains(err.Error(), "EVP_PKEY_sign failed") ||
+ 			strings.Contains(err.Error(), "EVP_PKEY_sign_init failed") {
+ 			t.Log("invalid key length in FIPS mode, ignoring...")
+ 		} else {
+diff --git a/src/crypto/x509/verify_test.go b/src/crypto/x509/verify_test.go
+index b16184f32a..578d114f63 100644
+--- a/src/crypto/x509/verify_test.go
++++ b/src/crypto/x509/verify_test.go
+@@ -147,17 +147,8 @@ var verifyTests = []verifyTest{
+ 
+ 		// The StartCom root is not trusted by Windows when the default
+ 		// ServerAuth EKU is requested.
+-		systemSkip: true,
+-		errorCallback: func(t *testing.T, err error) {
+-			if boring.Enabled() {
+-				if err == nil {
+-					t.Fatal("expected an error to be returned in boring mode")
+-				}
+-				if !strings.Contains(err.Error(), "certificate signed by unknown authority") {
+-					t.Fatalf("unexpected error returned: %s", err.Error())
+-				}
+-			}
+-		},
++		systemSkip:    true,
++		errorCallback: expectBoringError,
+ 
+ 		expectedChains: [][]string{
+ 			{"dnssec-exp", "StartCom Class 1", "StartCom Certification Authority"},
+@@ -170,16 +161,7 @@ var verifyTests = []verifyTest{
+ 		roots:         []string{startComRoot},
+ 		currentTime:   1302726541,
+ 		keyUsages:     []ExtKeyUsage{ExtKeyUsageAny},
+-		errorCallback: func(t *testing.T, err error) {
+-			if boring.Enabled() && !boringtest.Supports(t, "SHA1") {
+-				if err == nil {
+-					t.Fatal("expected an error to be returned in boring mode")
+-				}
+-				if !strings.Contains(err.Error(), "certificate signed by unknown authority") {
+-					t.Fatalf("unexpected error returned: %s", err.Error())
+-				}
+-			}
+-		},
++		errorCallback: expectBoringError,
+ 
+ 		expectedChains: [][]string{
+ 			{"dnssec-exp", "StartCom Class 1", "StartCom Certification Authority"},
+@@ -192,16 +174,7 @@ var verifyTests = []verifyTest{
+ 		roots:         []string{startComRoot},
+ 		currentTime:   1302726541,
+ 		systemSkip:    true, // see dnssec-exp test
+-		errorCallback: func(t *testing.T, err error) {
+-			if boring.Enabled() {
+-				if err == nil {
+-					t.Fatal("expected an error to be returned in boring mode")
+-				}
+-				if !strings.Contains(err.Error(), "certificate signed by unknown authority") {
+-					t.Fatalf("unexpected error returned: %s", err.Error())
+-				}
+-			}
+-		},
++		errorCallback: expectBoringError,
+ 
+ 		expectedChains: [][]string{
+ 			{"dnssec-exp", "StartCom Class 1", "StartCom Certification Authority"},
+@@ -263,16 +236,7 @@ var verifyTests = []verifyTest{
+ 		roots:         []string{globalSignRoot},
+ 		currentTime:   1382387896,
+ 		dnsName:       "secure.iddl.vt.edu",
+-		errorCallback: func(t *testing.T, err error) {
+-			if boring.Enabled() {
+-				if err == nil {
+-					t.Fatal("expected an error to be returned in boring mode")
+-				}
+-				if !strings.Contains(err.Error(), "certificate signed by unknown authority") {
+-					t.Fatalf("unexpected error returned: %s", err.Error())
+-				}
+-			}
+-		},
++		errorCallback: expectBoringError,
+ 
+ 		expectedChains: [][]string{
+ 			{
+@@ -428,6 +392,17 @@ var verifyTests = []verifyTest{
+ 	},
+ }
+ 
++func expectBoringError(t *testing.T, err error) {
++	if boring.Enabled() && !boringtest.Supports(t, "SHA1") {
++		if err == nil {
++			t.Fatal("expected an error to be returned in boring mode")
++		}
++		if !strings.Contains(err.Error(), "certificate signed by unknown authority") {
++			t.Fatalf("unexpected error returned: %s", err.Error())
++		}
++	}
++}
++
+ func expectHostnameError(msg string) func(*testing.T, error) {
+ 	return func(t *testing.T, err error) {
+ 		if _, ok := err.(HostnameError); !ok {
+@@ -602,7 +578,7 @@ func TestGoVerify(t *testing.T) {
+ 
+ 	for _, test := range verifyTests {
+ 		t.Run(test.name, func(t *testing.T) {
+-			if boring.Enabled() && test.errorCallback != nil {
++			if boring.Enabled() && !boringtest.Supports(t, "SHA1") && test.errorCallback != nil {
+ 				test.expectedChains = nil
+ 			}
+ 			testVerify(t, test, false)
+diff --git a/src/crypto/hmac/hmac_test.go b/src/crypto/hmac/hmac_test.go
+index e412a29269..015f47fda0 100644
+--- a/src/crypto/hmac/hmac_test.go
++++ b/src/crypto/hmac/hmac_test.go
+@@ -6,6 +6,7 @@ package hmac
+ 
+ import (
+ 	"bytes"
+ 	boring "crypto/internal/backend"
++	"crypto/internal/backend/boringtest"
+ 	"crypto/md5"
+ 	"crypto/sha1"
+@@ -549,17 +550,21 @@ var hmacTests = []hmacTest{
+ }
+ 
+ func TestHMAC(t *testing.T) {
+-	for i, tt := range hmacTests {
+-		if boring.Enabled() && tt.size == sha1.New().Size() {
+-			defer func() {
+-				r := recover()
+-				if s, ok := r.(string); ok {
++	var hsh hash.Hash
++	if boring.Enabled() {
++		defer func() {
++			r := recover()
++			if s, ok := r.(string); ok {
++				if (hsh == sha1.New() && !boringtest.Supports(t, "SHA1")) || hsh == md5.New() {
+ 					if !strings.Contains(s, "unrecognized hmac in FIPS mode") {
+ 						panic(s)
+ 					}
+ 				}
+-			}()
+-		}
++			}
++		}()
++	}
++	for i, tt := range hmacTests {
++		hsh = tt.hash()
+ 		h := New(tt.hash, tt.key)
+ 		if s := h.Size(); s != tt.size {
+ 			t.Errorf("Size: got %v, want %v", s, tt.size)
+@@ -587,7 +592,7 @@ func TestHMAC(t *testing.T) {
+ 
+ 			// Third and fourth iteration: make sure hmac works on
+ 			// hashes without MarshalBinary/UnmarshalBinary
+-			if j == 1 {
++			if j == 1 && !boring.Enabled() { // Skip in boring mode as the hash is obscured and won't be recognized.
+ 				h = New(func() hash.Hash { return justHash{tt.hash()} }, tt.key)
+ 			}
+ 		}
+diff --git a/src/crypto/rsa/pkcs1v15_test.go b/src/crypto/rsa/pkcs1v15_test.go
+index 8af84825a2..840ddfd604 100644
+--- a/src/crypto/rsa/pkcs1v15_test.go
++++ b/src/crypto/rsa/pkcs1v15_test.go
+@@ -97,7 +97,7 @@ func TestEncryptPKCS1v15(t *testing.T) {
+ 
+ 		ciphertext, err := EncryptPKCS1v15(random, &rsaPrivateKey.PublicKey, in)
+ 		if err != nil {
+-			if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") {
++			if boring.Enabled() && !boringtest.Supports(t, "PKCSv1.5") && rsaPrivateKey.Size() < 256 {
+ 				if strings.Contains(err.Error(), "invalid key length") {
+ 					return false
+ 				}
+diff --git a/src/crypto/rsa/pss_test.go b/src/crypto/rsa/pss_test.go
+index c7efa8cea1..feae2663f6 100644
+--- a/src/crypto/rsa/pss_test.go
++++ b/src/crypto/rsa/pss_test.go
+@@ -236,7 +236,7 @@ func TestPSSSigning(t *testing.T) {
+ 		opts.SaltLength = test.signSaltLength
+ 		sig, err := SignPSS(rand.Reader, rsaPrivateKey, hash, hashed, &opts)
+ 		if err != nil {
+-			if boring.Enabled() && !boringtest.Supports(t, "SHA1") {
++			if boring.Enabled() && hash == crypto.SHA1 && !boringtest.Supports(t, "SHA1") {
+ 				if strings.Contains(err.Error(), "invalid key length") {
+ 					continue
+ 				}
+diff --git a/src/crypto/rsa/pss_test.go b/src/crypto/rsa/pss_test.go
+index 90cc22ab98..8c5a8814a1 100644
+--- a/src/crypto/rsa/pss_test.go
++++ b/src/crypto/rsa/pss_test.go
+@@ -236,10 +236,8 @@ func TestPSSSigning(t *testing.T) {
+ 		opts.SaltLength = test.signSaltLength
+ 		sig, err := SignPSS(rand.Reader, rsaPrivateKey, hash, hashed, &opts)
+ 		if err != nil {
+-			if boring.Enabled() && hash == crypto.SHA1 && !boringtest.Supports(t, "SHA1") {
+-				if strings.Contains(err.Error(), "invalid key length") {
+-					continue
+-				}
++			if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") {
++				continue
+ 			}
+ 
+ 			t.Errorf("#%d: error while signing: %s", i, err)
+diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
+index 48d3b0c6e6..0a6b636800 100644
+--- a/src/crypto/rsa/rsa_test.go
++++ b/src/crypto/rsa/rsa_test.go
+@@ -250,7 +250,7 @@ func testEverything(t *testing.T, priv *PrivateKey) {
+ 	if err == ErrMessageTooLong {
+ 		t.Log("key too small for EncryptPKCS1v15")
+ 	} else if err != nil {
+-		if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") || strings.Contains(err.Error(), "EVP_PKEY_encrypt_init failed") {
++		if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") || strings.Contains(err.Error(), "EVP_PKEY_encrypt_init failed") || strings.Contains(err.Error(), "EVP_PKEY_operation_init failed") {
+ 			t.Log("invalid key length in FIPS mode, ignoring...")
+ 		} else {
+ 			t.Errorf("EncryptPKCS1v15: %v", err)
+@@ -331,6 +331,7 @@ func testEverything(t *testing.T, priv *PrivateKey) {
+ 			strings.Contains(err.Error(), "EVP_PKEY_encrypt_init failed") ||
+ 			strings.Contains(err.Error(), "data too large for key size") ||
+ 			strings.Contains(err.Error(), "EVP_PKEY_sign failed") ||
++			strings.Contains(err.Error(), "RSA_sign_pss_mgf1 failed") ||
+ 			strings.Contains(err.Error(), "EVP_PKEY_sign_init failed") {
+ 			t.Log("invalid key length in FIPS mode, ignoring...")
+ 		} else {
+@@ -364,6 +365,7 @@ func testEverything(t *testing.T, priv *PrivateKey) {
+ 		if boring.Enabled() && strings.Contains(err.Error(), "invalid key length") ||
+ 			strings.Contains(err.Error(), "data too large for key size") ||
+ 			strings.Contains(err.Error(), "EVP_PKEY_sign failed") ||
++			strings.Contains(err.Error(), "RSA_sign_pss_mgf1 failed") ||
+ 			strings.Contains(err.Error(), "EVP_PKEY_sign_init failed") {
+ 			t.Log("invalid key length in FIPS mode, ignoring...")
+ 		} else {
+diff --git a/src/vendor/github.com/golang-fips/openssl/openssl/rsa.go b/src/vendor/github.com/golang-fips/openssl/openssl/rsa.go
+index 7870b934b5..b492b8df36 100644
+--- a/src/vendor/github.com/golang-fips/openssl/openssl/rsa.go
++++ b/src/vendor/github.com/golang-fips/openssl/openssl/rsa.go
+@@ -293,7 +293,7 @@ func SignRSAPSS(priv *PrivateKeyRSA, h crypto.Hash, hashed []byte, saltLen int)
+ 		return C._goboringcrypto_RSA_sign_pss_mgf1(key, &outLen, base(out), C.uint(len(out)),
+ 			base(hashed), C.uint(len(hashed)), md, nil, C.int(saltLen))
+ 	}) == 0 {
+-		return nil, fail("RSA_sign_pss_mgf1")
++		return nil, NewOpenSSLError("RSA_sign_pss_mgf1 failed")
+ 	}
+ 
+ 	return out[:outLen], nil
