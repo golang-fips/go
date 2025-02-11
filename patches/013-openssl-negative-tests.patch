@@ -853,3 +853,36 @@ index 90cc22ab98..8c5a8814a1 100644
  			}
  
  			t.Errorf("#%d: error while signing: %s", i, err)
+diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
+index c8fc19a846..a0f455bd29 100644
+--- a/src/crypto/rsa/rsa_test.go
++++ b/src/crypto/rsa/rsa_test.go
+@@ -12,12 +12,13 @@ import (
+ 	"crypto/sha256"
+ 	"fmt"
+ 	"math/big"
++	"strings"
+ 	"testing"
++
++	boring "crypto/internal/backend"
++	"crypto/internal/backend/boringtest"
+ )
+ 
+-import boring "crypto/internal/backend"
+-import "crypto/internal/backend/boringtest"
+-
+ func TestKeyGeneration(t *testing.T) {
+ 	testKeys := []int{128, 1024}
+ 	if boring.Enabled() {
+diff --git a/src/crypto/x509/verify_test.go b/src/crypto/x509/verify_test.go
+index 0de0fb373b..804c4b7edd 100644
+--- a/src/crypto/x509/verify_test.go
++++ b/src/crypto/x509/verify_test.go
+@@ -8,6 +8,7 @@ import (
+ 	"crypto"
+ 	"crypto/ecdsa"
+ 	"crypto/elliptic"
++	boring "crypto/internal/backend"
+ 	"crypto/internal/backend/boringtest"
+ 	"crypto/rand"
+ 	"crypto/x509/pkix"
