@@ -136,7 +136,7 @@ index beb20ad14a..7a7c434b85 100644
  		serverConfig.RootCAs.AddCert(issuer)
  		serverConfig.ClientCAs = serverConfig.RootCAs
 -		serverConfig.Time = func() time.Time { return time.Unix(1476984729, 0) }
-+		serverConfig.Time = testTime,
++		serverConfig.Time = testTime
  		serverConfig.MaxVersion = version
  
  		clientConfig := testConfig.Clone()
