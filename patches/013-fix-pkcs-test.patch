@@ -1,0 +1,37 @@
+diff --git a/src/crypto/rsa/pkcs1v15_test.go b/src/crypto/rsa/pkcs1v15_test.go
+index c164ec5706..42b479aa50 100644
+--- a/src/crypto/rsa/pkcs1v15_test.go
++++ b/src/crypto/rsa/pkcs1v15_test.go
+@@ -16,6 +16,7 @@ import (
+ 	"encoding/hex"
+ 	"io"
+ 	"math/big"
++	"strings"
+ 	"testing"
+ 	"testing/quick"
+ )
+@@ -268,6 +269,12 @@ func TestUnpaddedSignature(t *testing.T) {
+ 
+ 	sig, err := SignPKCS1v15(nil, boringRsaPrivateKey, crypto.Hash(0), msg)
+ 	if err != nil {
++		if boring.Enabled() {
++			if !strings.Contains(err.Error(), "operation not supported for this keytype") {
++				t.Fatal("unexpected error message in FIPS mode:", err)
++			}
++			t.Skip("skipping test in FIPS mode with expected error:", err)
++		}
+ 		t.Fatalf("SignPKCS1v15 failed: %s", err)
+ 	}
+ 	if !bytes.Equal(sig, expectedSig) {
+@@ -325,10 +332,9 @@ var rsaPrivateKey = &PrivateKey{
+ 	},
+ }
+ 
+-
+ // This key is generated with the following command:
+ //
+-//   openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out key.pem
++//	openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:2048 -out key.pem
+ //
+ // In order to generate new test vectors you'll need the PEM form of this key (and s/TESTING/PRIVATE/):
+ // -----BEGIN RSA TESTING KEY-----
