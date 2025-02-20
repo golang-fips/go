@@ -1,0 +1,12 @@
+diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
+index 0a6b636800..4b12ba37fc 100644
+--- a/src/crypto/rsa/rsa_test.go
++++ b/src/crypto/rsa/rsa_test.go
+@@ -227,7 +227,6 @@ func TestEverything(t *testing.T) {
+ 	for size := min; size <= max; size++ {
+ 		size := size
+ 		t.Run(fmt.Sprintf("%d", size), func(t *testing.T) {
+-			t.Parallel()
+ 			priv, err := GenerateKeyNotBoring(rand.Reader, size)
+ 			if err != nil {
+ 				t.Errorf("GenerateKey(%d): %v", size, err)
