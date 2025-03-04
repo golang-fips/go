@@ -9678,6 +9678,41 @@ index 0000000000..5de62f95a7
 +	}
 +	return nil
 +}
+diff --git a/src/vendor/golang.org/x/net/http/httpproxy/proxy.go b/src/vendor/golang.org/x/net/http/httpproxy/proxy.go
+index d89c257ae7..6404aaf157 100644
+--- a/src/vendor/golang.org/x/net/http/httpproxy/proxy.go
++++ b/src/vendor/golang.org/x/net/http/httpproxy/proxy.go
+@@ -14,7 +14,6 @@ import (
+ 	"errors"
+ 	"fmt"
+ 	"net"
+-	"net/netip"
+ 	"net/url"
+ 	"os"
+ 	"strings"
+@@ -178,10 +177,8 @@ func (cfg *config) useProxy(addr string) bool {
+ 	if host == "localhost" {
+ 		return false
+ 	}
+-	nip, err := netip.ParseAddr(host)
+-	var ip net.IP
+-	if err == nil {
+-		ip = net.IP(nip.AsSlice())
++	ip := net.ParseIP(host)
++	if ip != nil {
+ 		if ip.IsLoopback() {
+ 			return false
+ 		}
+@@ -363,9 +360,6 @@ type domainMatch struct {
+ }
+ 
+ func (m domainMatch) match(host, port string, ip net.IP) bool {
+-	if ip != nil {
+-		return false
+-	}
+ 	if strings.HasSuffix(host, m.host) || (m.matchHost && host == m.host[1:]) {
+ 		return m.port == "" || m.port == port
+ 	}
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
 index b8a0b84a28..7b4bce2e2d 100644
 --- a/src/vendor/modules.txt
