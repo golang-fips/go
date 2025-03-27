@@ -1,0 +1,29 @@
+From 1fbca68df1d0731c91fe6ffa205d7135da916143 Mon Sep 17 00:00:00 2001
+From: Archana Ravindar <aravinda@redhat.com>
+Date: Thu, 27 Mar 2025 18:54:55 +0530
+Subject: [PATCH 1/1] backport usleep fix
+
+---
+ src/runtime/sys_linux_s390x.s | 5 +++--
+ 1 file changed, 3 insertions(+), 2 deletions(-)
+
+diff --git a/src/runtime/sys_linux_s390x.s b/src/runtime/sys_linux_s390x.s
+index adf5612c3c..e1ae00ff83 100644
+--- a/src/runtime/sys_linux_s390x.s
++++ b/src/runtime/sys_linux_s390x.s
+@@ -112,9 +112,10 @@ TEXT runtime·usleep(SB),NOSPLIT,$16-4
+ 	MOVW	$1000000, R3
+ 	DIVD	R3, R2
+ 	MOVD	R2, 8(R15)
+-	MOVW	$1000, R3
+-	MULLD	R2, R3
++	MULLD	R2, R3	// convert sec to usec and subtract
+ 	SUB	R3, R4
++	MOVW	$1000, R3
++	MULLD	R3, R4	// convert remaining usec into nsec
+ 	MOVD	R4, 16(R15)
+ 
+ 	// nanosleep(&ts, 0)
+-- 
+2.47.1
+
