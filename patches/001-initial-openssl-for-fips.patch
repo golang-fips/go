@@ -3723,7 +3723,7 @@ index bd9df3ce9b..ce1e19bfd2 100644
  	} else {
  		testCurve = elliptic.P384()
 diff --git a/src/go.mod b/src/go.mod
-index 789f5aaa1d..07300ca590 100644
+index 96513ccfc9..fdda1666e3 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -3,6 +3,7 @@ module std
@@ -3732,10 +3732,10 @@ index 789f5aaa1d..07300ca590 100644
  require (
 +	github.com/golang-fips/openssl/v2 v2.0.3
  	golang.org/x/crypto v0.23.1-0.20240603234054-0b431c7de36a
- 	golang.org/x/net v0.25.1-0.20240603202750-6249541f2a6c
+ 	golang.org/x/net v0.25.1-0.20250304182835-b70a9e3eaa27
  )
 diff --git a/src/go.sum b/src/go.sum
-index a75ea98c73..1d169aaa84 100644
+index 7d2f0b01d5..3b53e3b089 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,3 +1,5 @@
@@ -3743,7 +3743,7 @@ index a75ea98c73..1d169aaa84 100644
 +github.com/golang-fips/openssl/v2 v2.0.3/go.mod h1:7tuBqX2Zov8Yq5mJ2yzlKhpnxOnWyEzi38AzeWRuQdg=
  golang.org/x/crypto v0.23.1-0.20240603234054-0b431c7de36a h1:37MIv+iGfwMYzWJECGyrPCtd5nuqcciRUeJfkNCkCf0=
  golang.org/x/crypto v0.23.1-0.20240603234054-0b431c7de36a/go.mod h1:CKFgDieR+mRhux2Lsu27y0fO304Db0wZe70UKqHu0v8=
- golang.org/x/net v0.25.1-0.20240603202750-6249541f2a6c h1:CR/7/SLUhIJw6g675eeoDiwggElO2MV9rGkNYjqi8GM=
+ golang.org/x/net v0.25.1-0.20250304182835-b70a9e3eaa27 h1:BLroQt2NWk69+mgdbJFxbd1Y6nc8r9UCc/iPQ0FgpNs=
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/.gitleaks.toml b/src/vendor/github.com/golang-fips/openssl/v2/.gitleaks.toml
 new file mode 100644
 index 0000000000..aed2e22df2
@@ -9678,43 +9678,8 @@ index 0000000000..5de62f95a7
 +	}
 +	return nil
 +}
-diff --git a/src/vendor/golang.org/x/net/http/httpproxy/proxy.go b/src/vendor/golang.org/x/net/http/httpproxy/proxy.go
-index d89c257ae7..6404aaf157 100644
---- a/src/vendor/golang.org/x/net/http/httpproxy/proxy.go
-+++ b/src/vendor/golang.org/x/net/http/httpproxy/proxy.go
-@@ -14,7 +14,6 @@ import (
- 	"errors"
- 	"fmt"
- 	"net"
--	"net/netip"
- 	"net/url"
- 	"os"
- 	"strings"
-@@ -178,10 +177,8 @@ func (cfg *config) useProxy(addr string) bool {
- 	if host == "localhost" {
- 		return false
- 	}
--	nip, err := netip.ParseAddr(host)
--	var ip net.IP
--	if err == nil {
--		ip = net.IP(nip.AsSlice())
-+	ip := net.ParseIP(host)
-+	if ip != nil {
- 		if ip.IsLoopback() {
- 			return false
- 		}
-@@ -363,9 +360,6 @@ type domainMatch struct {
- }
- 
- func (m domainMatch) match(host, port string, ip net.IP) bool {
--	if ip != nil {
--		return false
--	}
- 	if strings.HasSuffix(host, m.host) || (m.matchHost && host == m.host[1:]) {
- 		return m.port == "" || m.port == port
- 	}
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index b8a0b84a28..7b4bce2e2d 100644
+index 1c88c1299f..dce93f02ca 100644
 --- a/src/vendor/modules.txt
 +++ b/src/vendor/modules.txt
 @@ -1,3 +1,7 @@
