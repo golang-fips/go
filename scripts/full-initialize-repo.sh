@@ -17,7 +17,7 @@ if [[ -d "${GO_DIR}" ]]; then
   exit 1
 fi
 
-${SCRIPT_DIR}/setup-initial-patch.sh $@
+${SCRIPT_DIR}/setup-go-submodule.sh $@
 
 set -ex
 pushd ${GO_DIR}
