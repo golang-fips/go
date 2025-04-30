@@ -1,6 +1,6 @@
-commit 50196674e1e6c96caf9a611a957909dbf7200aa9
+commit 2134a7a6e0854a3bc997b5f1514ff926f597d247
 Author: Derek Parker <parkerderek86@gmail.com>
-Date:   Tue Apr 29 09:30:19 2025 -0700
+Date:   Wed Apr 30 11:51:39 2025 -0700
 
     fips.patch
 
@@ -4204,7 +4204,7 @@ index 95bb4becd2..7b01e0b8b6 100644
  		bN, bE, bD, bP, bQ, bDp, bDq, bQinv, err := boring.GenerateKeyRSA(bits)
  		if err != nil {
 diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
-index 73b0c3749e..1de873fa01 100644
+index 73b0c3749e..f6749c8463 100644
 --- a/src/crypto/rsa/rsa_test.go
 +++ b/src/crypto/rsa/rsa_test.go
 @@ -8,7 +8,7 @@ import (
@@ -4296,7 +4296,7 @@ index 73b0c3749e..1de873fa01 100644
  	msg := []byte("hi!")
  	enc, err := EncryptPKCS1v15(rand.Reader, &priv.PublicKey, msg)
  	if err != nil {
-+		if boring.Enabled() && strings.Contains(err.Error(), "illegal or unsupported padding mode") {
++		if boring.Enabled() && (strings.Contains(err.Error(), "illegal or unsupported padding mode") || strings.Contains(err.Error(), "invalid padding mode")) {
 +			// This error is expected in FIPS mode
 +			return
 +		}
@@ -4318,7 +4318,7 @@ index 73b0c3749e..1de873fa01 100644
  	if err == ErrMessageTooLong {
  		t.Log("key too small for EncryptPKCS1v15")
  	} else if err != nil {
-+		if boring.Enabled() && strings.Contains(err.Error(), "illegal or unsupported padding mode") {
++		if boring.Enabled() && (strings.Contains(err.Error(), "illegal or unsupported padding mode") || strings.Contains(err.Error(), "invalid padding mode")) {
 +			// OpenSSL 3 does not support this padding mode in FIPS
 +			return
 +		}
