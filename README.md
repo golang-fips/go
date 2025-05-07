@@ -1,6 +1,8 @@
 # Red Hat Go Toolchain
 
-This repository holds the Red Hat fork of the Go toolchain used in the Go Toolset CentOS / RHEL packages. This fork contains modifications enabling Go to call into OpenSSL for FIPS compliance.
+This repository holds the source code for the Red Hat fork of the Go toolchain used in the Go Toolset CentOS / RHEL packages. This fork contains modifications enabling Go to call into OpenSSL for FIPS compliance.
+
+**Disclaimer:** This repository itself is not an official Red Hat product.
 
 ## Background
 
