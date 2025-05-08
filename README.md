@@ -18,11 +18,11 @@ Before Go 1.24 there had never been an attempt to have the Go cryptographic libr
 
 ## Downstream Modifications
 
-This Go toolchain is based on a fork of the upstream work enabling Go to link against Boring Crypto. This fork uses OpenSSL instead of BoringSSL and adds enhancements to give operators more confidence when deploying their Go binaries in environments requiring strict security.
+This Go toolchain is based on a fork of the upstream work enabling Go to link against Boring Crypto. This fork uses OpenSSL instead of BoringSSL and adds enhancements to give operators more confidence when deploying their Go binaries in environments requiring strict compliance.
 
 ### OpenSSL
 
-The main difference between this fork and the upstream work is the FIPS certified library which is used to execute the cryptographic operations when FIPS mode is enabled. Our fork uses OpenSSL which is already FIPS certified on RHEL.
+The main difference between this fork and the upstream work is the FIPS validated library which is used to execute the cryptographic operations when FIPS mode is enabled. Our fork uses OpenSSL which is already FIPS validated on RHEL.
 
 ### Dynamic linkage
 
@@ -92,7 +92,7 @@ Typically the binary will only execute in FIPS mode and call into OpenSSL if the
 
 ### Strict FIPS runtime protection
 
-If you have chosen to compile your binary with the additional strict FIPS runtime checks, then at startup the process will look for conditions that are incompatible with correct operation in a FIPS environment. Specifically, during initialization, the process will check if the host is in FIPS mode or FIPS mode has been specifically requested at runtime. If either of those are true, but the process was unable to successfully find a compatible OpenSSL library with the proper FIPS module (or `-tags no_openssl` was used during compilation), the process will crash via panic. This gives operators increased confidence that the binaries they are running in their FIPS environments are built correctly and are not falling back to non-FIPS certified cryptography.
+If you have chosen to compile your binary with the additional strict FIPS runtime checks, then at startup the process will look for conditions that are incompatible with correct operation in a FIPS environment. Specifically, during initialization, the process will check if the host is in FIPS mode or FIPS mode has been specifically requested at runtime. If either of those are true, but the process was unable to successfully find a compatible OpenSSL library with the proper FIPS module (or `-tags no_openssl` was used during compilation), the process will crash via panic. This gives operators increased confidence that the binaries they are running in their FIPS environments are built correctly and are not falling back to non-FIPS validated cryptography.
 
 ## Validating a Compiled Binary
 
