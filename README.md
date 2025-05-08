@@ -104,7 +104,7 @@ Different versions of CentOS will have different versions of OpenSSL. Different 
 
 ## Migration to Upstream FIPS certified cryptography
 
-We intend to sunset our downstream OpenSSL based solution in favor of pure upstream Go cryptography once the upstream sources are FIPS certified. The maintainers of this repository are directly involved in the upstream effort for FIPS certification of the cryptographic packages in the Go standard library, and is committed to continuing this work and ensuring we deliver on our upstream first approach.
+We intend to sunset our downstream OpenSSL based solution in favor of pure upstream Go cryptography once the upstream sources are FIPS certified. The maintainers of this repository are directly involved in the upstream effort for FIPS certification of the cryptographic packages in the Go standard library, and are committed to continuing this work and ensuring we deliver on our upstream first approach.
 
 ## Further Reading
 
