@@ -1,6 +1,6 @@
-# Red Hat Go Toolchain
+# Go Toolchain
 
-This repository holds the source code for the Red Hat fork of the Go toolchain used in the Go Toolset CentOS / RHEL packages. This fork contains modifications enabling Go to call into OpenSSL for FIPS compliance.
+This repository holds the source code for the fork of the Go toolchain used in the Go Toolset CentOS / RHEL packages. This fork contains modifications enabling Go to call into OpenSSL for FIPS compliance.
 
 **Disclaimer:** This repository itself is not an official Red Hat product.
 
@@ -18,11 +18,11 @@ Before Go 1.24 there had never been an attempt to have the Go cryptographic libr
 
 ## Downstream Modifications
 
-The Red Hat Go toolchain is based on a fork of the upstream work enabling Go to link against Boring Crypto. This fork uses OpenSSL instead of BoringSSL and adds enhancements to give operators more confidence when deploying their Go binaries in environments requiring strict security.
+This Go toolchain is based on a fork of the upstream work enabling Go to link against Boring Crypto. This fork uses OpenSSL instead of BoringSSL and adds enhancements to give operators more confidence when deploying their Go binaries in environments requiring strict security.
 
 ### OpenSSL
 
-The main difference between the Red Hat fork and the upstream work is the FIPS certified library which is used to execute the cryptographic operations when FIPS mode is enabled. Our fork uses OpenSSL which is already FIPS certified on RHEL.
+The main difference between this fork and the upstream work is the FIPS certified library which is used to execute the cryptographic operations when FIPS mode is enabled. Our fork uses OpenSSL which is already FIPS certified on RHEL.
 
 ### Dynamic linkage
 
@@ -54,11 +54,11 @@ $ ./scripts/crypto-test.sh && cd ./go/src && ./all.bash
 
 ## Compiler Usage
 
-This section details the different flags and options you have available when compiling your source code using the Red Hat Go toolchain.
+This section details the different flags and options you have available when compiling your source code using the Go toolchain.
 
 ### Opting out of FIPS changes at compile time
 
-A user can always opt out of the downstream changes and FIPS enhancements when compiling their source code. To opt out of the downstream changes in the Red Hat Go Toolset related to using OpenSSL for cryptography, you can use the following compiler tag: `-tags no_openssl`.
+A user can always opt out of the downstream changes and FIPS enhancements when compiling their source code. To opt out of the downstream changes in the Go Toolset related to using OpenSSL for cryptography, you can use the following compiler tag: `-tags no_openssl`.
 
 Building your programs with this tag will completely bypass and compile out all of these changes. This means that instead of potentially calling into OpenSSL via dynamic linkage and CGO, your application will use the pure upstream standard library cryptography.
 
@@ -66,7 +66,7 @@ For example, you would use the command like this: `go build -tags no_openssl`.
 
 ### Enabling strict FIPS mode
 
-Red Hat Go toolchain includes a strict FIPS mode. This is a startup check whose purpose is to detect build or runtime configuration issues that might prevent the application from properly using the OpenSSL backend in a FIPS environment, and it will cause the application to crash via a panic if such issues are detected.
+This Go toolchain includes a strict FIPS mode. This is a startup check whose purpose is to detect build or runtime configuration issues that might prevent the application from properly using the OpenSSL backend in a FIPS environment, and it will cause the application to crash via a panic if such issues are detected.
 
 To enable this strict FIPS mode during compilation, you need to use a specific GOEXPERIMENT setting.
 
@@ -102,9 +102,9 @@ Aside from the strict FIPS runtime checks, another check to ensure that your bin
 
 Different versions of CentOS will have different versions of OpenSSL. Different versions of OpenSSL may differ with regards to accepted algorithms, etc… Please consider this during any testing or deployment.
 
-## Migration to Upstream FIPS certified cryptography on RHEL
+## Migration to Upstream FIPS certified cryptography
 
-Red Hat intends to sunset our downstream OpenSSL based solution in favor of pure upstream Go cryptography once the upstream sources are FIPS certified. Red Hat is directly involved in the upstream effort for FIPS certification of the cryptographic packages in the Go standard library, and is committed to continuing this work and ensuring we deliver on our upstream first approach.
+We intend to sunset our downstream OpenSSL based solution in favor of pure upstream Go cryptography once the upstream sources are FIPS certified. The maintainers of this repository are directly involved in the upstream effort for FIPS certification of the cryptographic packages in the Go standard library, and is committed to continuing this work and ensuring we deliver on our upstream first approach.
 
 ## Further Reading
 
