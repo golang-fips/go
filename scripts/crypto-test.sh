@@ -96,4 +96,9 @@ run_full_test_suite default ""
 export GOEXPERIMENT=strictfipsruntime
 run_full_test_suite strictfips "-tags=strictfipsruntime"
 
+# Run TLS Handshake tests to test ExpandHKDF
+notify_running "TLS Handshake", "(default)"
+GOLANG_FIPS=1 OPENSSL_FORCE_FIPS_MODE=1 \
+  $GO test -count=1 crypto/tls -run "TestTrafficKey" $VERBOSE
+
 echo ALL TESTS PASSED
