@@ -11964,3 +11964,24 @@ index 7ca8e34908..bf66a1cd19 100644
  # golang.org/x/crypto v0.30.0
  ## explicit; go 1.20
  golang.org/x/crypto/chacha20
+diff --git a/src/crypto/tls/internal/fips140tls/fipstls.go b/src/crypto/tls/internal/fips140tls/fipstls.go
+index 24d78d60cf..efd78bf17f 100644
+--- a/src/crypto/tls/internal/fips140tls/fipstls.go
++++ b/src/crypto/tls/internal/fips140tls/fipstls.go
+@@ -6,6 +6,7 @@
+ package fips140tls
+ 
+ import (
++	boring "crypto/internal/backend"
+ 	"crypto/internal/fips140"
+ 	"sync/atomic"
+ )
+@@ -13,7 +14,7 @@ import (
+ var required atomic.Bool
+ 
+ func init() {
+-	if fips140.Enabled {
++	if fips140.Enabled || boring.Enabled() {
+ 		Force()
+ 	}
+ }

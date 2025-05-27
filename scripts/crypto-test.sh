@@ -20,7 +20,7 @@ export GOCACHE=/tmp/go-cache
 export GO=${GOROOT}/bin/go
 
 # Test suites to run
-SUITES="crypto,tls"
+SUITES="crypto,tls,http"
 # Verbosity flags to pass to Go
 VERBOSE=""
 
@@ -65,6 +65,24 @@ run_crypto_test_suite () {
   quiet popd
 }
 
+run_http_test_suite () {
+  local mode=$1
+  local tags=$2
+  local suite="net-http-fips"
+  notify_running ${mode} ${suite}
+  quiet pushd ${GOROOT}/src/net/http
+  GOLANG_FIPS=1 OPENSSL_FORCE_FIPS_MODE=1 \
+    $GO test $tags -count=1 $VERBOSE
+
+  local suite="net-http-fips-parity-nocgo"
+  notify_running ${mode} ${suite}
+  quiet pushd ${GOROOT}/src/net/http
+  GOLANG_FIPS=1 OPENSSL_FORCE_FIPS_MODE=1 \
+    CGO_ENABLED=0 $GO test $tags -count=1 $VERBOSE
+
+  quiet popd
+}
+
 run_tls_test_suite () {
   local mode=$1
   local tags=$2
@@ -85,6 +103,8 @@ run_full_test_suite () {
       run_crypto_test_suite ${mode} ${tags}
     elif [[ "$suite" == "tls" ]]; then
       run_tls_test_suite ${mode} ${tags}
+    elif [[ "$suite" == "http" ]]; then
+      run_http_test_suite ${mode} ${tags}
     fi
   done
 }
