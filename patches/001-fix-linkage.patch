@@ -1,0 +1,15 @@
+diff --git a/src/cmd/dist/build.go b/src/cmd/dist/build.go
+index 32e59b446a..b55f29298b 100644
+--- a/src/cmd/dist/build.go
++++ b/src/cmd/dist/build.go
+@@ -1309,7 +1309,9 @@ func toolenv() []string {
+ 		// we disable cgo to get static binaries for cmd/go and cmd/pprof,
+ 		// so that they work on systems without the same dynamic libraries
+ 		// as the original build system.
+-		env = append(env, "CGO_ENABLED=0")
++		//
++		// Setting CGO_ENABLED to 0 prevents cmd/go and the like from linking with vendored openssl symbols.
++		// env = append(env, "CGO_ENABLED=0")
+ 	}
+ 	if isRelease || os.Getenv("GO_BUILDER_NAME") != "" {
+ 		// Add -trimpath for reproducible builds of releases.
