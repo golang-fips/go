@@ -30,4 +30,4 @@ jobs:
     uses: golang-fips/release/.github/workflows/test-ubi-centos.yml@main
     with:
       go_fips_ref: ${{ github.event.pull_request.head.sha }}
-      composes: "ubi8,ubi9,c8s,c9s"
+      composes: "ubi8,ubi9,ubi10,c9s,c10s"
