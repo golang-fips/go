@@ -1,6 +1,6 @@
-commit 863bf93194bdc16c72cd10eaf51cbcd3c3478dab
+commit 22fa3b0fa9c5f2351d1a64ef3a249b8001b23840
 Author: Derek Parker <parkerderek86@gmail.com>
-Date:   Wed Jun 11 18:22:59 2025 -0700
+Date:   Thu Jun 12 07:00:49 2025 -0700
 
     000-fips.patch
 
@@ -3708,6 +3708,28 @@ index f0ba665403..8c9b32e132 100644
  		f(t)
  		return
  	}
+diff --git a/src/crypto/internal/fips140test/fips_test.go b/src/crypto/internal/fips140test/fips_test.go
+index 08d60933ef..8ee6c612cf 100644
+--- a/src/crypto/internal/fips140test/fips_test.go
++++ b/src/crypto/internal/fips140test/fips_test.go
+@@ -15,7 +15,7 @@ package fipstest
+ 
+ import (
+ 	"bytes"
+-	"crypto/internal/boring"
++	boring "crypto/internal/backend"
+ 	"crypto/internal/fips140"
+ 	"crypto/internal/fips140/aes"
+ 	"crypto/internal/fips140/aes/gcm"
+@@ -92,7 +92,7 @@ func TestVersion(t *testing.T) {
+ 
+ func TestFIPS140(t *testing.T) {
+ 	moduleStatus(t)
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		t.Skip("Go+BoringCrypto shims prevent the service indicator from being set")
+ 	}
+ 
 diff --git a/src/crypto/internal/hpke/hpke_test.go b/src/crypto/internal/hpke/hpke_test.go
 index 395552476f..eb8fc98a5b 100644
 --- a/src/crypto/internal/hpke/hpke_test.go
