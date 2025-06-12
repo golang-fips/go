@@ -1,8 +1,8 @@
-commit c7d0ae0d473e861d138b54fe317fc8bbfc7f7ac1
+commit 863bf93194bdc16c72cd10eaf51cbcd3c3478dab
 Author: Derek Parker <parkerderek86@gmail.com>
-Date:   Wed Jun 11 15:01:31 2025 -0700
+Date:   Wed Jun 11 18:22:59 2025 -0700
 
-    fips
+    000-fips.patch
 
 diff --git a/src/cmd/api/boring_test.go b/src/cmd/api/boring_test.go
 index f0e3575637..a4139169b8 100644
@@ -3664,6 +3664,28 @@ index 70055af70b..9d9204ff45 100644
  		t.Skip("skipping allocations test with BoringCrypto")
  	}
  
+diff --git a/src/crypto/internal/cryptotest/hash.go b/src/crypto/internal/cryptotest/hash.go
+index f00e9c80d3..31c4ccea66 100644
+--- a/src/crypto/internal/cryptotest/hash.go
++++ b/src/crypto/internal/cryptotest/hash.go
+@@ -5,7 +5,7 @@
+ package cryptotest
+ 
+ import (
+-	"crypto/internal/boring"
++	boring "crypto/internal/backend"
+ 	"crypto/internal/fips140"
+ 	"hash"
+ 	"internal/testhash"
+@@ -20,7 +20,7 @@ type MakeHash func() hash.Hash
+ // TestHash performs a set of tests on hash.Hash implementations, checking the
+ // documented requirements of Write, Sum, Reset, Size, and BlockSize.
+ func TestHash(t *testing.T, mh MakeHash) {
+-	if boring.Enabled || fips140.Version() == "v1.0" {
++	if boring.Enabled() || fips140.Version() == "v1.0" {
+ 		testhash.TestHashWithoutClone(t, testhash.MakeHash(mh))
+ 		return
+ 	}
 diff --git a/src/crypto/internal/cryptotest/implementations.go b/src/crypto/internal/cryptotest/implementations.go
 index f0ba665403..8c9b32e132 100644
 --- a/src/crypto/internal/cryptotest/implementations.go
