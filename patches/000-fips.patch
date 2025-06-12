@@ -1,6 +1,6 @@
-commit 22fa3b0fa9c5f2351d1a64ef3a249b8001b23840
+commit 2c9b3ea6603530882e0bba7a83c2bb1f468b82a6
 Author: Derek Parker <parkerderek86@gmail.com>
-Date:   Thu Jun 12 07:00:49 2025 -0700
+Date:   Thu Jun 12 08:12:31 2025 -0700
 
     000-fips.patch
 
@@ -25,6 +25,18 @@ index f0e3575637..a4139169b8 100644
 +	fmt.Printf("SKIP with !no_openssl enabled\n")
  	os.Exit(0)
  }
+diff --git a/src/cmd/compile/internal/test/issue71943_test.go b/src/cmd/compile/internal/test/issue71943_test.go
+index a92b0a1e2b..630af9cd92 100644
+--- a/src/cmd/compile/internal/test/issue71943_test.go
++++ b/src/cmd/compile/internal/test/issue71943_test.go
+@@ -16,6 +16,7 @@ func Verify(token, salt string) [32]byte {
+ }
+ 
+ func TestIssue71943(t *testing.T) {
++	t.Skip("skip allocation test as our fork allocates on initialization")
+ 	testenv.SkipIfOptimizationOff(t)
+ 	if n := testing.AllocsPerRun(10, func() {
+ 		runtime.KeepAlive(Verify("teststring", "test"))
 diff --git a/src/cmd/go/testdata/script/gopath_std_vendor.txt b/src/cmd/go/testdata/script/gopath_std_vendor.txt
 index 4aaf46b5d0..c231e299d9 100644
 --- a/src/cmd/go/testdata/script/gopath_std_vendor.txt
@@ -65,6 +77,28 @@ index 22ea8819ed..d4fb20ab6d 100644
  		return boring.NewAESCipher(key)
  	}
  	return aes.New(key)
+diff --git a/src/crypto/aes/aes_test.go b/src/crypto/aes/aes_test.go
+index cfe75f4057..99bd49cf57 100644
+--- a/src/crypto/aes/aes_test.go
++++ b/src/crypto/aes/aes_test.go
+@@ -5,7 +5,7 @@
+ package aes
+ 
+ import (
+-	"crypto/internal/boring"
++	boring "crypto/internal/backend"
+ 	"crypto/internal/cryptotest"
+ 	"fmt"
+ 	"testing"
+@@ -112,7 +112,7 @@ func testAESBlock(t *testing.T) {
+ }
+ 
+ func TestExtraMethods(t *testing.T) {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		t.Skip("Go+BoringCrypto still uses the interface upgrades in crypto/cipher")
+ 	}
+ 	cryptotest.TestAllImplementations(t, "aes", func(t *testing.T) {
 diff --git a/src/crypto/boring/boring.go b/src/crypto/boring/boring.go
 index 097c37e343..47618fe3c6 100644
 --- a/src/crypto/boring/boring.go
@@ -151,7 +185,7 @@ index 3394246778..c5d59f85ef 100644
  	}
  
 diff --git a/src/crypto/cipher/gcm_test.go b/src/crypto/cipher/gcm_test.go
-index e574822c9a..43fbc6fc1a 100644
+index e574822c9a..2d30effec6 100644
 --- a/src/crypto/cipher/gcm_test.go
 +++ b/src/crypto/cipher/gcm_test.go
 @@ -8,7 +8,7 @@ import (
@@ -172,6 +206,15 @@ index e574822c9a..43fbc6fc1a 100644
  					t.Skip("NewGCMWithRandomNonce requires an AES block cipher")
  				}
  				cryptotest.TestAEAD(t, func() (cipher.AEAD, error) { return cipher.NewGCMWithRandomNonce(block) })
+@@ -752,7 +752,7 @@ func TestGCMExtraMethods(t *testing.T) {
+ 		})
+ 		t.Run("NewGCMWithRandomNonce", func(t *testing.T) {
+ 			block := newCipher(make([]byte, 16))
+-			if _, ok := block.(*wrapper); ok || boring.Enabled {
++			if _, ok := block.(*wrapper); ok || boring.Enabled() {
+ 				t.Skip("NewGCMWithRandomNonce requires an AES block cipher")
+ 			}
+ 			a, _ := cipher.NewGCMWithRandomNonce(block)
 diff --git a/src/crypto/ecdh/ecdh.go b/src/crypto/ecdh/ecdh.go
 index 231f1ea04c..cfa113e234 100644
 --- a/src/crypto/ecdh/ecdh.go
@@ -4247,7 +4290,7 @@ index 95bb4becd2..7b01e0b8b6 100644
  		bN, bE, bD, bP, bQ, bDp, bDq, bQinv, err := boring.GenerateKeyRSA(bits)
  		if err != nil {
 diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
-index 2f54deae68..d8bd189a56 100644
+index 2f54deae68..33b1e2d6eb 100644
 --- a/src/crypto/rsa/rsa_test.go
 +++ b/src/crypto/rsa/rsa_test.go
 @@ -8,7 +8,7 @@ import (
@@ -4409,6 +4452,15 @@ index 2f54deae68..d8bd189a56 100644
  		t.Skip("BoringCrypto mode returns the wrong error from SignPSS")
  	}
  	testEverything(t, k)
+@@ -1182,7 +1234,7 @@ ksuRAiEA7sRa5y32Hbtlmquc9VV0/nJpq1NKRmFunE1PJh4IAMECYH0Q1ZHJWkqv
+ cHPGX1uUDRAU1xxtpVQ0OqXyEgqwz6y6hYRw
+ -----END TESTING KEY-----`))
+ 
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		t.Skip("BoringCrypto mode returns the wrong error from SignPSS")
+ 	}
+ 	testEverything(t, k1)
 diff --git a/src/crypto/sha1/sha1.go b/src/crypto/sha1/sha1.go
 index 3acc5b11fb..cba61a804e 100644
 --- a/src/crypto/sha1/sha1.go
@@ -4622,6 +4674,46 @@ index 6fe6f34cd2..ddfea4f0fc 100644
  		if fips140tls.Required() && !slices.Contains(allowedSupportedVersionsFIPS, v) {
  			continue
  		}
+diff --git a/src/crypto/tls/fips140_test.go b/src/crypto/tls/fips140_test.go
+index d3fa61dc97..ab18b84922 100644
+--- a/src/crypto/tls/fips140_test.go
++++ b/src/crypto/tls/fips140_test.go
+@@ -7,7 +7,7 @@ package tls
+ import (
+ 	"crypto/ecdsa"
+ 	"crypto/elliptic"
+-	"crypto/internal/boring"
++	boring "crypto/internal/backend"
+ 	"crypto/rand"
+ 	"crypto/rsa"
+ 	"crypto/x509"
+@@ -114,7 +114,7 @@ func isFIPSCipherSuite(id uint16) bool {
+ 	case TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA256,
+ 		TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA256:
+ 		// Only for the native module.
+-		return !boring.Enabled
++		return !boring.Enabled()
+ 	}
+ 	switch {
+ 	case strings.Contains(name, "CHACHA20"):
+@@ -134,7 +134,7 @@ func isFIPSCurve(id CurveID) bool {
+ 		return true
+ 	case X25519MLKEM768:
+ 		// Only for the native module.
+-		return !boring.Enabled
++		return !boring.Enabled()
+ 	case X25519:
+ 		return false
+ 	default:
+@@ -165,7 +165,7 @@ func isFIPSSignatureScheme(alg SignatureScheme) bool {
+ 		return true
+ 	case Ed25519:
+ 		// Only for the native module.
+-		return !boring.Enabled
++		return !boring.Enabled()
+ 	case PKCS1WithSHA1, ECDSAWithSHA1:
+ 		return false
+ 	default:
 diff --git a/src/crypto/tls/handshake_client_tls13.go b/src/crypto/tls/handshake_client_tls13.go
 index 4f4966904f..8be6f5e737 100644
 --- a/src/crypto/tls/handshake_client_tls13.go
