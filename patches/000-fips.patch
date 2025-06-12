@@ -1,4 +1,4 @@
-commit 2c9b3ea6603530882e0bba7a83c2bb1f468b82a6
+commit 580e269628d86e403f30d7ece03a78e10289f1b9
 Author: Derek Parker <parkerderek86@gmail.com>
 Date:   Thu Jun 12 08:12:31 2025 -0700
 
@@ -100,9 +100,18 @@ index cfe75f4057..99bd49cf57 100644
  	}
  	cryptotest.TestAllImplementations(t, "aes", func(t *testing.T) {
 diff --git a/src/crypto/boring/boring.go b/src/crypto/boring/boring.go
-index 097c37e343..47618fe3c6 100644
+index 097c37e343..6000364c7e 100644
 --- a/src/crypto/boring/boring.go
 +++ b/src/crypto/boring/boring.go
+@@ -2,7 +2,7 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build boringcrypto
++//go:build !no_openssl
+ 
+ // Package boring exposes functions that are only available when building with
+ // Go+BoringCrypto. This package is available on all targets as long as the
 @@ -13,9 +13,9 @@
  // is satisfied, so that applications can tag files that use this package.
  package boring
@@ -4563,6 +4572,28 @@ index 069938a22d..ec5e84285a 100644
  		return boring.SHA224(data)
  	}
  	h := New224()
+diff --git a/src/crypto/sha256/sha256_test.go b/src/crypto/sha256/sha256_test.go
+index 11b24db7d6..bfbe8e6e63 100644
+--- a/src/crypto/sha256/sha256_test.go
++++ b/src/crypto/sha256/sha256_test.go
+@@ -8,6 +8,7 @@ package sha256
+ 
+ import (
+ 	"bytes"
++	boring "crypto/internal/backend"
+ 	"crypto/internal/cryptotest"
+ 	"encoding"
+ 	"fmt"
+@@ -401,6 +402,9 @@ func TestHash(t *testing.T) {
+ }
+ 
+ func TestExtraMethods(t *testing.T) {
++	if boring.Enabled() {
++		t.Skip("test not relevant in FIPS mode, explicitly testing Go API")
++	}
+ 	t.Run("SHA-224", func(t *testing.T) {
+ 		cryptotest.TestAllImplementations(t, "sha256", func(t *testing.T) {
+ 			h := maybeCloner(New224())
 diff --git a/src/crypto/sha512/sha512.go b/src/crypto/sha512/sha512.go
 index 1435eac1f5..a1f4da66c3 100644
 --- a/src/crypto/sha512/sha512.go
@@ -4612,6 +4643,28 @@ index 1435eac1f5..a1f4da66c3 100644
  		return boring.SHA384(data)
  	}
  	h := New384()
+diff --git a/src/crypto/sha512/sha512_test.go b/src/crypto/sha512/sha512_test.go
+index 080bf694f0..0ac614f7b9 100644
+--- a/src/crypto/sha512/sha512_test.go
++++ b/src/crypto/sha512/sha512_test.go
+@@ -8,6 +8,7 @@ package sha512
+ 
+ import (
+ 	"bytes"
++	boring "crypto/internal/backend"
+ 	"crypto/internal/cryptotest"
+ 	"encoding"
+ 	"encoding/hex"
+@@ -964,6 +965,9 @@ func TestHash(t *testing.T) {
+ }
+ 
+ func TestExtraMethods(t *testing.T) {
++	if boring.Enabled() {
++		t.Skip("test not relevant in FIPS mode, explicitly testing Go API")
++	}
+ 	t.Run("SHA-384", func(t *testing.T) {
+ 		cryptotest.TestAllImplementations(t, "sha512", func(t *testing.T) {
+ 			h := maybeCloner(New384())
 diff --git a/src/crypto/tls/cipher_suites.go b/src/crypto/tls/cipher_suites.go
 index 2a96fa6903..e0062d71b0 100644
 --- a/src/crypto/tls/cipher_suites.go
@@ -4870,7 +4923,7 @@ index d0328800bc..825eb9dad7 100644
  			continue
  		}
 diff --git a/src/crypto/x509/x509_test.go b/src/crypto/x509/x509_test.go
-index 98f3f7941c..37bb036cd0 100644
+index 98f3f7941c..7e1bf83679 100644
 --- a/src/crypto/x509/x509_test.go
 +++ b/src/crypto/x509/x509_test.go
 @@ -12,6 +12,7 @@ import (
@@ -5045,6 +5098,26 @@ index 98f3f7941c..37bb036cd0 100644
  	template := Certificate{
  		SerialNumber: big.NewInt(1),
  		Subject:      pkix.Name{CommonName: "Cert"},
+@@ -4217,6 +4280,9 @@ func (ms *messageSigner) SignMessage(rand io.Reader, msg []byte, opts crypto.Sig
+ }
+ 
+ func TestMessageSigner(t *testing.T) {
++	if boring.Enabled() {
++		t.Skip("test not relevant in FIPS mode")
++	}
+ 	template := Certificate{
+ 		SignatureAlgorithm:    SHA256WithRSA,
+ 		SerialNumber:          big.NewInt(1),
+@@ -4240,6 +4306,9 @@ func TestMessageSigner(t *testing.T) {
+ }
+ 
+ func TestCreateCertificateNegativeMaxPathLength(t *testing.T) {
++	if boring.Enabled() {
++		t.Skip("test not applicable in FIPS mode, it specifically is testing the Go API")
++	}
+ 	template := Certificate{
+ 		SerialNumber:          big.NewInt(1),
+ 		Subject:               pkix.Name{CommonName: "TEST"},
 diff --git a/src/go.mod b/src/go.mod
 index b81f19068a..98880542bd 100644
 --- a/src/go.mod
