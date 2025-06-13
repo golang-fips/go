@@ -1,4 +1,4 @@
-commit cae6825d5d258a0cf53a5dfd72a95e873422f650
+commit dfd0a49e6cc2828e101976b6e013d409d9e6cfc6
 Author: Derek Parker <parkerderek86@gmail.com>
 Date:   Fri Jun 13 13:03:31 2025 -0700
 
@@ -3716,22 +3716,6 @@ index 70055af70b..9d9204ff45 100644
  		t.Skip("skipping allocations test with BoringCrypto")
  	}
  
-diff --git a/src/crypto/internal/cryptotest/fetchmodule.go b/src/crypto/internal/cryptotest/fetchmodule.go
-index 37f2a09497..c0d0fa41c4 100644
---- a/src/crypto/internal/cryptotest/fetchmodule.go
-+++ b/src/crypto/internal/cryptotest/fetchmodule.go
-@@ -44,6 +44,11 @@ func FetchModule(t *testing.T, module, version string) string {
- 
- 	t.Logf("fetching %s@%s\n", module, version)
- 
-+	// Disable these during the test so that the following
-+	// `go mod download` command will not fail.
-+	t.Setenv("GOLANG_FIPS", "0")
-+	t.Setenv("OPENSSL_FORCE_FIPS_MODE", "0")
-+
- 	output, err := testenv.Command(t, goTool, "mod", "download", "-json", module+"@"+version).CombinedOutput()
- 	if err != nil {
- 		t.Fatalf("failed to download %s@%s: %s\n%s\n", module, version, err, output)
 diff --git a/src/crypto/internal/cryptotest/hash.go b/src/crypto/internal/cryptotest/hash.go
 index f00e9c80d3..31c4ccea66 100644
 --- a/src/crypto/internal/cryptotest/hash.go
@@ -4744,31 +4728,103 @@ index 6fe6f34cd2..ddfea4f0fc 100644
  			continue
  		}
 diff --git a/src/crypto/tls/defaults_boring.go b/src/crypto/tls/defaults_boring.go
-index e88f05cc50..29abacb445 100644
+index e88f05cc50..097aa50b5f 100644
 --- a/src/crypto/tls/defaults_boring.go
 +++ b/src/crypto/tls/defaults_boring.go
-@@ -2,7 +2,7 @@
+@@ -2,8 +2,6 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
  
 -//go:build boringcrypto
-+//go:build !no_openssl
- 
+-
  package tls
  
+ import (
+@@ -22,16 +20,16 @@ import (
+ // They are applied when crypto/tls/fipsonly is imported with GOEXPERIMENT=boringcrypto.
+ 
+ var (
+-	allowedSupportedVersionsFIPS = []uint16{
++	allowedSupportedVersionsBoring = []uint16{
+ 		VersionTLS12,
+ 		VersionTLS13,
+ 	}
+-	allowedCurvePreferencesFIPS = []CurveID{
++	allowedCurvePreferencesBoring = []CurveID{
+ 		CurveP256,
+ 		CurveP384,
+ 		CurveP521,
+ 	}
+-	allowedSignatureAlgorithmsFIPS = []SignatureScheme{
++	allowedSignatureAlgorithmsBoring = []SignatureScheme{
+ 		PSSWithSHA256,
+ 		PSSWithSHA384,
+ 		PSSWithSHA512,
+@@ -42,19 +40,19 @@ var (
+ 		PKCS1WithSHA512,
+ 		ECDSAWithP521AndSHA512,
+ 	}
+-	allowedCipherSuitesFIPS = []uint16{
++	allowedCipherSuitesBoring = []uint16{
+ 		TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256,
+ 		TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+ 		TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256,
+ 		TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384,
+ 	}
+-	allowedCipherSuitesTLS13FIPS = []uint16{
++	allowedCipherSuitesTLS13Boring = []uint16{
+ 		TLS_AES_128_GCM_SHA256,
+ 		TLS_AES_256_GCM_SHA384,
+ 	}
+ )
+ 
+-func isCertificateAllowedFIPS(c *x509.Certificate) bool {
++func isCertificateAllowedBoring(c *x509.Certificate) bool {
+ 	// The key must be RSA 2048, RSA 3072, RSA 4096,
+ 	// or ECDSA P-256, P-384, P-521.
+ 	switch k := c.PublicKey.(type) {
 diff --git a/src/crypto/tls/defaults_fips140.go b/src/crypto/tls/defaults_fips140.go
-index 00176795eb..5ffa76c656 100644
+index 00176795eb..2cb4ec3fe1 100644
 --- a/src/crypto/tls/defaults_fips140.go
 +++ b/src/crypto/tls/defaults_fips140.go
-@@ -2,7 +2,7 @@
+@@ -2,8 +2,6 @@
  // Use of this source code is governed by a BSD-style
  // license that can be found in the LICENSE file.
  
 -//go:build !boringcrypto
-+//go:build no_openssl
- 
+-
  package tls
  
+ import (
+@@ -12,6 +10,7 @@ import (
+ 	"crypto/elliptic"
+ 	"crypto/rsa"
+ 	"crypto/x509"
++	boring "crypto/internal/backend"
+ )
+ 
+ // These FIPS 140-3 policies allow anything approved by SP 800-140C
+@@ -62,7 +61,20 @@ var (
+ 	}
+ )
+ 
++func init() {
++	if boring.Enabled() {
++		allowedSupportedVersionsFIPS = allowedSupportedVersionsBoring
++		allowedCurvePreferencesFIPS = allowedCurvePreferencesBoring
++		allowedSignatureAlgorithmsFIPS = allowedSignatureAlgorithmsBoring
++		allowedCipherSuitesFIPS = allowedCipherSuitesBoring
++		allowedCipherSuitesTLS13FIPS = allowedCipherSuitesTLS13Boring
++	}
++}
++
+ func isCertificateAllowedFIPS(c *x509.Certificate) bool {
++	if boring.Enabled() {
++		return isCertificateAllowedBoring(c)
++	}
+ 	switch k := c.PublicKey.(type) {
+ 	case *rsa.PublicKey:
+ 		return k.N.BitLen() >= 2048
 diff --git a/src/crypto/tls/fips140_test.go b/src/crypto/tls/fips140_test.go
 index d3fa61dc97..ab18b84922 100644
 --- a/src/crypto/tls/fips140_test.go
