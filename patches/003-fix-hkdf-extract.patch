@@ -1,0 +1,39 @@
+Backport github.com/golang-fips/openssl@0ec829d1b13eeb598f2de7b3278fe7138d24c1e6
+
+diff --git a/src/vendor/github.com/golang-fips/openssl/v2/hkdf.go b/src/vendor/github.com/golang-fips/openssl/v2/hkdf.go
+diff --git a/src/vendor/github.com/golang-fips/openssl/v2/hkdf.go b/src/vendor/github.com/golang-fips/openssl/v2/hkdf.go
+index 61cf483fed..9708b5b016 100644
+--- a/src/vendor/github.com/golang-fips/openssl/v2/hkdf.go
++++ b/src/vendor/github.com/golang-fips/openssl/v2/hkdf.go
+@@ -105,11 +105,31 @@ func (c *hkdf) Read(p []byte) (int, error) {
+ 	return n, nil
+ }
+ 
++// hkdfAllZerosSalt is a preallocated buffer of zeros used in ExtractHKDF().
++// The size should be kept as large as the output length of any hash algorithm
++// used with HKDF.
++var hkdfAllZerosSalt [64]byte
++
+ func ExtractHKDF(h func() hash.Hash, secret, salt []byte) ([]byte, error) {
+ 	c, err := newHKDF(h, C.GO_EVP_KDF_HKDF_MODE_EXTRACT_ONLY)
+ 	if err != nil {
+ 		return nil, err
+ 	}
++
++	// If calling code specifies nil salt, replace it with a buffer of hashLen
++	// zeros, as specified in RFC 5896 and as OpenSSL EVP_KDF-HKDF documentation
++	// instructs. Take a slice of a preallocated buffer to avoid allocating new
++	// buffer per call, but fall back to allocating a buffer if preallocated
++	// buffer is not large enough.
++	if salt == nil {
++		hlen := h().Size()
++		if hlen > len(hkdfAllZerosSalt) {
++			salt = make([]byte, hlen)
++		} else {
++			salt = hkdfAllZerosSalt[:hlen]
++		}
++	}
++
+ 	switch vMajor {
+ 	case 3:
+ 		if C.go_openssl_EVP_PKEY_CTX_set1_hkdf_key(c.ctx,
