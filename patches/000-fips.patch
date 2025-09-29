@@ -3733,8 +3733,8 @@ index f00e9c80d3..31c4ccea66 100644
  // TestHash performs a set of tests on hash.Hash implementations, checking the
  // documented requirements of Write, Sum, Reset, Size, and BlockSize.
  func TestHash(t *testing.T, mh MakeHash) {
--	if boring.Enabled || fips140.Version() == "v1.0" {
-+	if boring.Enabled() || fips140.Version() == "v1.0" {
+-	if boring.Enabled || fips140.Version() == "v1.0.0" {
++	if boring.Enabled() || fips140.Version() == "v1.0.0" {
  		testhash.TestHashWithoutClone(t, testhash.MakeHash(mh))
  		return
  	}
@@ -4309,8 +4309,8 @@ index 2f54deae68..33b1e2d6eb 100644
 -	"crypto/internal/boring"
 +	boring "crypto/internal/backend"
  	"crypto/internal/cryptotest"
+ 	"crypto/internal/fips140"
  	"crypto/rand"
- 	. "crypto/rsa"
 @@ -39,8 +39,19 @@ func TestKeyGeneration(t *testing.T) {
  				if err == nil {
  					t.Errorf("GenerateKey(%d) succeeded without GODEBUG", size)
@@ -5224,8 +5224,8 @@ index b81f19068a..98880542bd 100644
  
  require (
 +	github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8 // indirect
- 	golang.org/x/sys v0.33.0 // indirect
- 	golang.org/x/text v0.26.0 // indirect
+ 	golang.org/x/sys v0.36.0 // indirect
+ 	golang.org/x/text v0.29.0 // indirect
  )
 diff --git a/src/go.sum b/src/go.sum
 index 410eb8648a..3521b49a3e 100644
@@ -5236,9 +5236,9 @@ index 410eb8648a..3521b49a3e 100644
 +github.com/golang-fips/openssl/v2 v2.0.3/go.mod h1:7tuBqX2Zov8Yq5mJ2yzlKhpnxOnWyEzi38AzeWRuQdg=
 +github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8 h1:OlLgcP8q2BFCR/MmtJcnY7fsbj8FfMYnvCpYthwHMYA=
 +github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8/go.mod h1:OYUBsoxLpFu8OFyhZHxfpN8lgcsw8JhTC3BQK7+XUc0=
- golang.org/x/crypto v0.39.0 h1:SHs+kF4LP+f+p14esP5jAoDpHU8Gu/v9lFRK6IT5imM=
- golang.org/x/crypto v0.39.0/go.mod h1:L+Xg3Wf6HoL4Bn4238Z6ft6KfEpN0tJGo53AAPC632U=
- golang.org/x/net v0.41.0 h1:vBTly1HeNPEn3wtREYfy4GZ/NECgw2Cnl+nK6Nz3uvw=
+ golang.org/x/crypto v0.42.0 h1:chiH31gIWm57EkTXpwnqf8qeuMUi0yekh6mT2AvFlqI=
+ golang.org/x/crypto v0.42.0/go.mod h1:4+rDnOTJhQCx2q7/j6rAN5XDw8kPjeaXEUR2eL94ix8=
+ golang.org/x/net v0.44.0 h1:evd8IRDyfNBMBTTY5XRF1vaZlD+EmWx6x8PkhR04H/I=
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
 index 6d92542e31..859d69812a 100644
 --- a/src/go/build/deps_test.go
@@ -5307,8 +5307,8 @@ index ceff24193d..7ce13d24e6 100644
 +++ b/src/internal/goexperiment/flags.go
 @@ -129,4 +129,6 @@ type Flags struct {
  
- 	// GreenTeaGC enables the Green Tea GC implementation.
- 	GreenTeaGC bool
+ 	// SizeSpecializedMalloc enables malloc implementations that are specialized per size class.
+ 	SizeSpecializedMalloc bool
 +
 +	StrictFIPSRuntime bool
  }
@@ -12278,6 +12278,6 @@ index 8507f01b12..e7b583159e 100644
 +## explicit; go 1.22
 +github.com/golang-fips/openssl/v2
 +github.com/golang-fips/openssl/v2/bbig
- # golang.org/x/crypto v0.39.0
- ## explicit; go 1.23.0
+ # golang.org/x/crypto v0.42.0
+ ## explicit; go 1.24.0
  golang.org/x/crypto/chacha20
