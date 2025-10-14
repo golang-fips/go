@@ -5238,7 +5238,7 @@ index 410eb8648a..3521b49a3e 100644
 +github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8/go.mod h1:OYUBsoxLpFu8OFyhZHxfpN8lgcsw8JhTC3BQK7+XUc0=
  golang.org/x/crypto v0.42.0 h1:chiH31gIWm57EkTXpwnqf8qeuMUi0yekh6mT2AvFlqI=
  golang.org/x/crypto v0.42.0/go.mod h1:4+rDnOTJhQCx2q7/j6rAN5XDw8kPjeaXEUR2eL94ix8=
- golang.org/x/net v0.44.0 h1:evd8IRDyfNBMBTTY5XRF1vaZlD+EmWx6x8PkhR04H/I=
+ golang.org/x/net v0.44.1-0.20251002015445-edb764c2296f h1:vNklv+oJQSYNGsWXHoCPi2MHMcpj9/Q7aBhvvfnJvGg=
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
 index 6d92542e31..859d69812a 100644
 --- a/src/go/build/deps_test.go
@@ -5307,8 +5307,8 @@ index ceff24193d..7ce13d24e6 100644
 +++ b/src/internal/goexperiment/flags.go
 @@ -129,4 +129,6 @@ type Flags struct {
  
- 	// SizeSpecializedMalloc enables malloc implementations that are specialized per size class.
- 	SizeSpecializedMalloc bool
+ 	// GoroutineLeakProfile enables the collection of goroutine leak profiles.
+ 	GoroutineLeakProfile bool
 +
 +	StrictFIPSRuntime bool
  }
