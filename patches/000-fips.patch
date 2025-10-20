@@ -547,7 +547,7 @@ index 275c60b4de..58f0034b18 100644
  	"math/big"
  )
 diff --git a/src/crypto/ecdsa/ecdsa.go b/src/crypto/ecdsa/ecdsa.go
-index 9affc1ff78..e7732476e0 100644
+index 340edbbaba..59fbb95fe9 100644
 --- a/src/crypto/ecdsa/ecdsa.go
 +++ b/src/crypto/ecdsa/ecdsa.go
 @@ -20,8 +20,8 @@ import (
@@ -816,7 +816,7 @@ index 554c8c9b78..cdf97d8f81 100644
  		if hm != nil {
  			return hm
 diff --git a/src/crypto/hmac/hmac_test.go b/src/crypto/hmac/hmac_test.go
-index 9b7eee7bf7..bb9170f13b 100644
+index 4046a9555a..50f829a16b 100644
 --- a/src/crypto/hmac/hmac_test.go
 +++ b/src/crypto/hmac/hmac_test.go
 @@ -5,7 +5,7 @@
@@ -828,7 +828,7 @@ index 9b7eee7bf7..bb9170f13b 100644
  	"crypto/internal/cryptotest"
  	"crypto/md5"
  	"crypto/sha1"
-@@ -584,8 +584,8 @@ func TestHMAC(t *testing.T) {
+@@ -597,8 +597,8 @@ func TestNoClone(t *testing.T) {
  }
  
  func TestNonUniqueHash(t *testing.T) {
@@ -3717,7 +3717,7 @@ index 70055af70b..9d9204ff45 100644
  	}
  
 diff --git a/src/crypto/internal/cryptotest/hash.go b/src/crypto/internal/cryptotest/hash.go
-index f00e9c80d3..31c4ccea66 100644
+index 37fd96a2d9..93563be163 100644
 --- a/src/crypto/internal/cryptotest/hash.go
 +++ b/src/crypto/internal/cryptotest/hash.go
 @@ -5,7 +5,7 @@
@@ -3733,8 +3733,8 @@ index f00e9c80d3..31c4ccea66 100644
  // TestHash performs a set of tests on hash.Hash implementations, checking the
  // documented requirements of Write, Sum, Reset, Size, and BlockSize.
  func TestHash(t *testing.T, mh MakeHash) {
--	if boring.Enabled || fips140.Version() == "v1.0" {
-+	if boring.Enabled() || fips140.Version() == "v1.0" {
+-	if boring.Enabled || fips140.Version() == "v1.0.0" {
++	if boring.Enabled() || fips140.Version() == "v1.0.0" {
  		testhash.TestHashWithoutClone(t, testhash.MakeHash(mh))
  		return
  	}
@@ -3761,7 +3761,7 @@ index f0ba665403..8c9b32e132 100644
  		return
  	}
 diff --git a/src/crypto/internal/fips140test/fips_test.go b/src/crypto/internal/fips140test/fips_test.go
-index 08d60933ef..8ee6c612cf 100644
+index 52fc9d3488..2f5811fedb 100644
 --- a/src/crypto/internal/fips140test/fips_test.go
 +++ b/src/crypto/internal/fips140test/fips_test.go
 @@ -15,7 +15,7 @@ package fipstest
@@ -3773,7 +3773,7 @@ index 08d60933ef..8ee6c612cf 100644
  	"crypto/internal/fips140"
  	"crypto/internal/fips140/aes"
  	"crypto/internal/fips140/aes/gcm"
-@@ -92,7 +92,7 @@ func TestVersion(t *testing.T) {
+@@ -90,7 +90,7 @@ func TestVersion(t *testing.T) {
  
  func TestFIPS140(t *testing.T) {
  	moduleStatus(t)
@@ -4275,10 +4275,10 @@ index e03f4ab066..2a18d7a553 100644
  
  	// We don't check the specific error here, because crypto/rsa and crypto/internal/boring
 diff --git a/src/crypto/rsa/rsa.go b/src/crypto/rsa/rsa.go
-index 95bb4becd2..7b01e0b8b6 100644
+index c557c3710a..66e6460eea 100644
 --- a/src/crypto/rsa/rsa.go
 +++ b/src/crypto/rsa/rsa.go
-@@ -42,8 +42,8 @@ package rsa
+@@ -43,8 +43,8 @@ package rsa
  
  import (
  	"crypto"
@@ -4866,7 +4866,7 @@ index d3fa61dc97..ab18b84922 100644
  		return false
  	default:
 diff --git a/src/crypto/tls/handshake_client_tls13.go b/src/crypto/tls/handshake_client_tls13.go
-index 4f4966904f..8be6f5e737 100644
+index 7018bb2336..7a9ca654c8 100644
 --- a/src/crypto/tls/handshake_client_tls13.go
 +++ b/src/crypto/tls/handshake_client_tls13.go
 @@ -10,6 +10,7 @@ import (
@@ -4889,7 +4889,7 @@ index 4f4966904f..8be6f5e737 100644
  
  	// The server must not select TLS 1.3 in a renegotiation. See RFC 8446,
 diff --git a/src/crypto/tls/handshake_server_tls13.go b/src/crypto/tls/handshake_server_tls13.go
-index dbd6ff2c4f..32d2b2b047 100644
+index 501bdeb66b..9203e2f8a6 100644
 --- a/src/crypto/tls/handshake_server_tls13.go
 +++ b/src/crypto/tls/handshake_server_tls13.go
 @@ -10,6 +10,7 @@ import (
@@ -5240,10 +5240,10 @@ index 410eb8648a..3521b49a3e 100644
  golang.org/x/crypto v0.39.0/go.mod h1:L+Xg3Wf6HoL4Bn4238Z6ft6KfEpN0tJGo53AAPC632U=
  golang.org/x/net v0.41.0 h1:vBTly1HeNPEn3wtREYfy4GZ/NECgw2Cnl+nK6Nz3uvw=
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
-index 6d92542e31..859d69812a 100644
+index 641d1a325a..1ac5f17fa8 100644
 --- a/src/go/build/deps_test.go
 +++ b/src/go/build/deps_test.go
-@@ -828,6 +828,14 @@ func listStdPkgs(goroot string) ([]string, error) {
+@@ -830,6 +830,14 @@ func listStdPkgs(goroot string) ([]string, error) {
  }
  
  func TestDependencies(t *testing.T) {
@@ -5302,7 +5302,7 @@ index 0000000000..0983612732
 +const StrictFIPSRuntime = true
 +const StrictFIPSRuntimeInt = 1
 diff --git a/src/internal/goexperiment/flags.go b/src/internal/goexperiment/flags.go
-index ceff24193d..7ce13d24e6 100644
+index 63a3388839..61d8b2714d 100644
 --- a/src/internal/goexperiment/flags.go
 +++ b/src/internal/goexperiment/flags.go
 @@ -129,4 +129,6 @@ type Flags struct {
@@ -12281,3 +12281,6 @@ index 8507f01b12..e7b583159e 100644
  # golang.org/x/crypto v0.39.0
  ## explicit; go 1.23.0
  golang.org/x/crypto/chacha20
+-- 
+2.51.0
+
