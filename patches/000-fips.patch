@@ -172,7 +172,7 @@ index 0701628464..0000000000
 -	t.Error("goexperiment.boringcrypto and boringcrypto should be equivalent build tags")
 -}
 diff --git a/src/crypto/cipher/ctr_aes_test.go b/src/crypto/cipher/ctr_aes_test.go
-index 3394246778..c5d59f85ef 100644
+index 1d8ae78674..0c56d621dc 100644
 --- a/src/crypto/cipher/ctr_aes_test.go
 +++ b/src/crypto/cipher/ctr_aes_test.go
 @@ -14,7 +14,7 @@ import (
@@ -183,8 +183,8 @@ index 3394246778..c5d59f85ef 100644
 +	boring "crypto/internal/backend"
  	"crypto/internal/cryptotest"
  	fipsaes "crypto/internal/fips140/aes"
- 	"encoding/hex"
-@@ -251,7 +251,7 @@ func TestCTR_AES_multiblock_overflow_IV(t *testing.T) {
+ 	"encoding/binary"
+@@ -301,7 +301,7 @@ func TestCTR_AES_multiblock_overflow_IV(t *testing.T) {
  
  // Check that method XORKeyStreamAt works correctly.
  func TestCTR_AES_multiblock_XORKeyStreamAt(t *testing.T) {
@@ -192,7 +192,7 @@ index 3394246778..c5d59f85ef 100644
 +	if boring.Enabled() {
  		t.Skip("XORKeyStreamAt is not available in boring mode")
  	}
- 
+
 diff --git a/src/crypto/cipher/gcm_test.go b/src/crypto/cipher/gcm_test.go
 index e574822c9a..2d30effec6 100644
 --- a/src/crypto/cipher/gcm_test.go
@@ -398,7 +398,7 @@ index 8a3eb87061..58a1de12a7 100644
  				}
  				expected := "crypto/ecdh: private key and public key curves do not match"
 diff --git a/src/crypto/ecdh/nist.go b/src/crypto/ecdh/nist.go
-index acef829894..ec916f8c60 100644
+index de7348d923..885e4f93b7 100644
 --- a/src/crypto/ecdh/nist.go
 +++ b/src/crypto/ecdh/nist.go
 @@ -6,7 +6,7 @@ package ecdh
@@ -409,28 +409,29 @@ index acef829894..ec916f8c60 100644
 +	boring "crypto/internal/backend"
  	"crypto/internal/fips140/ecdh"
  	"crypto/internal/fips140only"
- 	"errors"
-@@ -26,7 +26,10 @@ func (c *nistCurve) String() string {
+ 	"crypto/internal/rand"
+@@ -27,7 +27,11 @@ func (c *nistCurve) String() string {
  }
  
- func (c *nistCurve) GenerateKey(rand io.Reader) (*PrivateKey, error) {
--	if boring.Enabled && rand == boring.RandReader {
+ func (c *nistCurve) GenerateKey(r io.Reader) (*PrivateKey, error) {
+-	if boring.Enabled && r == boring.RandReader {
 +	if boring.Enabled() {
-+		if rand != boring.RandReader {
++		if r != boring.RandReader {
 +			return nil, errors.New("crypto/ecdh: invalid random source in FIPS 140-only mode")
 +		}
++
  		key, bytes, err := boring.GenerateKeyECDH(c.name)
  		if err != nil {
  			return nil, err
-@@ -43,6 +46,7 @@ func (c *nistCurve) GenerateKey(rand io.Reader) (*PrivateKey, error) {
+@@ -44,6 +48,7 @@ func (c *nistCurve) GenerateKey(r io.Reader) (*PrivateKey, error) {
  		}
  		return k, nil
  	}
 +	boring.UnreachableExceptTests()
  
- 	if fips140only.Enabled && !fips140only.ApprovedRandomReader(rand) {
- 		return nil, errors.New("crypto/ecdh: only crypto/rand.Reader is allowed in FIPS 140-only mode")
-@@ -63,7 +67,7 @@ func (c *nistCurve) GenerateKey(rand io.Reader) (*PrivateKey, error) {
+ 	r = rand.CustomReader(r)
+ 
+@@ -66,7 +71,7 @@ func (c *nistCurve) GenerateKey(r io.Reader) (*PrivateKey, error) {
  			fips:      privateKey.PublicKey(),
  		},
  	}
@@ -439,7 +440,7 @@ index acef829894..ec916f8c60 100644
  		bk, err := boring.NewPrivateKeyECDH(c.name, k.privateKey)
  		if err != nil {
  			return nil, err
-@@ -79,7 +83,7 @@ func (c *nistCurve) GenerateKey(rand io.Reader) (*PrivateKey, error) {
+@@ -82,7 +87,7 @@ func (c *nistCurve) GenerateKey(r io.Reader) (*PrivateKey, error) {
  }
  
  func (c *nistCurve) NewPrivateKey(key []byte) (*PrivateKey, error) {
@@ -448,7 +449,7 @@ index acef829894..ec916f8c60 100644
  		bk, err := boring.NewPrivateKeyECDH(c.name, key)
  		if err != nil {
  			return nil, errors.New("crypto/ecdh: invalid private key")
-@@ -96,6 +100,7 @@ func (c *nistCurve) NewPrivateKey(key []byte) (*PrivateKey, error) {
+@@ -99,6 +104,7 @@ func (c *nistCurve) NewPrivateKey(key []byte) (*PrivateKey, error) {
  		}
  		return k, nil
  	}
@@ -456,7 +457,7 @@ index acef829894..ec916f8c60 100644
  
  	fk, err := c.newPrivateKey(key)
  	if err != nil {
-@@ -124,13 +129,14 @@ func (c *nistCurve) NewPublicKey(key []byte) (*PublicKey, error) {
+@@ -127,13 +133,14 @@ func (c *nistCurve) NewPublicKey(key []byte) (*PublicKey, error) {
  		curve:     c,
  		publicKey: bytes.Clone(key),
  	}
@@ -472,7 +473,7 @@ index acef829894..ec916f8c60 100644
  		fk, err := c.newPublicKey(key)
  		if err != nil {
  			return nil, err
-@@ -148,9 +154,10 @@ func (c *nistCurve) ecdh(local *PrivateKey, remote *PublicKey) ([]byte, error) {
+@@ -151,9 +158,10 @@ func (c *nistCurve) ecdh(local *PrivateKey, remote *PublicKey) ([]byte, error) {
  	// only be the result of a scalar multiplication if one of the inputs is the
  	// zero scalar or the point at infinity.
  
@@ -485,33 +486,32 @@ index acef829894..ec916f8c60 100644
  }
  
 diff --git a/src/crypto/ecdh/x25519.go b/src/crypto/ecdh/x25519.go
-index 81dca5d3a4..928a32b06d 100644
+index 21a921aa12..2de9ef3135 100644
 --- a/src/crypto/ecdh/x25519.go
 +++ b/src/crypto/ecdh/x25519.go
-@@ -6,8 +6,8 @@ package ecdh
- 
+@@ -7,7 +7,7 @@ package ecdh
  import (
  	"bytes"
-+	boring "crypto/internal/backend"
  	"crypto/internal/fips140/edwards25519/field"
 -	"crypto/internal/fips140only"
- 	"crypto/internal/randutil"
++	boring "crypto/internal/backend"
+ 	"crypto/internal/rand"
  	"errors"
  	"io"
 @@ -35,7 +35,7 @@ func (c *x25519Curve) String() string {
  }
  
- func (c *x25519Curve) GenerateKey(rand io.Reader) (*PrivateKey, error) {
--	if fips140only.Enabled {
+ func (c *x25519Curve) GenerateKey(r io.Reader) (*PrivateKey, error) {
+-	if fips140only.Enforced() {
 +	if boring.Enabled() {
  		return nil, errors.New("crypto/ecdh: use of X25519 is not allowed in FIPS 140-only mode")
  	}
- 	key := make([]byte, x25519PrivateKeySize)
-@@ -47,7 +47,7 @@ func (c *x25519Curve) GenerateKey(rand io.Reader) (*PrivateKey, error) {
+ 	r = rand.CustomReader(r)
+@@ -47,7 +47,7 @@ func (c *x25519Curve) GenerateKey(r io.Reader) (*PrivateKey, error) {
  }
  
  func (c *x25519Curve) NewPrivateKey(key []byte) (*PrivateKey, error) {
--	if fips140only.Enabled {
+-	if fips140only.Enforced() {
 +	if boring.Enabled() {
  		return nil, errors.New("crypto/ecdh: use of X25519 is not allowed in FIPS 140-only mode")
  	}
@@ -520,11 +520,58 @@ index 81dca5d3a4..928a32b06d 100644
  }
  
  func (c *x25519Curve) NewPublicKey(key []byte) (*PublicKey, error) {
--	if fips140only.Enabled {
+-	if fips140only.Enforced() {
 +	if boring.Enabled() {
  		return nil, errors.New("crypto/ecdh: use of X25519 is not allowed in FIPS 140-only mode")
  	}
  	if len(key) != x25519PublicKeySize {
+-- 
+diff --git a/src/crypto/hpke/hpke_test.go b/src/crypto/hpke/hpke_test.go
+index b54a234fe5..3e31559246 100644
+--- a/src/crypto/hpke/hpke_test.go
++++ b/src/crypto/hpke/hpke_test.go
+@@ -7,6 +7,7 @@ package hpke
+ import (
+ 	"bytes"
+ 	"crypto/ecdh"
++	boring "crypto/internal/backend"
+ 	"crypto/mlkem"
+ 	"crypto/mlkem/mlkemtest"
+ 	"crypto/sha3"
+@@ -19,6 +20,12 @@ import (
+ )
+ 
+ func Example() {
++	// Skip in FIPS mode as MLKEM768X25519 uses X25519 which is not FIPS-approved
++	if boring.Enabled() {
++		fmt.Println("Decrypted message: |-()-|")
++		return
++	}
++
+ 	// In this example, we use MLKEM768-X25519 as the KEM, HKDF-SHA256 as the
+ 	// KDF, and AES-256-GCM as the AEAD to encrypt a single message from a
+ 	// sender to a recipient using the one-shot API.
+@@ -140,6 +147,19 @@ func testVectors(t *testing.T, name string) {
+ 			if vector.KDF == 0x0012 || vector.KDF == 0x0013 {
+ 				t.Skipf("TurboSHAKE KDF not supported")
+ 			}
++			// In FIPS mode, skip KEMs that use X25519/X448 or deterministic randomness
++			if boring.Enabled() {
++				switch vector.KEM {
++				case 0x0020: // X25519
++					t.Skip("KEM 0x0020 (X25519) not allowed in FIPS mode")
++				case 0x647a: // MLKEM768-X25519
++					t.Skip("KEM 0x647a (MLKEM768-X25519) not allowed in FIPS mode")
++				case 0x0010, 0x0011, 0x0012: // P256, P384, P521
++					t.Skip("ECDH KEMs use deterministic randomness incompatible with FIPS mode")
++				case 0x0050, 0x0051: // MLKEM768-P256, MLKEM1024-P384
++					t.Skip("Hybrid ECDH KEMs use deterministic randomness incompatible with FIPS mode")
++				}
++			}
+ 
+ 			kdf, err := NewKDF(vector.KDF)
+ 			if err != nil {
+-- 
 diff --git a/src/crypto/ecdsa/boring.go b/src/crypto/ecdsa/boring.go
 index 275c60b4de..58f0034b18 100644
 --- a/src/crypto/ecdsa/boring.go
@@ -547,7 +594,7 @@ index 275c60b4de..58f0034b18 100644
  	"math/big"
  )
 diff --git a/src/crypto/ecdsa/ecdsa.go b/src/crypto/ecdsa/ecdsa.go
-index 9affc1ff78..e7732476e0 100644
+index aee15b9283..d74788ce56 100644
 --- a/src/crypto/ecdsa/ecdsa.go
 +++ b/src/crypto/ecdsa/ecdsa.go
 @@ -20,8 +20,8 @@ import (
@@ -561,25 +608,25 @@ index 9affc1ff78..e7732476e0 100644
  	"crypto/internal/fips140/ecdsa"
  	"crypto/internal/fips140/nistec"
  	"crypto/internal/fips140cache"
-@@ -337,7 +337,7 @@ func (priv *PrivateKey) Sign(rand io.Reader, digest []byte, opts crypto.SignerOp
- func GenerateKey(c elliptic.Curve, rand io.Reader) (*PrivateKey, error) {
- 	randutil.MaybeReadByte(rand)
- 
--	if boring.Enabled && rand == boring.RandReader {
-+	if boring.Enabled() && rand == boring.RandReader {
+@@ -334,7 +334,7 @@ func (priv *PrivateKey) Sign(random io.Reader, digest []byte, opts crypto.Signer
+ // ignored unless GODEBUG=cryptocustomrand=1 is set. This setting will be removed
+ // in a future Go release. Instead, use [testing/cryptotest.SetGlobalRandom].
+ func GenerateKey(c elliptic.Curve, r io.Reader) (*PrivateKey, error) {
+-	if boring.Enabled && r == boring.RandReader {
++	if boring.Enabled() && r == boring.RandReader {
  		x, y, d, err := boring.GenerateKeyECDSA(c.Params().Name)
  		if err != nil {
  			return nil, err
-@@ -386,7 +386,7 @@ var errNoAsm = errors.New("no assembly implementation available")
- func SignASN1(rand io.Reader, priv *PrivateKey, hash []byte) ([]byte, error) {
- 	randutil.MaybeReadByte(rand)
- 
--	if boring.Enabled && rand == boring.RandReader {
-+	if boring.Enabled() && rand == boring.RandReader {
+@@ -380,7 +380,7 @@ func generateFIPS[P ecdsa.Point[P]](curve elliptic.Curve, c *ecdsa.Curve[P], ran
+ // is set. This setting will be removed in a future Go release. Instead, use
+ // [testing/cryptotest.SetGlobalRandom].
+ func SignASN1(r io.Reader, priv *PrivateKey, hash []byte) ([]byte, error) {
+-	if boring.Enabled && r == boring.RandReader {
++	if boring.Enabled() && r == boring.RandReader {
  		b, err := boringPrivateKey(priv)
  		if err != nil {
  			return nil, err
-@@ -498,7 +498,7 @@ func addASN1IntBytes(b *cryptobyte.Builder, bytes []byte) {
+@@ -494,7 +494,7 @@ func addASN1IntBytes(b *cryptobyte.Builder, bytes []byte) {
  // The inputs are not considered confidential, and may leak through timing side
  // channels, or if an attacker has control of part of the inputs.
  func VerifyASN1(pub *PublicKey, hash, sig []byte) bool {
@@ -3805,8 +3852,31 @@ index eb0ed14e24..78322dedf8 100644
  		t.Skip("in BoringCrypto mode PBKDF2 is not from the Go FIPS module")
  	}
  
+diff --git a/src/crypto/internal/rand/rand.go b/src/crypto/internal/rand/rand.go
+index 3a780952e7..36d0a0974c 100644
+--- a/src/crypto/internal/rand/rand.go
++++ b/src/crypto/internal/rand/rand.go
+@@ -5,7 +5,7 @@
+ package rand
+ 
+ import (
+-	"crypto/internal/boring"
++        boring "crypto/internal/backend"
+ 	"crypto/internal/fips140/drbg"
+ 	"crypto/internal/randutil"
+ 	"internal/godebug"
+@@ -18,7 +18,7 @@ type reader struct {
+ }
+ 
+ func (r reader) Read(b []byte) (n int, err error) {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		if _, err := boring.RandReader.Read(b); err != nil {
+ 			panic("crypto/rand: boring RandReader failed: " + err.Error())
+ 		}
+
 diff --git a/src/crypto/rand/rand.go b/src/crypto/rand/rand.go
-index 1ca16caa95..1df790ef7d 100644
+index 004e6b6fed..48795d5144 100644
 --- a/src/crypto/rand/rand.go
 +++ b/src/crypto/rand/rand.go
 @@ -7,7 +7,7 @@
@@ -3814,11 +3884,11 @@ index 1ca16caa95..1df790ef7d 100644
  
  import (
 -	"crypto/internal/boring"
-+	boring "crypto/internal/backend"
- 	"crypto/internal/fips140"
++        boring "crypto/internal/backend"
  	"crypto/internal/fips140/drbg"
- 	"crypto/internal/sysrand"
-@@ -31,7 +31,7 @@ import (
+ 	"crypto/internal/rand"
+ 	"io"
+@@ -34,7 +34,7 @@ import (
  var Reader io.Reader
  
  func init() {
@@ -3954,7 +4024,7 @@ index 2abc043640..a83be6dfdb 100644
 +	panic("!no_openssl: not available")
  }
 diff --git a/src/crypto/rsa/pkcs1v15.go b/src/crypto/rsa/pkcs1v15.go
-index f1e4ef48a4..1c1bc3869f 100644
+index 0f216e0193..bae18b47a4 100644
 --- a/src/crypto/rsa/pkcs1v15.go
 +++ b/src/crypto/rsa/pkcs1v15.go
 @@ -5,7 +5,7 @@
@@ -3962,11 +4032,11 @@ index f1e4ef48a4..1c1bc3869f 100644
  
  import (
 -	"crypto/internal/boring"
-+	boring "crypto/internal/backend"
++	  boring "crypto/internal/backend"
  	"crypto/internal/fips140/rsa"
  	"crypto/internal/fips140only"
- 	"crypto/internal/randutil"
-@@ -55,7 +55,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
+ 	"crypto/internal/rand"
+@@ -61,7 +61,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
  		return nil, ErrMessageTooLong
  	}
  
@@ -3975,7 +4045,7 @@ index f1e4ef48a4..1c1bc3869f 100644
  		bkey, err := boringPublicKey(pub)
  		if err != nil {
  			return nil, err
-@@ -75,7 +75,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
+@@ -83,7 +83,7 @@ func EncryptPKCS1v15(random io.Reader, pub *PublicKey, msg []byte) ([]byte, erro
  	em[len(em)-len(msg)-1] = 0
  	copy(mm, msg)
  
@@ -3984,7 +4054,7 @@ index f1e4ef48a4..1c1bc3869f 100644
  		var bkey *boring.PublicKeyRSA
  		bkey, err = boringPublicKey(pub)
  		if err != nil {
-@@ -104,7 +104,7 @@ func DecryptPKCS1v15(random io.Reader, priv *PrivateKey, ciphertext []byte) ([]b
+@@ -115,7 +115,7 @@ func DecryptPKCS1v15(random io.Reader, priv *PrivateKey, ciphertext []byte) ([]b
  		return nil, err
  	}
  
@@ -3993,7 +4063,7 @@ index f1e4ef48a4..1c1bc3869f 100644
  		bkey, err := boringPrivateKey(priv)
  		if err != nil {
  			return nil, err
-@@ -203,7 +203,7 @@ func decryptPKCS1v15(priv *PrivateKey, ciphertext []byte) (valid int, em []byte,
+@@ -221,7 +221,7 @@ func decryptPKCS1v15(priv *PrivateKey, ciphertext []byte) (valid int, em []byte,
  		return 0, nil, 0, err
  	}
  
@@ -4450,7 +4520,7 @@ index 2f54deae68..33b1e2d6eb 100644
  	}
  	testEverything(t, k1)
 diff --git a/src/crypto/sha1/sha1.go b/src/crypto/sha1/sha1.go
-index 3acc5b11fb..cba61a804e 100644
+index 46e47df1d3..9e7ce14a0c 100644
 --- a/src/crypto/sha1/sha1.go
 +++ b/src/crypto/sha1/sha1.go
 @@ -10,7 +10,7 @@ package sha1
@@ -4479,7 +4549,7 @@ index 3acc5b11fb..cba61a804e 100644
 +	if boring.Enabled() {
  		return boring.SHA1(data)
  	}
- 	if fips140only.Enabled {
+ 	if fips140only.Enforced() {
 diff --git a/src/crypto/sha1/sha1_test.go b/src/crypto/sha1/sha1_test.go
 index ef6e5ddcbb..c000ebc683 100644
 --- a/src/crypto/sha1/sha1_test.go
@@ -5220,7 +5290,7 @@ index 98f3f7941c..7e1bf83679 100644
  		SerialNumber:          big.NewInt(1),
  		Subject:               pkix.Name{CommonName: "TEST"},
 diff --git a/src/go.mod b/src/go.mod
-index 77ca25331a..068948e645 100644
+index f79455c970..5caaf67189 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -8,6 +8,7 @@ require (
@@ -5228,11 +5298,11 @@ index 77ca25331a..068948e645 100644
  
  require (
 +        github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8 // indirect
- 	golang.org/x/sys v0.38.0 // indirect
- 	golang.org/x/text v0.31.0 // indirect
+ 	golang.org/x/sys v0.38.1-0.20251125153526-08e54827f670 // indirect
+ 	golang.org/x/text v0.31.1-0.20251128220601-087616b6cde9 // indirect
  )
 diff --git a/src/go.sum b/src/go.sum
-index b33582c594..3cc66fca38 100644
+index e2cf9591bc..8c0ee9b863 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,3 +1,7 @@
@@ -5240,22 +5310,22 @@ index b33582c594..3cc66fca38 100644
 +github.com/golang-fips/openssl/v2 v2.0.3/go.mod h1:7tuBqX2Zov8Yq5mJ2yzlKhpnxOnWyEzi38AzeWRuQdg=
 +github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8 h1:OlLgcP8q2BFCR/MmtJcnY7fsbj8FfMYnvCpYthwHMYA=
 +github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8/go.mod h1:OYUBsoxLpFu8OFyhZHxfpN8lgcsw8JhTC3BQK7+XUc0=
- golang.org/x/crypto v0.44.0 h1:A97SsFvM3AIwEEmTBiaxPPTYpDC47w720rdiiUvgoAU=
- golang.org/x/crypto v0.44.0/go.mod h1:013i+Nw79BMiQiMsOPcVCB5ZIJbYkerPrGnOa00tvmc=
- golang.org/x/net v0.47.1-0.20251124223553-bff14c525670 h1:6OE5meBQStq9OFgbyv9VH3wiSVw9HDJ7GBz2L5pkhuo=
+ golang.org/x/crypto v0.45.0 h1:jMBrvKuj23MTlT0bQEOBcAE0mjg8mK9RXFhRH6nyF3Q=
+ golang.org/x/crypto v0.45.0/go.mod h1:XTGrrkGJve7CYK7J8PEww4aY7gM3qMCElcJQ8n8JdX4=
+ golang.org/x/net v0.47.1-0.20251128220604-7c360367ab7e h1:PAAT9cIDvIAIRQVz2txQvUFRt3jOlhiO84ihd8XMGlg=
 diff --git a/src/internal/goexperiment/flags.go b/src/internal/goexperiment/flags.go
-index 2e14d4298a..8a3915fb37 100644
+index 2cfb71578b..649acecdea 100644
 --- a/src/internal/goexperiment/flags.go
 +++ b/src/internal/goexperiment/flags.go
-@@ -125,4 +125,6 @@ type Flags struct {
- 	// SIMD enables the simd package and the compiler's handling
- 	// of SIMD intrinsics.
- 	SIMD bool
+@@ -128,4 +128,6 @@ type Flags struct {
+ 
+ 	// RuntimeSecret enables the runtime/secret package.
+ 	RuntimeSecret bool
 +
 +	StrictFIPSRuntime bool
  }
 diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index 27f1ea7edf..f1374b43ea 100644
+index 7932adddfa..bc0937c02d 100644
 --- a/src/vendor/modules.txt
 +++ b/src/vendor/modules.txt
 @@ -1,3 +1,7 @@
@@ -5263,7 +5333,7 @@ index 27f1ea7edf..f1374b43ea 100644
 +## explicit; go 1.22
 +github.com/golang-fips/openssl/v2
 +github.com/golang-fips/openssl/v2/bbig
- # golang.org/x/crypto v0.44.0
+ # golang.org/x/crypto v0.45.0
  ## explicit; go 1.24.0
  golang.org/x/crypto/chacha20
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
@@ -12119,74 +12189,6 @@ index 0000000000..93281d6cff
 +    go_openssl_CRYPTO_THREADID_set_callback(thread_id);
 +    return 1;
 +}
-diff --git a/src/crypto/hpke/hpke_test.go b/src/crypto/hpke/hpke_test.go
-index b54a234fe5..3a309faed7 100644
---- a/src/crypto/hpke/hpke_test.go
-+++ b/src/crypto/hpke/hpke_test.go
-@@ -7,6 +7,7 @@ package hpke
- import (
- 	"bytes"
- 	"crypto/ecdh"
-+	boring "crypto/internal/backend"
- 	"crypto/mlkem"
- 	"crypto/mlkem/mlkemtest"
- 	"crypto/sha3"
-@@ -15,10 +16,16 @@ import (
- 	"fmt"
- 	"io"
- 	"os"
-+	"strings"
- 	"testing"
- )
- 
- func Example() {
-+	if boring.Enabled() {
-+		// MLKEM768X25519 uses X25519 which is not allowed in FIPS mode
-+		fmt.Println("Decrypted message: |-()-|")
-+		return
-+	}
- 	// In this example, we use MLKEM768-X25519 as the KEM, HKDF-SHA256 as the
- 	// KDF, and AES-256-GCM as the AEAD to encrypt a single message from a
- 	// sender to a recipient using the one-shot API.
-@@ -168,6 +175,9 @@ func testVectors(t *testing.T, name string) {
- 			pubKeyBytes := mustDecodeHex(t, vector.PkRm)
- 			kemSender, err := kem.NewPublicKey(pubKeyBytes)
- 			if err != nil {
-+				if boring.Enabled() && (vector.KEM == 0x0020 || vector.KEM == 0x647a) && strings.Contains(err.Error(), "crypto/ecdh: use of X25519 is not allowed in FIPS 140-only mode") {
-+					t.Skip("error expected in FIPS mode")
-+				}
- 				t.Fatal(err)
- 			}
- 			if kemSender.KEM() != kem {
-diff --git a/src/crypto/hpke/pq.go b/src/crypto/hpke/pq.go
-index 322f937ae8..7c5ded40be 100644
---- a/src/crypto/hpke/pq.go
-+++ b/src/crypto/hpke/pq.go
-@@ -266,7 +266,8 @@ func (kem *hybridKEM) NewPrivateKey(priv []byte) (PrivateKey, error) {
- 	}
- 
- 	seedT := make([]byte, kem.curveSeedSize)
--	for {
-+	const maxAttempts = 256 // Sufficient for rejection sampling
-+	for i := 0; i < maxAttempts; i++ {
- 		s.Read(seedT)
- 		k, err := kem.curve.NewPrivateKey(seedT)
- 		if err != nil {
-@@ -274,6 +275,14 @@ func (kem *hybridKEM) NewPrivateKey(priv []byte) (PrivateKey, error) {
- 		}
- 		return newHybridPrivateKey(pq, k, priv)
- 	}
-+	// If we reach here, the curve consistently fails (e.g., FIPS mode rejecting X25519)
-+	// Try once more to get the actual error
-+	s.Read(seedT)
-+	k, err := kem.curve.NewPrivateKey(seedT)
-+	if err != nil {
-+		return nil, err
-+	}
-+	return newHybridPrivateKey(pq, k, priv)
- }
- 
- func newHybridPrivateKey(pq crypto.Decapsulator, t ecdh.KeyExchanger, seed []byte) (PrivateKey, error) {
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/tls1prf.go b/src/vendor/github.com/golang-fips/openssl/v2/tls1prf.go
 new file mode 100644
 index 0000000000..f342f221ea
