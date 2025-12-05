@@ -525,53 +525,7 @@ index 21a921aa12..2de9ef3135 100644
  		return nil, errors.New("crypto/ecdh: use of X25519 is not allowed in FIPS 140-only mode")
  	}
  	if len(key) != x25519PublicKeySize {
--- 
-diff --git a/src/crypto/hpke/hpke_test.go b/src/crypto/hpke/hpke_test.go
-index b54a234fe5..3e31559246 100644
---- a/src/crypto/hpke/hpke_test.go
-+++ b/src/crypto/hpke/hpke_test.go
-@@ -7,6 +7,7 @@ package hpke
- import (
- 	"bytes"
- 	"crypto/ecdh"
-+	boring "crypto/internal/backend"
- 	"crypto/mlkem"
- 	"crypto/mlkem/mlkemtest"
- 	"crypto/sha3"
-@@ -19,6 +20,12 @@ import (
- )
- 
- func Example() {
-+	// Skip in FIPS mode as MLKEM768X25519 uses X25519 which is not FIPS-approved
-+	if boring.Enabled() {
-+		fmt.Println("Decrypted message: |-()-|")
-+		return
-+	}
-+
- 	// In this example, we use MLKEM768-X25519 as the KEM, HKDF-SHA256 as the
- 	// KDF, and AES-256-GCM as the AEAD to encrypt a single message from a
- 	// sender to a recipient using the one-shot API.
-@@ -140,6 +147,19 @@ func testVectors(t *testing.T, name string) {
- 			if vector.KDF == 0x0012 || vector.KDF == 0x0013 {
- 				t.Skipf("TurboSHAKE KDF not supported")
- 			}
-+			// In FIPS mode, skip KEMs that use X25519/X448 or deterministic randomness
-+			if boring.Enabled() {
-+				switch vector.KEM {
-+				case 0x0020: // X25519
-+					t.Skip("KEM 0x0020 (X25519) not allowed in FIPS mode")
-+				case 0x647a: // MLKEM768-X25519
-+					t.Skip("KEM 0x647a (MLKEM768-X25519) not allowed in FIPS mode")
-+				case 0x0010, 0x0011, 0x0012: // P256, P384, P521
-+					t.Skip("ECDH KEMs use deterministic randomness incompatible with FIPS mode")
-+				case 0x0050, 0x0051: // MLKEM768-P256, MLKEM1024-P384
-+					t.Skip("Hybrid ECDH KEMs use deterministic randomness incompatible with FIPS mode")
-+				}
-+			}
- 
- 			kdf, err := NewKDF(vector.KDF)
- 			if err != nil {
--- 
+
 diff --git a/src/crypto/ecdsa/boring.go b/src/crypto/ecdsa/boring.go
 index 275c60b4de..58f0034b18 100644
 --- a/src/crypto/ecdsa/boring.go
@@ -1967,6 +1921,44 @@ index 6dfc6ed5f5..0000000000
 -	}
 -	return (*byte)(noescape(unsafe.Pointer(&p[0])))
 -}
+diff --git a/src/crypto/hpke/hpke_test.go b/src/crypto/hpke/hpke_test.go
+index b54a234fe5..3e31559246 100644
+--- a/src/crypto/hpke/hpke_test.go
++++ b/src/crypto/hpke/hpke_test.go
+@@ -7,6 +7,7 @@ package hpke
+ import (
+ 	"bytes"
+ 	"crypto/ecdh"
++	boring "crypto/internal/backend"
+ 	"crypto/mlkem"
+ 	"crypto/mlkem/mlkemtest"
+ 	"crypto/sha3"
+@@ -18,7 +19,13 @@
+ 	"testing"
+ )
+ 
+-func Example() {
++func TestExample(t *testing.T) {
++
++	// Skip in FIPS mode as MLKEM768X25519 uses X25519 which is not FIPS-approved
++	if boring.Enabled() {
++		t.Skip("Not supported in boring mode")
++	}
++
+ 	// In this example, we use MLKEM768-X25519 as the KEM, HKDF-SHA256 as the
+ 	// KDF, and AES-256-GCM as the AEAD to encrypt a single message from a
+ 	// sender to a recipient using the one-shot API.
+@@ -79,6 +86,10 @@
+ }
+ 
+ func TestVectors(t *testing.T) {
++	if boring.Enabled() {
++		t.Skip("The following test vectors are not allowed in FIPS mode")
++	}
++
+ 	t.Run("rfc9180", func(t *testing.T) {
+ 		testVectors(t, "rfc9180")
+ 	})
 diff --git a/src/crypto/internal/boring/boring_test.go b/src/crypto/internal/boring/boring_test.go
 deleted file mode 100644
 index 83bbbd3404..0000000000
