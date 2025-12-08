@@ -1953,7 +1953,7 @@ index b54a234fe5..3e31559246 100644
  
  func TestVectors(t *testing.T) {
 +	if boring.Enabled() {
-+		t.Skip("The following test vectors are not allowed in FIPS mode")
++		t.Skip("The following test vectors are not allowed in boring mode")
 +	}
 +
  	t.Run("rfc9180", func(t *testing.T) {
