@@ -1,6 +1,6 @@
-commit dfd0a49e6cc2828e101976b6e013d409d9e6cfc6
+commit c5d9416051ee765ca9d05ca1d5ba889a17535f5b
 Author: Derek Parker <parkerderek86@gmail.com>
-Date:   Fri Jun 13 13:03:31 2025 -0700
+Date:   Sat Jan 10 12:17:52 2026 -0800
 
     000-fips.patch
 
@@ -192,9 +192,9 @@ index 1d8ae78674..0c56d621dc 100644
 +	if boring.Enabled() {
  		t.Skip("XORKeyStreamAt is not available in boring mode")
  	}
-
+ 
 diff --git a/src/crypto/cipher/gcm_test.go b/src/crypto/cipher/gcm_test.go
-index e574822c9a..2d30effec6 100644
+index 8daa0ded22..4f7fd1a9a2 100644
 --- a/src/crypto/cipher/gcm_test.go
 +++ b/src/crypto/cipher/gcm_test.go
 @@ -8,7 +8,7 @@ import (
@@ -206,7 +206,7 @@ index e574822c9a..2d30effec6 100644
  	"crypto/internal/cryptotest"
  	"crypto/internal/fips140"
  	fipsaes "crypto/internal/fips140/aes"
-@@ -727,7 +727,7 @@ func testGCMAEAD(t *testing.T, newCipher func(key []byte) cipher.Block) {
+@@ -728,7 +728,7 @@ func testGCMAEAD(t *testing.T, newCipher func(key []byte) cipher.Block) {
  
  			// Test NewGCMWithRandomNonce.
  			t.Run("GCMWithRandomNonce", func(t *testing.T) {
@@ -215,7 +215,7 @@ index e574822c9a..2d30effec6 100644
  					t.Skip("NewGCMWithRandomNonce requires an AES block cipher")
  				}
  				cryptotest.TestAEAD(t, func() (cipher.AEAD, error) { return cipher.NewGCMWithRandomNonce(block) })
-@@ -752,7 +752,7 @@ func TestGCMExtraMethods(t *testing.T) {
+@@ -753,7 +753,7 @@ func TestGCMExtraMethods(t *testing.T) {
  		})
  		t.Run("NewGCMWithRandomNonce", func(t *testing.T) {
  			block := newCipher(make([]byte, 16))
@@ -225,7 +225,7 @@ index e574822c9a..2d30effec6 100644
  			}
  			a, _ := cipher.NewGCMWithRandomNonce(block)
 diff --git a/src/crypto/ecdh/ecdh.go b/src/crypto/ecdh/ecdh.go
-index 231f1ea04c..cfa113e234 100644
+index 3f85a28336..a5717e22db 100644
 --- a/src/crypto/ecdh/ecdh.go
 +++ b/src/crypto/ecdh/ecdh.go
 @@ -8,7 +8,7 @@ package ecdh
@@ -238,7 +238,7 @@ index 231f1ea04c..cfa113e234 100644
  	"crypto/subtle"
  	"errors"
 diff --git a/src/crypto/ecdh/ecdh_test.go b/src/crypto/ecdh/ecdh_test.go
-index 8a3eb87061..58a1de12a7 100644
+index cfa919ade9..07b6062160 100644
 --- a/src/crypto/ecdh/ecdh_test.go
 +++ b/src/crypto/ecdh/ecdh_test.go
 @@ -9,6 +9,7 @@ import (
@@ -249,7 +249,7 @@ index 8a3eb87061..58a1de12a7 100644
  	"crypto/rand"
  	"crypto/sha256"
  	"encoding/hex"
-@@ -37,6 +38,9 @@ var _ interface {
+@@ -36,6 +37,9 @@ var _ interface {
  
  func TestECDH(t *testing.T) {
  	testAllCurves(t, func(t *testing.T, curve ecdh.Curve) {
@@ -259,7 +259,7 @@ index 8a3eb87061..58a1de12a7 100644
  		aliceKey, err := curve.GenerateKey(rand.Reader)
  		if err != nil {
  			t.Fatal(err)
-@@ -96,18 +100,29 @@ func (r *countingReader) Read(p []byte) (int, error) {
+@@ -95,18 +99,29 @@ func (r *countingReader) Read(p []byte) (int, error) {
  
  func TestGenerateKey(t *testing.T) {
  	testAllCurves(t, func(t *testing.T, curve ecdh.Curve) {
@@ -291,7 +291,7 @@ index 8a3eb87061..58a1de12a7 100644
  			t.Errorf("expected GenerateKey to consume at most %v bytes, got %v", expected, got)
  		}
  	})
-@@ -160,6 +175,9 @@ func TestVectors(t *testing.T) {
+@@ -159,6 +174,9 @@ func TestVectors(t *testing.T) {
  		v := vectors[curve]
  		key, err := curve.NewPrivateKey(hexDecode(t, v.PrivateKey))
  		if err != nil {
@@ -301,7 +301,7 @@ index 8a3eb87061..58a1de12a7 100644
  			t.Fatal(err)
  		}
  		if !bytes.Equal(key.PublicKey().Bytes(), hexDecode(t, v.PublicKey)) {
-@@ -208,6 +226,9 @@ func TestX25519Failure(t *testing.T) {
+@@ -207,6 +225,9 @@ func TestX25519Failure(t *testing.T) {
  }
  
  func testX25519Failure(t *testing.T, private, public []byte) {
@@ -311,7 +311,7 @@ index 8a3eb87061..58a1de12a7 100644
  	priv, err := ecdh.X25519().NewPrivateKey(private)
  	if err != nil {
  		t.Fatal(err)
-@@ -280,15 +301,26 @@ var invalidPrivateKeys = map[ecdh.Curve][]string{
+@@ -279,15 +300,26 @@ var invalidPrivateKeys = map[ecdh.Curve][]string{
  }
  
  func TestNewPrivateKey(t *testing.T) {
@@ -340,7 +340,7 @@ index 8a3eb87061..58a1de12a7 100644
  			}
  		}
  	})
-@@ -354,8 +386,8 @@ func TestNewPublicKey(t *testing.T) {
+@@ -353,8 +385,8 @@ func TestNewPublicKey(t *testing.T) {
  				t.Errorf("unexpectedly accepted %q", input)
  			} else if k != nil {
  				t.Error("PublicKey was not nil on error")
@@ -351,7 +351,7 @@ index 8a3eb87061..58a1de12a7 100644
  			}
  		}
  	})
-@@ -447,6 +479,7 @@ func main() {
+@@ -446,6 +478,7 @@ func main() {
  // implementations into the binary. This also guarantees that govulncheck can
  // avoid warning about a curve-specific vulnerability if that curve is not used.
  func TestLinker(t *testing.T) {
@@ -359,16 +359,16 @@ index 8a3eb87061..58a1de12a7 100644
  	if testing.Short() {
  		t.Skip("test requires running 'go build'")
  	}
-@@ -479,7 +512,7 @@ func TestLinker(t *testing.T) {
+@@ -476,7 +509,7 @@ func TestLinker(t *testing.T) {
  	// P256, but none for the other curves.
  	var consistent bool
- 	nm := run(goBin, "tool", "nm", "hello.exe")
+ 	nm := run(testenv.GoToolPath(t), "tool", "nm", "hello.exe")
 -	for _, match := range regexp.MustCompile(`(?m)T (crypto/.*)$`).FindAllStringSubmatch(nm, -1) {
 +	for _, match := range regexp.MustCompile(`(?m) (crypto/.*)$`).FindAllStringSubmatch(nm, -1) {
  		symbol := strings.ToLower(match[1])
  		if strings.Contains(symbol, "p256") {
  			consistent = true
-@@ -507,16 +540,27 @@ func TestMismatchedCurves(t *testing.T) {
+@@ -504,16 +537,27 @@ func TestMismatchedCurves(t *testing.T) {
  	for _, privCurve := range curves {
  		priv, err := privCurve.curve.GenerateKey(rand.Reader)
  		if err != nil {
@@ -398,7 +398,7 @@ index 8a3eb87061..58a1de12a7 100644
  				}
  				expected := "crypto/ecdh: private key and public key curves do not match"
 diff --git a/src/crypto/ecdh/nist.go b/src/crypto/ecdh/nist.go
-index de7348d923..885e4f93b7 100644
+index 13865ea701..b8fe4bafdc 100644
 --- a/src/crypto/ecdh/nist.go
 +++ b/src/crypto/ecdh/nist.go
 @@ -6,7 +6,7 @@ package ecdh
@@ -410,20 +410,16 @@ index de7348d923..885e4f93b7 100644
  	"crypto/internal/fips140/ecdh"
  	"crypto/internal/fips140only"
  	"crypto/internal/rand"
-@@ -27,7 +27,11 @@ func (c *nistCurve) String() string {
+@@ -27,7 +27,7 @@ func (c *nistCurve) String() string {
  }
  
  func (c *nistCurve) GenerateKey(r io.Reader) (*PrivateKey, error) {
--	if boring.Enabled && r == boring.RandReader {
-+	if boring.Enabled() {
-+		if r != boring.RandReader {
-+			return nil, errors.New("crypto/ecdh: invalid random source in FIPS 140-only mode")
-+		}
-+
+-	if boring.Enabled && rand.IsDefaultReader(r) {
++	if boring.Enabled() && rand.IsDefaultReader(r) {
  		key, bytes, err := boring.GenerateKeyECDH(c.name)
  		if err != nil {
  			return nil, err
-@@ -44,6 +48,7 @@ func (c *nistCurve) GenerateKey(r io.Reader) (*PrivateKey, error) {
+@@ -44,6 +44,7 @@ func (c *nistCurve) GenerateKey(r io.Reader) (*PrivateKey, error) {
  		}
  		return k, nil
  	}
@@ -431,7 +427,7 @@ index de7348d923..885e4f93b7 100644
  
  	r = rand.CustomReader(r)
  
-@@ -66,7 +71,7 @@ func (c *nistCurve) GenerateKey(r io.Reader) (*PrivateKey, error) {
+@@ -66,7 +67,7 @@ func (c *nistCurve) GenerateKey(r io.Reader) (*PrivateKey, error) {
  			fips:      privateKey.PublicKey(),
  		},
  	}
@@ -440,7 +436,7 @@ index de7348d923..885e4f93b7 100644
  		bk, err := boring.NewPrivateKeyECDH(c.name, k.privateKey)
  		if err != nil {
  			return nil, err
-@@ -82,7 +87,7 @@ func (c *nistCurve) GenerateKey(r io.Reader) (*PrivateKey, error) {
+@@ -82,7 +83,7 @@ func (c *nistCurve) GenerateKey(r io.Reader) (*PrivateKey, error) {
  }
  
  func (c *nistCurve) NewPrivateKey(key []byte) (*PrivateKey, error) {
@@ -449,7 +445,7 @@ index de7348d923..885e4f93b7 100644
  		bk, err := boring.NewPrivateKeyECDH(c.name, key)
  		if err != nil {
  			return nil, errors.New("crypto/ecdh: invalid private key")
-@@ -99,6 +104,7 @@ func (c *nistCurve) NewPrivateKey(key []byte) (*PrivateKey, error) {
+@@ -99,6 +100,7 @@ func (c *nistCurve) NewPrivateKey(key []byte) (*PrivateKey, error) {
  		}
  		return k, nil
  	}
@@ -457,7 +453,7 @@ index de7348d923..885e4f93b7 100644
  
  	fk, err := c.newPrivateKey(key)
  	if err != nil {
-@@ -127,13 +133,14 @@ func (c *nistCurve) NewPublicKey(key []byte) (*PublicKey, error) {
+@@ -127,13 +129,14 @@ func (c *nistCurve) NewPublicKey(key []byte) (*PublicKey, error) {
  		curve:     c,
  		publicKey: bytes.Clone(key),
  	}
@@ -473,7 +469,7 @@ index de7348d923..885e4f93b7 100644
  		fk, err := c.newPublicKey(key)
  		if err != nil {
  			return nil, err
-@@ -151,9 +158,10 @@ func (c *nistCurve) ecdh(local *PrivateKey, remote *PublicKey) ([]byte, error) {
+@@ -151,9 +154,10 @@ func (c *nistCurve) ecdh(local *PrivateKey, remote *PublicKey) ([]byte, error) {
  	// only be the result of a scalar multiplication if one of the inputs is the
  	// zero scalar or the point at infinity.
  
@@ -486,7 +482,7 @@ index de7348d923..885e4f93b7 100644
  }
  
 diff --git a/src/crypto/ecdh/x25519.go b/src/crypto/ecdh/x25519.go
-index 21a921aa12..2de9ef3135 100644
+index 21a921aa12..d7fcef9e4f 100644
 --- a/src/crypto/ecdh/x25519.go
 +++ b/src/crypto/ecdh/x25519.go
 @@ -7,7 +7,7 @@ package ecdh
@@ -525,7 +521,6 @@ index 21a921aa12..2de9ef3135 100644
  		return nil, errors.New("crypto/ecdh: use of X25519 is not allowed in FIPS 140-only mode")
  	}
  	if len(key) != x25519PublicKeySize {
-
 diff --git a/src/crypto/ecdsa/boring.go b/src/crypto/ecdsa/boring.go
 index 275c60b4de..58f0034b18 100644
 --- a/src/crypto/ecdsa/boring.go
@@ -548,7 +543,7 @@ index 275c60b4de..58f0034b18 100644
  	"math/big"
  )
 diff --git a/src/crypto/ecdsa/ecdsa.go b/src/crypto/ecdsa/ecdsa.go
-index aee15b9283..d74788ce56 100644
+index b336f32eb6..2aba840b56 100644
 --- a/src/crypto/ecdsa/ecdsa.go
 +++ b/src/crypto/ecdsa/ecdsa.go
 @@ -20,8 +20,8 @@ import (
@@ -566,8 +561,8 @@ index aee15b9283..d74788ce56 100644
  // ignored unless GODEBUG=cryptocustomrand=1 is set. This setting will be removed
  // in a future Go release. Instead, use [testing/cryptotest.SetGlobalRandom].
  func GenerateKey(c elliptic.Curve, r io.Reader) (*PrivateKey, error) {
--	if boring.Enabled && r == boring.RandReader {
-+	if boring.Enabled() && r == boring.RandReader {
+-	if boring.Enabled && rand.IsDefaultReader(r) {
++	if boring.Enabled() && rand.IsDefaultReader(r) {
  		x, y, d, err := boring.GenerateKeyECDSA(c.Params().Name)
  		if err != nil {
  			return nil, err
@@ -575,8 +570,8 @@ index aee15b9283..d74788ce56 100644
  // is set. This setting will be removed in a future Go release. Instead, use
  // [testing/cryptotest.SetGlobalRandom].
  func SignASN1(r io.Reader, priv *PrivateKey, hash []byte) ([]byte, error) {
--	if boring.Enabled && r == boring.RandReader {
-+	if boring.Enabled() && r == boring.RandReader {
+-	if boring.Enabled && rand.IsDefaultReader(r) {
++	if boring.Enabled() && rand.IsDefaultReader(r) {
  		b, err := boringPrivateKey(priv)
  		if err != nil {
  			return nil, err
@@ -795,7 +790,7 @@ index 57d90f88e9..39b467799b 100644
  	}
  
 diff --git a/src/crypto/hmac/hmac.go b/src/crypto/hmac/hmac.go
-index 554c8c9b78..cdf97d8f81 100644
+index e7976e2519..336fdefd66 100644
 --- a/src/crypto/hmac/hmac.go
 +++ b/src/crypto/hmac/hmac.go
 @@ -22,7 +22,7 @@ timing side-channels:
@@ -817,7 +812,7 @@ index 554c8c9b78..cdf97d8f81 100644
  		if hm != nil {
  			return hm
 diff --git a/src/crypto/hmac/hmac_test.go b/src/crypto/hmac/hmac_test.go
-index 9b7eee7bf7..bb9170f13b 100644
+index 4046a9555a..50f829a16b 100644
 --- a/src/crypto/hmac/hmac_test.go
 +++ b/src/crypto/hmac/hmac_test.go
 @@ -5,7 +5,7 @@
@@ -829,7 +824,7 @@ index 9b7eee7bf7..bb9170f13b 100644
  	"crypto/internal/cryptotest"
  	"crypto/md5"
  	"crypto/sha1"
-@@ -584,8 +584,8 @@ func TestHMAC(t *testing.T) {
+@@ -597,8 +597,8 @@ func TestNoClone(t *testing.T) {
  }
  
  func TestNonUniqueHash(t *testing.T) {
@@ -840,6 +835,44 @@ index 9b7eee7bf7..bb9170f13b 100644
  	}
  	sha := sha256.New()
  	defer func() {
+diff --git a/src/crypto/hpke/hpke_test.go b/src/crypto/hpke/hpke_test.go
+index ceb33263a6..23c356da8d 100644
+--- a/src/crypto/hpke/hpke_test.go
++++ b/src/crypto/hpke/hpke_test.go
+@@ -7,6 +7,7 @@ package hpke
+ import (
+ 	"bytes"
+ 	"crypto/ecdh"
++	boring "crypto/internal/backend"
+ 	"crypto/mlkem"
+ 	"crypto/mlkem/mlkemtest"
+ 	"crypto/sha3"
+@@ -18,7 +19,13 @@ import (
+ 	"testing"
+ )
+ 
+-func Example() {
++func TestExample(t *testing.T) {
++
++	// Skip in FIPS mode as MLKEM768X25519 uses X25519 which is not FIPS-approved
++	if boring.Enabled() {
++		t.Skip("Not supported in boring mode")
++	}
++
+ 	// In this example, we use MLKEM768-X25519 as the KEM, HKDF-SHA256 as the
+ 	// KDF, and AES-256-GCM as the AEAD to encrypt a single message from a
+ 	// sender to a recipient using the one-shot API.
+@@ -256,6 +263,10 @@ func mustDecodeHex(t *testing.T, in string) []byte {
+ }
+ 
+ func TestVectors(t *testing.T) {
++	if boring.Enabled() {
++		t.Skip("The following test vectors are not allowed in boring mode")
++	}
++
+ 	t.Run("rfc9180", func(t *testing.T) {
+ 		testVectors(t, "rfc9180")
+ 	})
 diff --git a/src/crypto/internal/backend/bbig/big.go b/src/crypto/internal/backend/bbig/big.go
 new file mode 100644
 index 0000000000..5652398605
@@ -1921,44 +1954,6 @@ index 6dfc6ed5f5..0000000000
 -	}
 -	return (*byte)(noescape(unsafe.Pointer(&p[0])))
 -}
-diff --git a/src/crypto/hpke/hpke_test.go b/src/crypto/hpke/hpke_test.go
-index b54a234fe5..3e31559246 100644
---- a/src/crypto/hpke/hpke_test.go
-+++ b/src/crypto/hpke/hpke_test.go
-@@ -7,6 +7,7 @@ package hpke
- import (
- 	"bytes"
- 	"crypto/ecdh"
-+	boring "crypto/internal/backend"
- 	"crypto/mlkem"
- 	"crypto/mlkem/mlkemtest"
- 	"crypto/sha3"
-@@ -18,7 +19,13 @@
- 	"testing"
- )
- 
--func Example() {
-+func TestExample(t *testing.T) {
-+
-+	// Skip in FIPS mode as MLKEM768X25519 uses X25519 which is not FIPS-approved
-+	if boring.Enabled() {
-+		t.Skip("Not supported in boring mode")
-+	}
-+
- 	// In this example, we use MLKEM768-X25519 as the KEM, HKDF-SHA256 as the
- 	// KDF, and AES-256-GCM as the AEAD to encrypt a single message from a
- 	// sender to a recipient using the one-shot API.
-@@ -79,6 +86,10 @@
- }
- 
- func TestVectors(t *testing.T) {
-+	if boring.Enabled() {
-+		t.Skip("The following test vectors are not allowed in boring mode")
-+	}
-+
- 	t.Run("rfc9180", func(t *testing.T) {
- 		testVectors(t, "rfc9180")
- 	})
 diff --git a/src/crypto/internal/boring/boring_test.go b/src/crypto/internal/boring/boring_test.go
 deleted file mode 100644
 index 83bbbd3404..0000000000
@@ -3756,7 +3751,7 @@ index 70055af70b..9d9204ff45 100644
  	}
  
 diff --git a/src/crypto/internal/cryptotest/hash.go b/src/crypto/internal/cryptotest/hash.go
-index f00e9c80d3..31c4ccea66 100644
+index 37fd96a2d9..93563be163 100644
 --- a/src/crypto/internal/cryptotest/hash.go
 +++ b/src/crypto/internal/cryptotest/hash.go
 @@ -5,7 +5,7 @@
@@ -3778,7 +3773,7 @@ index f00e9c80d3..31c4ccea66 100644
  		return
  	}
 diff --git a/src/crypto/internal/cryptotest/implementations.go b/src/crypto/internal/cryptotest/implementations.go
-index f0ba665403..8c9b32e132 100644
+index 2b6cf4b75f..b0feebea75 100644
 --- a/src/crypto/internal/cryptotest/implementations.go
 +++ b/src/crypto/internal/cryptotest/implementations.go
 @@ -5,7 +5,7 @@
@@ -3790,7 +3785,7 @@ index f0ba665403..8c9b32e132 100644
  	"crypto/internal/impl"
  	"internal/goarch"
  	"internal/goos"
-@@ -18,7 +18,7 @@ import (
+@@ -19,7 +19,7 @@ import (
  // are no alternative implementations for pkg, f is invoked directly once.
  func TestAllImplementations(t *testing.T, pkg string, f func(t *testing.T)) {
  	// BoringCrypto bypasses the multiple Go implementations.
@@ -3799,7 +3794,6 @@ index f0ba665403..8c9b32e132 100644
  		f(t)
  		return
  	}
-
 diff --git a/src/crypto/internal/fips140test/fips_test.go b/src/crypto/internal/fips140test/fips_test.go
 index 52fc9d3488..2f5811fedb 100644
 --- a/src/crypto/internal/fips140test/fips_test.go
@@ -3822,6 +3816,28 @@ index 52fc9d3488..2f5811fedb 100644
  		t.Skip("Go+BoringCrypto shims prevent the service indicator from being set")
  	}
  
+diff --git a/src/crypto/internal/rand/rand.go b/src/crypto/internal/rand/rand.go
+index 29648b9f38..ab378ef7ee 100644
+--- a/src/crypto/internal/rand/rand.go
++++ b/src/crypto/internal/rand/rand.go
+@@ -5,7 +5,7 @@
+ package rand
+ 
+ import (
+-	"crypto/internal/boring"
++	boring "crypto/internal/backend"
+ 	"crypto/internal/fips140/drbg"
+ 	"crypto/internal/randutil"
+ 	"internal/godebug"
+@@ -18,7 +18,7 @@ type reader struct {
+ }
+ 
+ func (r reader) Read(b []byte) (n int, err error) {
+-	if boring.Enabled {
++	if boring.Enabled() {
+ 		if _, err := boring.RandReader.Read(b); err != nil {
+ 			panic("crypto/rand: boring RandReader failed: " + err.Error())
+ 		}
 diff --git a/src/crypto/pbkdf2/pbkdf2_test.go b/src/crypto/pbkdf2/pbkdf2_test.go
 index eb0ed14e24..78322dedf8 100644
 --- a/src/crypto/pbkdf2/pbkdf2_test.go
@@ -3844,31 +3860,8 @@ index eb0ed14e24..78322dedf8 100644
  		t.Skip("in BoringCrypto mode PBKDF2 is not from the Go FIPS module")
  	}
  
-diff --git a/src/crypto/internal/rand/rand.go b/src/crypto/internal/rand/rand.go
-index 3a780952e7..36d0a0974c 100644
---- a/src/crypto/internal/rand/rand.go
-+++ b/src/crypto/internal/rand/rand.go
-@@ -5,7 +5,7 @@
- package rand
- 
- import (
--	"crypto/internal/boring"
-+        boring "crypto/internal/backend"
- 	"crypto/internal/fips140/drbg"
- 	"crypto/internal/randutil"
- 	"internal/godebug"
-@@ -18,7 +18,7 @@ type reader struct {
- }
- 
- func (r reader) Read(b []byte) (n int, err error) {
--	if boring.Enabled {
-+	if boring.Enabled() {
- 		if _, err := boring.RandReader.Read(b); err != nil {
- 			panic("crypto/rand: boring RandReader failed: " + err.Error())
- 		}
-
 diff --git a/src/crypto/rand/rand.go b/src/crypto/rand/rand.go
-index 004e6b6fed..48795d5144 100644
+index 018fe013ce..2a64237985 100644
 --- a/src/crypto/rand/rand.go
 +++ b/src/crypto/rand/rand.go
 @@ -7,7 +7,7 @@
@@ -3876,19 +3869,25 @@ index 004e6b6fed..48795d5144 100644
  
  import (
 -	"crypto/internal/boring"
-+        boring "crypto/internal/backend"
++	boring "crypto/internal/backend"
  	"crypto/internal/fips140/drbg"
  	"crypto/internal/rand"
  	"io"
-@@ -34,7 +34,7 @@ import (
- var Reader io.Reader
- 
- func init() {
--	if boring.Enabled {
-+	if boring.Enabled() {
- 		Reader = boring.RandReader
- 		return
- 	}
+@@ -50,12 +50,13 @@ func Read(b []byte) (n int, err error) {
+ 	// case which we can keep non-escaping, and in the general case we read into
+ 	// a heap buffer and copy from it.
+ 	if rand.IsDefaultReader(Reader) {
+-		if boring.Enabled {
++		if boring.Enabled() {
+ 			_, err = io.ReadFull(boring.RandReader, b)
+ 		} else {
+ 			drbg.Read(b)
+ 		}
+ 	} else {
++		boring.UnreachableExceptTests()
+ 		bb := make([]byte, len(b))
+ 		_, err = io.ReadFull(Reader, bb)
+ 		copy(b, bb)
 diff --git a/src/crypto/rsa/boring.go b/src/crypto/rsa/boring.go
 index b9f9d3154f..85c2a45848 100644
 --- a/src/crypto/rsa/boring.go
@@ -3923,9 +3922,8 @@ index 838fcc1244..fa50352a3f 100644
  
  // Note: Can run these tests against the non-BoringCrypto
  // version of the code by using "CGO_ENABLED=0 go test".
-
 diff --git a/src/crypto/rsa/fips.go b/src/crypto/rsa/fips.go
-index ba92659193..8a886284ea 100644
+index fb2395886b..4db9998d99 100644
 --- a/src/crypto/rsa/fips.go
 +++ b/src/crypto/rsa/fips.go
 @@ -6,7 +6,7 @@ package rsa
@@ -3933,20 +3931,20 @@ index ba92659193..8a886284ea 100644
  import (
  	"crypto"
 -	"crypto/internal/boring"
-+	 boring "crypto/internal/backend"
++	boring "crypto/internal/backend"
  	"crypto/internal/fips140/rsa"
  	"crypto/internal/fips140hash"
  	"crypto/internal/fips140only"
-@@ -70,7 +70,7 @@ func SignPSS(rand io.Reader, priv *PrivateKey, hash crypto.Hash, digest []byte,
+@@ -71,7 +71,7 @@ func SignPSS(random io.Reader, priv *PrivateKey, hash crypto.Hash, digest []byte
  		hash = opts.Hash
  	}
  
--	if boring.Enabled && rand == boring.RandReader {
-+	if boring.Enabled() && rand == boring.RandReader {
+-	if boring.Enabled && rand.IsDefaultReader(random) {
++	if boring.Enabled() && rand.IsDefaultReader(random) {
  		bkey, err := boringPrivateKey(priv)
  		if err != nil {
  			return nil, err
-@@ -133,7 +133,7 @@ func VerifyPSS(pub *PublicKey, hash crypto.Hash, digest []byte, sig []byte, opts
+@@ -134,7 +134,7 @@ func VerifyPSS(pub *PublicKey, hash crypto.Hash, digest []byte, sig []byte, opts
  		return err
  	}
  
@@ -3955,16 +3953,16 @@ index ba92659193..8a886284ea 100644
  		bkey, err := boringPublicKey(pub)
  		if err != nil {
  			return err
-@@ -216,7 +216,7 @@ func encryptOAEP(hash hash.Hash, mgfHash hash.Hash, random io.Reader, pub *Publi
+@@ -217,7 +217,7 @@ func encryptOAEP(hash hash.Hash, mgfHash hash.Hash, random io.Reader, pub *Publi
  	defer hash.Reset()
  	defer mgfHash.Reset()
  
--	if boring.Enabled && random == boring.RandReader {
-+	if boring.Enabled() && random == boring.RandReader {
+-	if boring.Enabled && rand.IsDefaultReader(random) {
++	if boring.Enabled() && rand.IsDefaultReader(random) {
  		k := pub.Size()
  		if len(msg) > k-2*hash.Size()-2 {
  			return nil, ErrMessageTooLong
-@@ -268,7 +268,7 @@ func decryptOAEP(hash, mgfHash hash.Hash, priv *PrivateKey, ciphertext []byte, l
+@@ -269,7 +269,7 @@ func decryptOAEP(hash, mgfHash hash.Hash, priv *PrivateKey, ciphertext []byte, l
  		return nil, err
  	}
  
@@ -3973,7 +3971,7 @@ index ba92659193..8a886284ea 100644
  		k := priv.Size()
  		if len(ciphertext) > k ||
  			k < hash.Size()*2+2 {
-@@ -330,7 +330,7 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
+@@ -331,7 +331,7 @@ func SignPKCS1v15(random io.Reader, priv *PrivateKey, hash crypto.Hash, hashed [
  		return nil, err
  	}
  
@@ -3982,7 +3980,7 @@ index ba92659193..8a886284ea 100644
  		bkey, err := boringPrivateKey(priv)
  		if err != nil {
  			return nil, err
-@@ -373,7 +373,7 @@ func VerifyPKCS1v15(pub *PublicKey, hash crypto.Hash, hashed []byte, sig []byte)
+@@ -374,7 +374,7 @@ func VerifyPKCS1v15(pub *PublicKey, hash crypto.Hash, hashed []byte, sig []byte)
  		return err
  	}
  
@@ -4016,7 +4014,7 @@ index 2abc043640..a83be6dfdb 100644
 +	panic("!no_openssl: not available")
  }
 diff --git a/src/crypto/rsa/pkcs1v15.go b/src/crypto/rsa/pkcs1v15.go
-index 0f216e0193..bae18b47a4 100644
+index 5269d7b971..25fa70d03f 100644
 --- a/src/crypto/rsa/pkcs1v15.go
 +++ b/src/crypto/rsa/pkcs1v15.go
 @@ -5,7 +5,7 @@
@@ -4024,7 +4022,7 @@ index 0f216e0193..bae18b47a4 100644
  
  import (
 -	"crypto/internal/boring"
-+	  boring "crypto/internal/backend"
++	boring "crypto/internal/backend"
  	"crypto/internal/fips140/rsa"
  	"crypto/internal/fips140only"
  	"crypto/internal/rand"
@@ -4032,8 +4030,8 @@ index 0f216e0193..bae18b47a4 100644
  		return nil, ErrMessageTooLong
  	}
  
--	if boring.Enabled && random == boring.RandReader {
-+	if boring.Enabled() && random == boring.RandReader {
+-	if boring.Enabled && rand.IsDefaultReader(random) {
++	if boring.Enabled() && rand.IsDefaultReader(random) {
  		bkey, err := boringPublicKey(pub)
  		if err != nil {
  			return nil, err
@@ -4316,10 +4314,10 @@ index e03f4ab066..2a18d7a553 100644
  
  	// We don't check the specific error here, because crypto/rsa and crypto/internal/boring
 diff --git a/src/crypto/rsa/rsa.go b/src/crypto/rsa/rsa.go
-index 95bb4becd2..7b01e0b8b6 100644
+index b94b129867..9886e36f82 100644
 --- a/src/crypto/rsa/rsa.go
 +++ b/src/crypto/rsa/rsa.go
-@@ -42,8 +42,8 @@ package rsa
+@@ -43,8 +43,8 @@ package rsa
  
  import (
  	"crypto"
@@ -4330,17 +4328,17 @@ index 95bb4becd2..7b01e0b8b6 100644
  	"crypto/internal/fips140/bigmod"
  	"crypto/internal/fips140/rsa"
  	"crypto/internal/fips140only"
-@@ -280,7 +280,7 @@ func GenerateKey(random io.Reader, bits int) (*PrivateKey, error) {
+@@ -314,7 +314,7 @@ func GenerateKey(random io.Reader, bits int) (*PrivateKey, error) {
  		return nil, err
  	}
  
--	if boring.Enabled && random == boring.RandReader &&
-+	if boring.Enabled() && random == boring.RandReader &&
+-	if boring.Enabled && rand.IsDefaultReader(random) &&
++	if boring.Enabled() && rand.IsDefaultReader(random) &&
  		(bits == 2048 || bits == 3072 || bits == 4096) {
  		bN, bE, bD, bP, bQ, bDp, bDq, bQinv, err := boring.GenerateKeyRSA(bits)
  		if err != nil {
 diff --git a/src/crypto/rsa/rsa_test.go b/src/crypto/rsa/rsa_test.go
-index 2f54deae68..33b1e2d6eb 100644
+index 5ae4c1dd20..384fbb0d98 100644
 --- a/src/crypto/rsa/rsa_test.go
 +++ b/src/crypto/rsa/rsa_test.go
 @@ -8,7 +8,7 @@ import (
@@ -4352,7 +4350,7 @@ index 2f54deae68..33b1e2d6eb 100644
  	"crypto/internal/cryptotest"
  	"crypto/internal/fips140"
  	"crypto/rand"
-@@ -39,8 +39,19 @@ func TestKeyGeneration(t *testing.T) {
+@@ -41,8 +41,19 @@ func TestKeyGeneration(t *testing.T) {
  				if err == nil {
  					t.Errorf("GenerateKey(%d) succeeded without GODEBUG", size)
  				}
@@ -4372,7 +4370,7 @@ index 2f54deae68..33b1e2d6eb 100644
  			priv, err := GenerateKey(rand.Reader, size)
  			if err != nil {
  				t.Errorf("GenerateKey(%d): %v", size, err)
-@@ -54,11 +65,17 @@ func TestKeyGeneration(t *testing.T) {
+@@ -56,11 +67,17 @@ func TestKeyGeneration(t *testing.T) {
  }
  
  func Test3PrimeKeyGeneration(t *testing.T) {
@@ -4390,7 +4388,7 @@ index 2f54deae68..33b1e2d6eb 100644
  
  	priv, err := GenerateMultiPrimeKey(rand.Reader, 3, size)
  	if err != nil {
-@@ -68,11 +85,17 @@ func Test3PrimeKeyGeneration(t *testing.T) {
+@@ -70,11 +87,17 @@ func Test3PrimeKeyGeneration(t *testing.T) {
  }
  
  func Test4PrimeKeyGeneration(t *testing.T) {
@@ -4408,7 +4406,7 @@ index 2f54deae68..33b1e2d6eb 100644
  
  	priv, err := GenerateMultiPrimeKey(rand.Reader, 4, size)
  	if err != nil {
-@@ -82,6 +105,9 @@ func Test4PrimeKeyGeneration(t *testing.T) {
+@@ -84,6 +107,9 @@ func Test4PrimeKeyGeneration(t *testing.T) {
  }
  
  func TestNPrimeKeyGeneration(t *testing.T) {
@@ -4418,7 +4416,7 @@ index 2f54deae68..33b1e2d6eb 100644
  	t.Setenv("GODEBUG", "rsa1024min=0")
  	primeSize := 64
  	maxN := 24
-@@ -130,6 +156,9 @@ func TestTinyKeyGeneration(t *testing.T) {
+@@ -132,6 +158,9 @@ func TestTinyKeyGeneration(t *testing.T) {
  }
  
  func TestGnuTLSKey(t *testing.T) {
@@ -4428,7 +4426,7 @@ index 2f54deae68..33b1e2d6eb 100644
  	t.Setenv("GODEBUG", "rsa1024min=0")
  	// This is a key generated by `certtool --generate-privkey --bits 128`.
  	// It's such that de ≢ 1 mod φ(n), but is congruent mod the order of
-@@ -153,6 +182,10 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
+@@ -155,6 +184,10 @@ func testKeyBasics(t *testing.T, priv *PrivateKey) {
  	msg := []byte("hi!")
  	enc, err := EncryptPKCS1v15(rand.Reader, &priv.PublicKey, msg)
  	if err != nil {
@@ -4439,7 +4437,7 @@ index 2f54deae68..33b1e2d6eb 100644
  		t.Errorf("EncryptPKCS1v15: %v", err)
  		return
  	}
-@@ -192,6 +225,10 @@ func TestAllocations(t *testing.T) {
+@@ -194,6 +227,10 @@ func TestAllocations(t *testing.T) {
  var allFlag = flag.Bool("all", false, "test all key sizes up to 2048")
  
  func TestEverything(t *testing.T) {
@@ -4450,7 +4448,7 @@ index 2f54deae68..33b1e2d6eb 100644
  	if testing.Short() {
  		// Skip key generation, but still test real sizes.
  		for _, key := range []*PrivateKey{test1024Key, test2048Key} {
-@@ -235,6 +272,10 @@ func testEverything(t *testing.T, priv *PrivateKey) {
+@@ -237,6 +274,10 @@ func testEverything(t *testing.T, priv *PrivateKey) {
  	if err == ErrMessageTooLong {
  		t.Log("key too small for EncryptPKCS1v15")
  	} else if err != nil {
@@ -4461,7 +4459,7 @@ index 2f54deae68..33b1e2d6eb 100644
  		t.Errorf("EncryptPKCS1v15: %v", err)
  	}
  	if err == nil {
-@@ -905,6 +946,10 @@ func TestDecryptOAEP(t *testing.T) {
+@@ -917,6 +958,10 @@ func TestDecryptOAEP(t *testing.T) {
  		private.D = d
  
  		for j, message := range test.msgs {
@@ -4472,7 +4470,7 @@ index 2f54deae68..33b1e2d6eb 100644
  			out, err := DecryptOAEP(sha1, nil, private, message.out, nil)
  			if err != nil {
  				t.Errorf("#%d,%d error: %s", i, j, err)
-@@ -927,6 +972,9 @@ func TestDecryptOAEP(t *testing.T) {
+@@ -939,6 +984,9 @@ func TestDecryptOAEP(t *testing.T) {
  }
  
  func Test2DecryptOAEP(t *testing.T) {
@@ -4482,7 +4480,7 @@ index 2f54deae68..33b1e2d6eb 100644
  	random := rand.Reader
  
  	msg := []byte{0xed, 0x36, 0x90, 0x8d, 0xbe, 0xfc, 0x35, 0x40, 0x70, 0x4f, 0xf5, 0x9d, 0x6e, 0xc2, 0xeb, 0xf5, 0x27, 0xae, 0x65, 0xb0, 0x59, 0x29, 0x45, 0x25, 0x8c, 0xc1, 0x91, 0x22}
-@@ -966,6 +1014,10 @@ func TestEncryptDecryptOAEP(t *testing.T) {
+@@ -978,6 +1026,10 @@ func TestEncryptDecryptOAEP(t *testing.T) {
  			label := []byte(fmt.Sprintf("hi#%d", j))
  			enc, err := EncryptOAEP(sha256, rand.Reader, &priv.PublicKey, message.in, label)
  			if err != nil {
@@ -4493,7 +4491,7 @@ index 2f54deae68..33b1e2d6eb 100644
  				t.Errorf("#%d,%d: EncryptOAEP: %v", i, j, err)
  				continue
  			}
-@@ -1140,7 +1192,7 @@ v/Ow5T0q5gIJAiEAyS4RaI9YG8EWx/2w0T67ZUVAw8eOMB6BIUg0Xcu+3okCIBOs
+@@ -1182,7 +1234,7 @@ v/Ow5T0q5gIJAiEAyS4RaI9YG8EWx/2w0T67ZUVAw8eOMB6BIUg0Xcu+3okCIBOs
  /5OiPgoTdSy7bcF9IGpSE8ZgGKzgYQVZeN97YE00
  -----END RSA TESTING KEY-----`))
  	t.Setenv("GODEBUG", "rsa1024min=0")
@@ -4502,7 +4500,7 @@ index 2f54deae68..33b1e2d6eb 100644
  		t.Skip("BoringCrypto mode returns the wrong error from SignPSS")
  	}
  	testEverything(t, k)
-@@ -1182,7 +1234,7 @@ ksuRAiEA7sRa5y32Hbtlmquc9VV0/nJpq1NKRmFunE1PJh4IAMECYH0Q1ZHJWkqv
+@@ -1224,7 +1276,7 @@ ksuRAiEA7sRa5y32Hbtlmquc9VV0/nJpq1NKRmFunE1PJh4IAMECYH0Q1ZHJWkqv
  cHPGX1uUDRAU1xxtpVQ0OqXyEgqwz6y6hYRw
  -----END TESTING KEY-----`))
  
@@ -4614,7 +4612,7 @@ index 069938a22d..ec5e84285a 100644
  	}
  	h := New224()
 diff --git a/src/crypto/sha256/sha256_test.go b/src/crypto/sha256/sha256_test.go
-index 11b24db7d6..bfbe8e6e63 100644
+index a18a536ba2..3a4b0410b8 100644
 --- a/src/crypto/sha256/sha256_test.go
 +++ b/src/crypto/sha256/sha256_test.go
 @@ -8,6 +8,7 @@ package sha256
@@ -4707,7 +4705,7 @@ index 080bf694f0..0ac614f7b9 100644
  		cryptotest.TestAllImplementations(t, "sha512", func(t *testing.T) {
  			h := maybeCloner(New384())
 diff --git a/src/crypto/tls/cipher_suites.go b/src/crypto/tls/cipher_suites.go
-index 2a96fa6903..e0062d71b0 100644
+index 6ed63ccc2d..4a96acfbaa 100644
 --- a/src/crypto/tls/cipher_suites.go
 +++ b/src/crypto/tls/cipher_suites.go
 @@ -10,7 +10,7 @@ import (
@@ -4747,7 +4745,7 @@ index 2a96fa6903..e0062d71b0 100644
  	} else {
  		boring.Unreachable()
 diff --git a/src/crypto/tls/common.go b/src/crypto/tls/common.go
-index 6fe6f34cd2..ddfea4f0fc 100644
+index 099a11ca63..e885ae83cd 100644
 --- a/src/crypto/tls/common.go
 +++ b/src/crypto/tls/common.go
 @@ -12,6 +12,7 @@ import (
@@ -4758,7 +4756,7 @@ index 6fe6f34cd2..ddfea4f0fc 100644
  	"crypto/rand"
  	"crypto/rsa"
  	"crypto/sha512"
-@@ -1172,6 +1173,9 @@ var tls10server = godebug.New("tls10server")
+@@ -1210,6 +1211,9 @@ var tls10server = godebug.New("tls10server")
  func (c *Config) supportedVersions(isClient bool) []uint16 {
  	versions := make([]uint16, 0, len(supportedVersions))
  	for _, v := range supportedVersions {
@@ -4825,7 +4823,7 @@ index e88f05cc50..097aa50b5f 100644
  	// or ECDSA P-256, P-384, P-521.
  	switch k := c.PublicKey.(type) {
 diff --git a/src/crypto/tls/defaults_fips140.go b/src/crypto/tls/defaults_fips140.go
-index 00176795eb..2cb4ec3fe1 100644
+index 1913260793..f4d2ba43d7 100644
 --- a/src/crypto/tls/defaults_fips140.go
 +++ b/src/crypto/tls/defaults_fips140.go
 @@ -2,8 +2,6 @@
@@ -4845,7 +4843,7 @@ index 00176795eb..2cb4ec3fe1 100644
  )
  
  // These FIPS 140-3 policies allow anything approved by SP 800-140C
-@@ -62,7 +61,20 @@ var (
+@@ -64,7 +63,20 @@ var (
  	}
  )
  
@@ -4908,7 +4906,7 @@ index 96273c0fe0..7096b0eb83 100644
  		return false
  	default:
 diff --git a/src/crypto/tls/handshake_client_tls13.go b/src/crypto/tls/handshake_client_tls13.go
-index 2912d97f75..58274bc824 100644
+index e696bd3a13..d78ae84a73 100644
 --- a/src/crypto/tls/handshake_client_tls13.go
 +++ b/src/crypto/tls/handshake_client_tls13.go
 @@ -10,6 +10,7 @@ import (
@@ -4931,7 +4929,7 @@ index 2912d97f75..58274bc824 100644
  
  	// The server must not select TLS 1.3 in a renegotiation. See RFC 8446,
 diff --git a/src/crypto/tls/handshake_server_tls13.go b/src/crypto/tls/handshake_server_tls13.go
-index 1182307936..df66901f72 100644
+index 3bed1359a3..3c16bedea8 100644
 --- a/src/crypto/tls/handshake_server_tls13.go
 +++ b/src/crypto/tls/handshake_server_tls13.go
 @@ -11,6 +11,7 @@ import (
@@ -5041,7 +5039,7 @@ index bfa22449c8..f16c1ea973 100644
 +	return tls13.ExpandLabel(newFunc, secret, label, context, length)
 +}
 diff --git a/src/crypto/tls/tls_test.go b/src/crypto/tls/tls_test.go
-index af2828fd8d..9d5fd6732d 100644
+index 39ebb9d2f1..0b213cb61f 100644
 --- a/src/crypto/tls/tls_test.go
 +++ b/src/crypto/tls/tls_test.go
 @@ -11,7 +11,7 @@ import (
@@ -5062,7 +5060,6 @@ index af2828fd8d..9d5fd6732d 100644
  		t.Skip("ML-KEM not supported in BoringCrypto FIPS mode")
  	}
  	defaultWithPQ := []CurveID{X25519MLKEM768, SecP256r1MLKEM768, SecP384r1MLKEM1024,
--- 
 diff --git a/src/crypto/x509/pkcs8_test.go b/src/crypto/x509/pkcs8_test.go
 index d0328800bc..825eb9dad7 100644
 --- a/src/crypto/x509/pkcs8_test.go
@@ -5086,7 +5083,7 @@ index d0328800bc..825eb9dad7 100644
  			continue
  		}
 diff --git a/src/crypto/x509/x509_test.go b/src/crypto/x509/x509_test.go
-index 98f3f7941c..7e1bf83679 100644
+index dd53168559..282b82c31c 100644
 --- a/src/crypto/x509/x509_test.go
 +++ b/src/crypto/x509/x509_test.go
 @@ -12,6 +12,7 @@ import (
@@ -5097,7 +5094,7 @@ index 98f3f7941c..7e1bf83679 100644
  	"crypto/rand"
  	"crypto/rsa"
  	_ "crypto/sha256"
-@@ -40,7 +41,7 @@ import (
+@@ -39,7 +40,7 @@ import (
  )
  
  func TestParsePKCS1PrivateKey(t *testing.T) {
@@ -5106,7 +5103,7 @@ index 98f3f7941c..7e1bf83679 100644
  	priv, err := ParsePKCS1PrivateKey(block.Bytes)
  	if err != nil {
  		t.Errorf("Failed to parse private key: %s", err)
-@@ -117,6 +118,9 @@ func testParsePKIXPublicKey(t *testing.T, pemBytes string) (pub any) {
+@@ -116,6 +117,9 @@ func testParsePKIXPublicKey(t *testing.T, pemBytes string) (pub any) {
  	block, _ := pem.Decode([]byte(pemBytes))
  	pub, err := ParsePKIXPublicKey(block.Bytes)
  	if err != nil {
@@ -5116,7 +5113,7 @@ index 98f3f7941c..7e1bf83679 100644
  		t.Fatalf("Failed to parse public key: %s", err)
  	}
  
-@@ -166,7 +170,7 @@ FF53oIpvxe/SCOymfWq/LW849Ytv3Xwod0+wzAP8STXG4HSELS4UedPYeHJJJYcZ
+@@ -165,7 +169,7 @@ FF53oIpvxe/SCOymfWq/LW849Ytv3Xwod0+wzAP8STXG4HSELS4UedPYeHJJJYcZ
  -----END PUBLIC KEY-----
  `
  
@@ -5125,7 +5122,7 @@ index 98f3f7941c..7e1bf83679 100644
  -----BEGIN RSA TESTING KEY-----
  MIICXAIBAAKBgQCxoeCUW5KJxNPxMp+KmCxKLc1Zv9Ny+4CFqcUXVUYH69L3mQ7v
  IWrJ9GBfcaA7BPQqUlWxWM+OCEQZH1EZNIuqRMNQVuIGCbz5UQ8w6tS0gcgdeGX7
-@@ -184,6 +188,37 @@ wg/HcAJWY60xZTJDFN+Qfx8ZQvBEin6c2/h+zZi5IVY=
+@@ -183,6 +187,37 @@ wg/HcAJWY60xZTJDFN+Qfx8ZQvBEin6c2/h+zZi5IVY=
  -----END RSA TESTING KEY-----
  `)
  
@@ -5163,7 +5160,7 @@ index 98f3f7941c..7e1bf83679 100644
  // pemEd25519Key is the example from RFC 8410, Section 4.
  var pemEd25519Key = `
  -----BEGIN PUBLIC KEY-----
-@@ -1458,6 +1493,7 @@ func TestParsePEMCRL(t *testing.T) {
+@@ -1457,6 +1492,7 @@ func TestParsePEMCRL(t *testing.T) {
  }
  
  func TestImports(t *testing.T) {
@@ -5171,7 +5168,7 @@ index 98f3f7941c..7e1bf83679 100644
  	if testing.Short() {
  		t.Skip("skipping in -short mode")
  	}
-@@ -1838,6 +1874,9 @@ func TestNoAuthorityKeyIdInSelfSignedCert(t *testing.T) {
+@@ -1835,6 +1871,9 @@ func TestNoAuthorityKeyIdInSelfSignedCert(t *testing.T) {
  }
  
  func TestNoSubjectKeyIdInCert(t *testing.T) {
@@ -5181,7 +5178,7 @@ index 98f3f7941c..7e1bf83679 100644
  	template := &Certificate{
  		SerialNumber: big.NewInt(1),
  		Subject: pkix.Name{
-@@ -2406,6 +2445,9 @@ func TestAdditionFieldsInGeneralSubtree(t *testing.T) {
+@@ -2403,6 +2442,9 @@ func TestAdditionFieldsInGeneralSubtree(t *testing.T) {
  }
  
  func TestEmptySerialNumber(t *testing.T) {
@@ -5191,7 +5188,7 @@ index 98f3f7941c..7e1bf83679 100644
  	template := Certificate{
  		DNSNames: []string{"example.com"},
  	}
-@@ -2437,6 +2479,9 @@ func TestEmptySerialNumber(t *testing.T) {
+@@ -2434,6 +2476,9 @@ func TestEmptySerialNumber(t *testing.T) {
  }
  
  func TestEmptySubject(t *testing.T) {
@@ -5201,7 +5198,7 @@ index 98f3f7941c..7e1bf83679 100644
  	template := Certificate{
  		SerialNumber: big.NewInt(1),
  		DNSNames:     []string{"example.com"},
-@@ -3716,6 +3761,9 @@ func TestParseUniqueID(t *testing.T) {
+@@ -3713,6 +3758,9 @@ func TestParseUniqueID(t *testing.T) {
  }
  
  func TestDisableSHA1ForCertOnly(t *testing.T) {
@@ -5211,7 +5208,7 @@ index 98f3f7941c..7e1bf83679 100644
  	t.Setenv("GODEBUG", "")
  
  	tmpl := &Certificate{
-@@ -4029,6 +4077,9 @@ func TestDuplicateAttributesCSR(t *testing.T) {
+@@ -4026,6 +4074,9 @@ func TestDuplicateAttributesCSR(t *testing.T) {
  }
  
  func TestCertificateOIDPoliciesGODEBUG(t *testing.T) {
@@ -5221,7 +5218,7 @@ index 98f3f7941c..7e1bf83679 100644
  	t.Setenv("GODEBUG", "x509usepolicies=0")
  
  	template := Certificate{
-@@ -4067,6 +4118,9 @@ func TestCertificateOIDPoliciesGODEBUG(t *testing.T) {
+@@ -4064,6 +4115,9 @@ func TestCertificateOIDPoliciesGODEBUG(t *testing.T) {
  }
  
  func TestCertificatePolicies(t *testing.T) {
@@ -5231,7 +5228,7 @@ index 98f3f7941c..7e1bf83679 100644
  	if x509usepolicies.Value() == "0" {
  		t.Skip("test relies on default x509usepolicies GODEBUG")
  	}
-@@ -4124,6 +4178,9 @@ func TestGob(t *testing.T) {
+@@ -4121,6 +4175,9 @@ func TestGob(t *testing.T) {
  }
  
  func TestRejectCriticalAKI(t *testing.T) {
@@ -5241,7 +5238,7 @@ index 98f3f7941c..7e1bf83679 100644
  	template := Certificate{
  		SerialNumber: big.NewInt(1),
  		Subject:      pkix.Name{CommonName: "Cert"},
-@@ -4149,6 +4206,9 @@ func TestRejectCriticalAKI(t *testing.T) {
+@@ -4146,6 +4203,9 @@ func TestRejectCriticalAKI(t *testing.T) {
  }
  
  func TestRejectCriticalAIA(t *testing.T) {
@@ -5251,7 +5248,7 @@ index 98f3f7941c..7e1bf83679 100644
  	template := Certificate{
  		SerialNumber: big.NewInt(1),
  		Subject:      pkix.Name{CommonName: "Cert"},
-@@ -4174,6 +4234,9 @@ func TestRejectCriticalAIA(t *testing.T) {
+@@ -4171,6 +4231,9 @@ func TestRejectCriticalAIA(t *testing.T) {
  }
  
  func TestRejectCriticalSKI(t *testing.T) {
@@ -5261,7 +5258,7 @@ index 98f3f7941c..7e1bf83679 100644
  	template := Certificate{
  		SerialNumber: big.NewInt(1),
  		Subject:      pkix.Name{CommonName: "Cert"},
-@@ -4217,6 +4280,9 @@ func (ms *messageSigner) SignMessage(rand io.Reader, msg []byte, opts crypto.Sig
+@@ -4214,6 +4277,9 @@ func (ms *messageSigner) SignMessage(rand io.Reader, msg []byte, opts crypto.Sig
  }
  
  func TestMessageSigner(t *testing.T) {
@@ -5271,7 +5268,7 @@ index 98f3f7941c..7e1bf83679 100644
  	template := Certificate{
  		SignatureAlgorithm:    SHA256WithRSA,
  		SerialNumber:          big.NewInt(1),
-@@ -4240,6 +4306,9 @@ func TestMessageSigner(t *testing.T) {
+@@ -4237,6 +4303,9 @@ func TestMessageSigner(t *testing.T) {
  }
  
  func TestCreateCertificateNegativeMaxPathLength(t *testing.T) {
@@ -5282,7 +5279,7 @@ index 98f3f7941c..7e1bf83679 100644
  		SerialNumber:          big.NewInt(1),
  		Subject:               pkix.Name{CommonName: "TEST"},
 diff --git a/src/go.mod b/src/go.mod
-index f79455c970..5caaf67189 100644
+index efc07451b5..794d4a5d68 100644
 --- a/src/go.mod
 +++ b/src/go.mod
 @@ -8,6 +8,7 @@ require (
@@ -5290,11 +5287,11 @@ index f79455c970..5caaf67189 100644
  
  require (
 +        github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8 // indirect
- 	golang.org/x/sys v0.38.1-0.20251125153526-08e54827f670 // indirect
- 	golang.org/x/text v0.31.1-0.20251128220601-087616b6cde9 // indirect
+ 	golang.org/x/sys v0.39.0 // indirect
+ 	golang.org/x/text v0.32.0 // indirect
  )
 diff --git a/src/go.sum b/src/go.sum
-index e2cf9591bc..8c0ee9b863 100644
+index b6b841b44d..2a1ab9ae06 100644
 --- a/src/go.sum
 +++ b/src/go.sum
 @@ -1,3 +1,7 @@
@@ -5302,37 +5299,14 @@ index e2cf9591bc..8c0ee9b863 100644
 +github.com/golang-fips/openssl/v2 v2.0.3/go.mod h1:7tuBqX2Zov8Yq5mJ2yzlKhpnxOnWyEzi38AzeWRuQdg=
 +github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8 h1:OlLgcP8q2BFCR/MmtJcnY7fsbj8FfMYnvCpYthwHMYA=
 +github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8/go.mod h1:OYUBsoxLpFu8OFyhZHxfpN8lgcsw8JhTC3BQK7+XUc0=
- golang.org/x/crypto v0.45.0 h1:jMBrvKuj23MTlT0bQEOBcAE0mjg8mK9RXFhRH6nyF3Q=
- golang.org/x/crypto v0.45.0/go.mod h1:XTGrrkGJve7CYK7J8PEww4aY7gM3qMCElcJQ8n8JdX4=
+ golang.org/x/crypto v0.46.1-0.20251210140736-7dacc380ba00 h1:JgcPM1rzpSOZS8y69FQvnY0xN0ciHlpQqwTXJcuZIA4=
+ golang.org/x/crypto v0.46.1-0.20251210140736-7dacc380ba00/go.mod h1:Evb/oLKmMraqjZ2iQTwDwvCtJkczlDuTmdJXoZVzqU0=
  golang.org/x/net v0.47.1-0.20251128220604-7c360367ab7e h1:PAAT9cIDvIAIRQVz2txQvUFRt3jOlhiO84ihd8XMGlg=
-diff --git a/src/internal/goexperiment/flags.go b/src/internal/goexperiment/flags.go
-index 2cfb71578b..649acecdea 100644
---- a/src/internal/goexperiment/flags.go
-+++ b/src/internal/goexperiment/flags.go
-@@ -128,4 +128,6 @@ type Flags struct {
- 
- 	// RuntimeSecret enables the runtime/secret package.
- 	RuntimeSecret bool
-+
-+	StrictFIPSRuntime bool
- }
-diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
-index 7932adddfa..bc0937c02d 100644
---- a/src/vendor/modules.txt
-+++ b/src/vendor/modules.txt
-@@ -1,3 +1,7 @@
-+# github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8
-+## explicit; go 1.22
-+github.com/golang-fips/openssl/v2
-+github.com/golang-fips/openssl/v2/bbig
- # golang.org/x/crypto v0.45.0
- ## explicit; go 1.24.0
- golang.org/x/crypto/chacha20
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
-index 6d92542e31..859d69812a 100644
+index f4b7e9dae5..55f52e124a 100644
 --- a/src/go/build/deps_test.go
 +++ b/src/go/build/deps_test.go
-@@ -828,6 +828,14 @@ func listStdPkgs(goroot string) ([]string, error) {
+@@ -887,6 +887,14 @@ func listStdPkgs(goroot string) ([]string, error) {
  }
  
  func TestDependencies(t *testing.T) {
@@ -5390,6 +5364,17 @@ index 0000000000..0983612732
 +
 +const StrictFIPSRuntime = true
 +const StrictFIPSRuntimeInt = 1
+diff --git a/src/internal/goexperiment/flags.go b/src/internal/goexperiment/flags.go
+index 2cfb71578b..649acecdea 100644
+--- a/src/internal/goexperiment/flags.go
++++ b/src/internal/goexperiment/flags.go
+@@ -128,4 +128,6 @@ type Flags struct {
+ 
+ 	// RuntimeSecret enables the runtime/secret package.
+ 	RuntimeSecret bool
++
++	StrictFIPSRuntime bool
+ }
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/.gitleaks.toml b/src/vendor/github.com/golang-fips/openssl/v2/.gitleaks.toml
 new file mode 100644
 index 0000000000..aed2e22df2
@@ -12347,3 +12332,15 @@ index 0000000000..f342f221ea
 +	}
 +	return nil
 +}
+diff --git a/src/vendor/modules.txt b/src/vendor/modules.txt
+index b6f6376eac..686328d213 100644
+--- a/src/vendor/modules.txt
++++ b/src/vendor/modules.txt
+@@ -1,3 +1,7 @@
++# github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8
++## explicit; go 1.22
++github.com/golang-fips/openssl/v2
++github.com/golang-fips/openssl/v2/bbig
+ # golang.org/x/crypto v0.46.1-0.20251210140736-7dacc380ba00
+ ## explicit; go 1.24.0
+ golang.org/x/crypto/chacha20
