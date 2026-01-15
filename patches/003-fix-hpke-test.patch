@@ -1,0 +1,53 @@
+commit eb434491bafd5659423b3b2c0380ba54bbb54934
+Author: Derek Parker <parkerderek86@gmail.com>
+Date:   Mon Jan 12 10:12:20 2026 -0800
+
+    Fix RoundTrip hpke test
+
+diff --git a/src/crypto/hpke/hpke_test.go b/src/crypto/hpke/hpke_test.go
+index 23c356da8d..ea67a0c10e 100644
+--- a/src/crypto/hpke/hpke_test.go
++++ b/src/crypto/hpke/hpke_test.go
+@@ -16,6 +16,7 @@ import (
+ 	"fmt"
+ 	"io"
+ 	"os"
++	"strings"
+ 	"testing"
+ )
+ 
+@@ -105,6 +106,11 @@ func TestRoundTrip(t *testing.T) {
+ 		t.Run(fmt.Sprintf("KEM_%04x", kem.ID()), func(t *testing.T) {
+ 			k, err := kem.GenerateKey()
+ 			if err != nil {
++				if boring.Enabled() {
++					if strings.HasSuffix(err.Error(), "use of X25519 is not allowed in FIPS 140-only mode") {
++						return // expected error in boring mode
++					}
++				}
+ 				t.Fatal(err)
+ 			}
+ 			kb, err := k.Bytes()
+diff --git a/src/crypto/hpke/pq.go b/src/crypto/hpke/pq.go
+index e8dc80fd23..f080d3139a 100644
+--- a/src/crypto/hpke/pq.go
++++ b/src/crypto/hpke/pq.go
+@@ -15,6 +15,8 @@ import (
+ 	"crypto/sha3"
+ 	"errors"
+ 	"internal/byteorder"
++
++	boring "crypto/internal/backend"
+ )
+ 
+ var mlkem768X25519 = &hybridKEM{
+@@ -274,6 +276,9 @@ func (kem *hybridKEM) NewPrivateKey(priv []byte) (PrivateKey, error) {
+ 			k, err = kem.curve.NewPrivateKey(seedT)
+ 		})
+ 		if err != nil {
++			if boring.Enabled() {
++				return nil, err
++			}
+ 			continue
+ 		}
+ 		return newHybridPrivateKey(pq, k, priv)
