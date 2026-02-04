@@ -21,6 +21,8 @@ export GO=${GOROOT}/bin/go
 
 # Test suites to run
 SUITES="crypto,tls,http"
+# Modes to run (default, strictfips, native-fips-auto, or all)
+MODES="all"
 # Verbosity flags to pass to Go
 VERBOSE=""
 
@@ -29,6 +31,10 @@ while [[ $# -gt 0 ]]; do
   case $1 in
     --suites)
       SUITES=$2
+      shift;shift
+      ;;
+    --mode)
+      MODES=$2
       shift;shift
       ;;
     -v)
@@ -109,16 +115,48 @@ run_full_test_suite () {
   done
 }
 
-# Run in default mode
-run_full_test_suite default ""
+# Run in native FIPS auto mode (GODEBUG=fips140=auto)
+# This mode uses Go's native FIPS 140-3 module instead of OpenSSL
+run_native_fips_test_suite () {
+  local mode=$1
+  local suite="crypto-native-fips"
+  notify_running ${mode} ${suite}
+  quiet pushd ${GOROOT}/src/crypto
+  # Use GODEBUG=fips140=auto with GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 to test native FIPS module
+  # The override simulates a FIPS-enabled host for testing purposes
+  GODEBUG=fips140=auto GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 \
+    $GO test -count=1 $($GO list ./... | grep -v tls) $VERBOSE
 
-# Run in strict fips mode
-export GOEXPERIMENT=strictfipsruntime
-run_full_test_suite strictfips "-tags=strictfipsruntime"
+  local suite="tls-native-fips"
+  notify_running ${mode} ${suite}
+  quiet pushd ${GOROOT}/src
+  GODEBUG=fips140=auto GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 \
+    $GO test -count=1 crypto/tls -run "^TestBoring" $VERBOSE
+  quiet popd
 
-# Run TLS Handshake tests to test ExpandHKDF
-notify_running "TLS Handshake", "(default)"
-GOLANG_FIPS=1 OPENSSL_FORCE_FIPS_MODE=1 \
-  $GO test -count=1 crypto/tls -run "TestTrafficKey" $VERBOSE
+  quiet popd
+}
+
+# Run tests based on selected modes
+if [[ "$MODES" == "all" || "$MODES" == *"default"* ]]; then
+  # Run in default mode (OpenSSL backend with GOLANG_FIPS=1)
+  run_full_test_suite default ""
+
+  # Run TLS Handshake tests to test ExpandHKDF (OpenSSL backend)
+  notify_running "TLS Handshake" "(default)"
+  GOLANG_FIPS=1 OPENSSL_FORCE_FIPS_MODE=1 \
+    $GO test -count=1 crypto/tls -run "TestTrafficKey" $VERBOSE
+fi
+
+if [[ "$MODES" == "all" || "$MODES" == *"strictfips"* ]]; then
+  # Run in strict fips mode (OpenSSL backend with strict mode)
+  export GOEXPERIMENT=strictfipsruntime
+  run_full_test_suite strictfips "-tags=strictfipsruntime"
+  unset GOEXPERIMENT
+fi
+
+if [[ "$MODES" == "all" || "$MODES" == *"native-fips-auto"* ]]; then
+  run_native_fips_test_suite "native-fips-auto"
+fi
 
 echo ALL TESTS PASSED

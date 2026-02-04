@@ -1,0 +1,163 @@
+diff --git i/src/cmd/go/internal/fips140/fips140.go w/src/cmd/go/internal/fips140/fips140.go
+index 09e4141f99..7103c1a23e 100644
+--- i/src/cmd/go/internal/fips140/fips140.go
++++ w/src/cmd/go/internal/fips140/fips140.go
+@@ -166,10 +166,15 @@ var version string
+ func initVersion() {
+ 	// For off and latest, use the local source tree.
+ 	v := cfg.GOFIPS140
+-	if v == "off" || v == "" {
++	if v == "off" {
+ 		version = "off"
+ 		return
+ 	}
++	// When GOFIPS140 is not set, default to v1.0.0 certified snapshot.
++	// Runtime FIPS activation is controlled by GODEBUG=fips140=auto.
++	if v == "" {
++		v = "v1.0.0"
++	}
+ 	if v == "latest" {
+ 		version = "latest"
+ 		return
+diff --git i/src/crypto/internal/backend/hostfips.go w/src/crypto/internal/backend/hostfips.go
+index aa21cd4db9..e671cc1547 100644
+--- i/src/crypto/internal/backend/hostfips.go
++++ w/src/crypto/internal/backend/hostfips.go
+@@ -5,21 +5,9 @@
+ package backend
+ 
+ import (
+-	"fmt"
+-	"os"
++	"crypto/internal/fips140deps/hostfips"
+ )
+ 
+-func hostFIPSModeEnabled() bool {
+-	// Look at /proc/sys/crypto/fips_enabled to see if FIPS mode is enabled.
+-	// If it is, log an error and exit.
+-	// If we run into an error reading that file because it doesn't exist, assume FIPS mode is not enabled.
+-	data, err := os.ReadFile("/proc/sys/crypto/fips_enabled")
+-	if err != nil {
+-		if os.IsNotExist(err) {
+-			return false
+-		}
+-		fmt.Fprintf(os.Stderr, "error reading /proc/sys/crypto/fips_enabled: %v\n", err)
+-		os.Exit(1)
+-	}
+-	return len(data) > 0 && data[0] == '1'
++func HostFIPSModeEnabled() bool {
++	return hostfips.Enabled()
+ }
+diff --git i/src/crypto/internal/backend/openssl.go w/src/crypto/internal/backend/openssl.go
+index 0cb9ad7c7e..6ec4453328 100644
+--- i/src/crypto/internal/backend/openssl.go
++++ w/src/crypto/internal/backend/openssl.go
+@@ -31,7 +31,7 @@ func init() {
+ 	var fips string
+ 	if v, ok := syscall.Getenv("GOLANG_FIPS"); ok {
+ 		fips = v
+-	} else if hostFIPSModeEnabled() {
++	} else if HostFIPSModeEnabled() {
+ 		// System configuration can only force FIPS mode.
+ 		fips = "1"
+ 	}
+diff --git i/src/crypto/internal/backend/strict_fips.go w/src/crypto/internal/backend/strict_fips.go
+index cd5bd34b33..dd2888c78c 100644
+--- i/src/crypto/internal/backend/strict_fips.go
++++ w/src/crypto/internal/backend/strict_fips.go
+@@ -15,14 +15,14 @@ import (
+ var isStrictFIPS bool = true
+ 
+ func strictFIPSOpenSSLRuntimeCheck() {
+-	if hostFIPSModeEnabled() && !Enabled() {
++	if HostFIPSModeEnabled() && !Enabled() {
+ 		fmt.Fprintln(os.Stderr, "FIPS mode is enabled, but the required OpenSSL backend is unavailable")
+ 		os.Exit(1)
+ 	}
+ }
+ 
+ func strictFIPSNonCompliantBinaryCheck() {
+-	if hostFIPSModeEnabled() {
++	if HostFIPSModeEnabled() {
+ 		fmt.Fprintln(os.Stderr, "FIPS mode is enabled, but this binary is not compiled with FIPS compliant mode enabled")
+ 		os.Exit(1)
+ 	}
+diff --git i/src/crypto/internal/fips140deps/godebug/godebug.go w/src/crypto/internal/fips140deps/godebug/godebug.go
+index de50d61208..22bda7ad4b 100644
+--- i/src/crypto/internal/fips140deps/godebug/godebug.go
++++ w/src/crypto/internal/fips140deps/godebug/godebug.go
+@@ -5,6 +5,7 @@
+ package godebug
+ 
+ import (
++	"crypto/internal/fips140deps/hostfips"
+ 	"internal/godebug"
+ )
+ 
+@@ -19,5 +20,14 @@ func (s *Setting) Value() string {
+ }
+ 
+ func Value(name string) string {
+-	return godebug.New(name).Value()
++	v := godebug.New(name).Value()
++	// When fips140=auto is set, check host FIPS mode and resolve to
++	// "on" if enabled, or "" (off) if not.
++	if name == "#fips140" && v == "auto" {
++		if hostfips.Enabled() {
++			return "on"
++		}
++		return ""
++	}
++	return v
+ }
+diff --git c/src/crypto/internal/fips140deps/hostfips/hostfips.go i/src/crypto/internal/fips140deps/hostfips/hostfips.go
+new file mode 100644
+index 0000000000..96d1c05709
+--- /dev/null
++++ i/src/crypto/internal/fips140deps/hostfips/hostfips.go
+@@ -0,0 +1,45 @@
++// Copyright 2017 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++package hostfips
++
++import (
++	"fmt"
++	"os"
++	"sync"
++)
++
++var (
++	enabled     bool
++	enabledOnce sync.Once
++)
++
++// Enabled returns true if the host system has FIPS mode enabled.
++// It checks /proc/sys/crypto/fips_enabled on Linux.
++// The result is cached after the first call.
++func Enabled() bool {
++	enabledOnce.Do(func() {
++		enabled = checkHostFIPS()
++	})
++	return enabled
++}
++
++func checkHostFIPS() bool {
++	// Test override for verifying code paths without a real FIPS-enabled host
++	if os.Getenv("GOLANG_NATIVE_HOSTFIPS_OVERRIDE") == "1" {
++		return true
++	}
++
++	// Look at /proc/sys/crypto/fips_enabled to see if FIPS mode is enabled.
++	// If we run into an error reading that file because it doesn't exist, assume FIPS mode is not enabled.
++	data, err := os.ReadFile("/proc/sys/crypto/fips_enabled")
++	if err != nil {
++		if os.IsNotExist(err) {
++			return false
++		}
++		fmt.Fprintf(os.Stderr, "error reading /proc/sys/crypto/fips_enabled: %v\n", err)
++		os.Exit(1)
++	}
++	return len(data) > 0 && data[0] == '1'
++}
