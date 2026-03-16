@@ -5224,7 +5224,7 @@ index b81f19068a..98880542bd 100644
  
  require (
 +	github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8 // indirect
- 	golang.org/x/sys v0.33.0 // indirect
+ 	golang.org/x/sys v0.33.1-0.20260225210015-e0c9f78de999 // indirect
  	golang.org/x/text v0.26.0 // indirect
  )
 diff --git a/src/go.sum b/src/go.sum
