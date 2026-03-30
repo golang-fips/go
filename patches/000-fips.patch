@@ -5286,7 +5286,7 @@ index d6c515017a..d5e33c8196 100644
  
  require (
 +	github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8 // indirect
- 	golang.org/x/sys v0.40.1-0.20260116220947-d25a7aaff8c2 // indirect
+ 	golang.org/x/sys v0.42.1-0.20260320201212-a76ec62d6c53 // indirect
  	golang.org/x/text v0.33.1-0.20260122225119-3264de9174be // indirect
  )
 
@@ -5368,13 +5368,12 @@ diff --git a/src/internal/goexperiment/flags.go b/src/internal/goexperiment/flag
 index 2cfb71578b..649acecdea 100644
 --- a/src/internal/goexperiment/flags.go
 +++ b/src/internal/goexperiment/flags.go
-@@ -128,4 +128,6 @@ type Flags struct {
- 
- 	// RuntimeSecret enables the runtime/secret package.
+@@ -130,3 +130,5 @@ type Flags struct {
  	RuntimeSecret bool
 +
 +	StrictFIPSRuntime bool
- }
+ 
+ 	// MapSplitGroup changes the internal representation of map groups
 diff --git a/src/vendor/github.com/golang-fips/openssl/v2/.gitleaks.toml b/src/vendor/github.com/golang-fips/openssl/v2/.gitleaks.toml
 new file mode 100644
 index 0000000000..aed2e22df2
