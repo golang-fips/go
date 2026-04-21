@@ -225,6 +225,15 @@ if [[ "$MODES" == "all" || "$MODES" == *"native-fips-auto"* ]]; then
   run_native_fips_test_suite "native-fips-auto"
 fi
 
+if [[ "$MODES" == "all" || "$MODES" == *"non-fips"* ]]; then
+  # Run full crypto/tls test suite in non-FIPS mode to run
+  # tests that are skipped in short mode.
+  notify_running "non-fips" "tls-full"
+  pushd ${GOROOT}/src > /dev/null
+  $GO test -count=1 crypto/tls $VERBOSE
+  popd > /dev/null
+fi
+
 if [[ "$MODES" == "all" || "$MODES" == *"mutual-exclusivity"* ]]; then
   run_mutual_exclusivity_tests
 fi
