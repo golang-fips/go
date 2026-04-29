@@ -102,6 +102,140 @@ Aside from the strict FIPS runtime checks, another check to ensure that your bin
 
 Different versions of CentOS will have different versions of OpenSSL. Different versions of OpenSSL may differ with regards to accepted algorithms, etc… Please consider this during any testing or deployment.
 
+## Native FIPS Mode (Host-Auto)
+
+Starting with Go 1.24, the upstream Go standard library includes its own FIPS 140-3 module (`crypto/internal/fips140`) that can be certified independently of OpenSSL. This fork supports using that native FIPS module as an alternative to the OpenSSL backend, with a host-auto detection mode that activates FIPS at runtime only when the host operating system is booted in FIPS mode.
+
+### Overview
+
+When building with native FIPS support, the resulting binary embeds a certified snapshot of Go's FIPS 140-3 module and uses `GODEBUG=fips140=auto` to defer the FIPS activation decision to runtime. At startup the binary checks whether the host is in FIPS mode by reading `/proc/sys/crypto/fips_enabled`. If the host is in FIPS mode, the native FIPS module activates and enforces FIPS-approved algorithms. If the host is not in FIPS mode, the binary runs with standard cryptography.
+
+### Building with Native FIPS Auto Mode
+
+To build a binary that uses Go's native FIPS module with host-auto detection, you need two things:
+
+1. **Disable the OpenSSL backend** with `-tags=no_openssl`
+2. **Set the FIPS GODEBUG to auto** via a `//go:debug` directive or `go.mod`
+
+#### Using a `//go:debug` directive
+
+Add the following directive to your `main` package source file:
+
+```go
+//go:debug fips140=auto
+
+package main
+```
+
+Then build with:
+
+```
+go build -tags=no_openssl
+```
+
+#### Using `go.mod`
+
+Add the `godebug` directive to your `go.mod`:
+
+```
+module example.com/myapp
+
+go 1.24
+
+godebug fips140=auto
+```
+
+Then build with:
+
+```
+go build -tags=no_openssl
+```
+
+### GODEBUG fips140 Values
+
+The `GODEBUG=fips140` setting controls native FIPS mode. The following values are supported:
+
+| Value   | Behavior |
+|---------|----------|
+| `auto`  | Check host FIPS mode at startup; activate FIPS if the host is in FIPS mode, otherwise run without FIPS. |
+| `on`    | Always activate FIPS mode regardless of host configuration. |
+| `only`  | Activate FIPS mode and restrict all cryptographic operations to FIPS-approved algorithms only. Non-approved algorithms will return errors. |
+| `off`   | Disable FIPS mode (default when `GOFIPS140` is not set). |
+
+The `auto` value is resolved at process startup: if `/proc/sys/crypto/fips_enabled` contains `1`, it resolves to `on`; otherwise it resolves to `off`. This resolution happens once and the result is cached for the lifetime of the process.
+
+### GOFIPS140 Build Variable
+
+The `GOFIPS140` environment variable controls which version of the FIPS 140-3 module snapshot is embedded into the binary at build time.
+
+| Value     | Behavior |
+|-----------|----------|
+| `off`     | Do not embed a FIPS module snapshot. |
+| `latest`  | Use the live source from `src/crypto/internal/fips140`. |
+| `v1.0.0`  | Use the v1.0.0 certified snapshot (default when `GOFIPS140` is unset). |
+| `inprocess` / `certified` | Version aliases resolved from files in `lib/fips140/`. |
+
+When `GOFIPS140` is set to anything other than `off`, the build system defaults `GODEBUG=fips140=on` for the resulting binary. To use auto mode, you must override this default with `fips140=auto` via a `//go:debug` directive or `go.mod` `godebug` setting as described above.
+
+### Mutual Exclusivity: OpenSSL and Native FIPS
+
+The OpenSSL backend and the native FIPS module are **mutually exclusive**. A binary must use one or the other, never both simultaneously. The runtime enforces this: if the OpenSSL backend detects that `GODEBUG=fips140` is also set (to any non-empty value), it will panic at startup with the following message:
+
+```
+opensslcrypto: GOLANG_FIPS and GODEBUG=fips140 are mutually exclusive;
+use GOLANG_FIPS=1 for OpenSSL FIPS or GODEBUG=fips140=auto with -tags=no_openssl for native FIPS
+```
+
+To choose between the two FIPS implementations:
+
+| Implementation | Build Tags | Runtime Activation |
+|----------------|------------|--------------------|
+| **OpenSSL FIPS** | *(default, no special tags)* | `GOLANG_FIPS=1` or host FIPS mode detected automatically |
+| **Native FIPS** | `-tags=no_openssl` | `GODEBUG=fips140=auto` (or `on` / `only`) |
+
+In summary:
+
+- **OpenSSL mode** (default): The binary links against the system's OpenSSL library at runtime. FIPS activation is controlled by `GOLANG_FIPS` or host FIPS detection. Do **not** set `GODEBUG=fips140`.
+- **Native mode** (`-tags=no_openssl`): The binary uses Go's built-in FIPS 140-3 module. FIPS activation is controlled by `GODEBUG=fips140`. Do **not** set `GOLANG_FIPS`.
+
+### Testing Native FIPS Without a FIPS-Enabled Host
+
+For testing the native FIPS auto mode on a host that is not booted in FIPS mode, the environment variable `GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1` can be set. This causes `fips140=auto` to resolve as if the host were in FIPS mode. This override only affects the native FIPS module; it does not affect the OpenSSL backend's host FIPS detection.
+
+### Example Configurations
+
+#### Always use native FIPS (no host detection)
+
+```
+go build -tags=no_openssl
+```
+
+With `//go:debug fips140=on` or `GODEBUG=fips140=on` at runtime. The binary always runs in FIPS mode.
+
+#### Native FIPS only when the host requires it
+
+```
+go build -tags=no_openssl
+```
+
+With `//go:debug fips140=auto` in the source or `godebug fips140=auto` in `go.mod`. FIPS activates only on hosts booted in FIPS mode.
+
+#### OpenSSL FIPS (existing behavior)
+
+```
+go build
+```
+
+No special tags needed. The binary links against OpenSSL and activates FIPS when the host is in FIPS mode or `GOLANG_FIPS=1` is set.
+
+#### No FIPS at all
+
+```
+GOFIPS140=off go build -tags=no_openssl
+```
+
+The binary uses upstream Go cryptography with no FIPS module embedded and no OpenSSL linkage.
+
 ## Migration to Upstream FIPS certified cryptography
 
 We intend to sunset our downstream OpenSSL based solution in favor of pure upstream Go cryptography once the upstream sources are FIPS certified. The maintainers of this repository are directly involved in the upstream effort for FIPS certification of the cryptographic packages in the Go standard library, and are committed to continuing this work and ensuring we deliver on our upstream first approach.
