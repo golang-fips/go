@@ -108,7 +108,7 @@ Starting with Go 1.24, the upstream Go standard library includes its own FIPS 14
 
 ### Overview
 
-When building with native FIPS support, the resulting binary embeds a certified snapshot of Go's FIPS 140-3 module and uses `GODEBUG=fips140=auto` to defer the FIPS activation decision to runtime. At startup the binary checks whether the host is in FIPS mode by reading `/proc/sys/crypto/fips_enabled`. If the host is in FIPS mode, the native FIPS module activates and enforces FIPS-approved algorithms. If the host is not in FIPS mode, the binary runs with standard cryptography.
+When building with native FIPS support, the resulting binary embeds a certified snapshot of Go's FIPS 140-3 module and sets `GODEBUG=fips140=auto` as its compiled-in default, deferring the FIPS activation decision to runtime. At startup the binary checks whether the host is in FIPS mode by reading `/proc/sys/crypto/fips_enabled`. If the host is in FIPS mode, the native FIPS module activates and enforces FIPS-approved algorithms. If the host is not in FIPS mode, the binary runs with standard cryptography. As with all `GODEBUG` settings, the compiled-in default can be overridden at runtime by setting the `GODEBUG` environment variable explicitly — runtime settings always take precedence.
 
 ### Building with Native FIPS Auto Mode
 
@@ -163,6 +163,8 @@ The `GODEBUG=fips140` setting controls native FIPS mode. The following values ar
 | `off`   | Disable FIPS mode (default when `GOFIPS140` is not set). |
 
 The `auto` value is resolved at process startup: if `/proc/sys/crypto/fips_enabled` contains `1`, it resolves to `on`; otherwise it resolves to `off`. This resolution happens once and the result is cached for the lifetime of the process.
+
+> **Note:** The `//go:debug` directive and `go.mod` `godebug` setting establish the *default* value of `GODEBUG=fips140` compiled into the binary. These defaults can always be overridden at runtime by setting the `GODEBUG` environment variable directly — for example, `GODEBUG=fips140=off` or `GODEBUG=fips140=` (empty) will disable FIPS mode regardless of what was compiled in. Runtime settings always take precedence over compiled-in defaults.
 
 ### GOFIPS140 Build Variable
 
