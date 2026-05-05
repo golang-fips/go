@@ -174,3 +174,19 @@ index 0000000000..12d90a4742
 +	}
 +	return len(data) > 0 && data[0] == '1'
 +}
+diff --git a/src/cmd/dist/test.go b/src/cmd/dist/test.go
+index 2c1cc27d58..a29118f17d 100644
+--- a/src/cmd/dist/test.go
++++ b/src/cmd/dist/test.go
+@@ -52,6 +52,11 @@ func cmdtest() {
+ 		t.rebuild = false
+ 	}
+ 
++	// Reset GOFIPS140 to "off" so the std rebuild does not attempt to extract
++	// a FIPS snapshot zip into GOPATH (which may be read-only in test environments).
++	// FIPS-specific tests that need GOFIPS140 set it explicitly along with GOMODCACHE.
++	os.Setenv("GOFIPS140", "off")
++
+ 	t.run()
+ }
+ 
