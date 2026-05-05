@@ -1,0 +1,176 @@
+diff --git a/src/cmd/dist/build.go b/src/cmd/dist/build.go
+index eacaa53b90..2cb13e7b42 100644
+--- a/src/cmd/dist/build.go
++++ b/src/cmd/dist/build.go
+@@ -179,7 +179,7 @@ func xinit() {
+ 
+ 	b = os.Getenv("GOFIPS140")
+ 	if b == "" {
+-		b = "off"
++		b = "certified"
+ 	}
+ 	gofips140 = b
+ 
+@@ -245,7 +245,8 @@ func xinit() {
+ 	os.Setenv("GOPPC64", goppc64)
+ 	os.Setenv("GORISCV64", goriscv64)
+ 	os.Setenv("GOROOT", goroot)
+-	os.Setenv("GOFIPS140", gofips140)
++	// Don't propagate GOFIPS140 to the bootstrap Go; it can't handle it.
++	os.Setenv("GOFIPS140", "off")
+ 
+ 	// Set GOBIN to GOROOT/bin. The meaning of GOBIN has drifted over time
+ 	// (see https://go.dev/issue/3269, https://go.dev/cl/183058,
+@@ -1557,6 +1558,7 @@ func cmdbootstrap() {
+ 	os.Setenv("CC", compilerEnvLookup("CC", defaultcc, goos, goarch))
+ 	// Now that cmd/go is in charge of the build process, enable GOEXPERIMENT.
+ 	os.Setenv("GOEXPERIMENT", goexperiment)
++	os.Setenv("GOFIPS140", gofips140)
+ 	// No need to enable PGO for toolchain2.
+ 	goInstall(toolenv(), goBootstrap, append([]string{"-pgo=off"}, toolchain...)...)
+ 	if debug {
+diff --git a/src/cmd/go/internal/load/godebug.go b/src/cmd/go/internal/load/godebug.go
+index a6bcdad627..e490c52e89 100644
+--- a/src/cmd/go/internal/load/godebug.go
++++ b/src/cmd/go/internal/load/godebug.go
+@@ -73,9 +73,9 @@ func defaultGODEBUG(loaderstate *modload.State, p *Package, directives, testDire
+ 	var m map[string]string
+ 
+ 	// If GOFIPS140 is set to anything but "off",
+-	// default to GODEBUG=fips140=on.
++	// default to GODEBUG=fips140=auto.
+ 	if fips140.Enabled() {
+-		m = map[string]string{"fips140": "on"}
++		m = map[string]string{"fips140": "auto"}
+ 	}
+ 
+ 	// Add directives from main module go.mod.
+diff --git a/src/cmd/go/testdata/script/fips.txt b/src/cmd/go/testdata/script/fips.txt
+index 374902eb70..99cbaf2dc3 100644
+--- a/src/cmd/go/testdata/script/fips.txt
++++ b/src/cmd/go/testdata/script/fips.txt
+@@ -9,7 +9,7 @@ go list -f '{{.DefaultGODEBUG}}'
+ # list with GOFIPS140=latest
+ env GOFIPS140=latest
+ go list -f '{{.DefaultGODEBUG}}'
+-stdout fips140=on
++stdout fips140=auto
+ 
+ [short] skip
+ 
+diff --git a/src/cmd/go/testdata/script/fipssnap.txt b/src/cmd/go/testdata/script/fipssnap.txt
+index 4d96aedf2a..f0d4771e79 100644
+--- a/src/cmd/go/testdata/script/fipssnap.txt
++++ b/src/cmd/go/testdata/script/fipssnap.txt
+@@ -8,7 +8,7 @@ env GOFIPS140=$snap
+ 
+ # default GODEBUG includes fips140=on
+ go list -f '{{.DefaultGODEBUG}}'
+-stdout fips140=on
++stdout fips140=auto
+ 
+ # std lists fips snapshot and not regular fips
+ go list std
+@@ -27,7 +27,7 @@ env GOFIPS140=$alias
+ 
+ # default GODEBUG includes fips140=on
+ go list -f '{{.DefaultGODEBUG}}'
+-stdout fips140=on
++stdout fips140=auto
+ 
+ # std lists fips snapshot and not regular fips
+ go list std
+diff --git a/src/crypto/internal/fips140deps/godebug/godebug.go b/src/crypto/internal/fips140deps/godebug/godebug.go
+index de50d61208..22bda7ad4b 100644
+--- a/src/crypto/internal/fips140deps/godebug/godebug.go
++++ b/src/crypto/internal/fips140deps/godebug/godebug.go
+@@ -5,6 +5,7 @@
+ package godebug
+ 
+ import (
++	"crypto/internal/fips140deps/hostfips"
+ 	"internal/godebug"
+ )
+ 
+@@ -19,5 +20,14 @@ func (s *Setting) Value() string {
+ }
+ 
+ func Value(name string) string {
+-	return godebug.New(name).Value()
++	v := godebug.New(name).Value()
++	// When fips140=auto is set, check host FIPS mode and resolve to
++	// "on" if enabled, or "" (off) if not.
++	if name == "#fips140" && v == "auto" {
++		if hostfips.Enabled() {
++			return "on"
++		}
++		return ""
++	}
++	return v
+ }
+diff --git a/src/crypto/internal/fips140deps/hostfips/hostfips.go b/src/crypto/internal/fips140deps/hostfips/hostfips.go
+new file mode 100644
+index 0000000000..12d90a4742
+--- /dev/null
++++ b/src/crypto/internal/fips140deps/hostfips/hostfips.go
+@@ -0,0 +1,60 @@
++// Copyright 2017 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++package hostfips
++
++import (
++	"fmt"
++	"os"
++	"sync"
++)
++
++var (
++	enabled     bool
++	enabledOnce sync.Once
++
++	hostEnabled     bool
++	hostEnabledOnce sync.Once
++)
++
++// Enabled returns true if the host system has FIPS mode enabled,
++// or if GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 is set for testing.
++// It checks /proc/sys/crypto/fips_enabled on Linux.
++// The result is cached after the first call.
++func Enabled() bool {
++	enabledOnce.Do(func() {
++		// Test override for verifying code paths without a real FIPS-enabled host
++		if os.Getenv("GOLANG_NATIVE_HOSTFIPS_OVERRIDE") == "1" {
++			enabled = true
++			return
++		}
++		enabled = HostEnabled()
++	})
++	return enabled
++}
++
++// HostEnabled returns true if the host system has FIPS mode enabled.
++// Unlike Enabled(), this does NOT respect GOLANG_NATIVE_HOSTFIPS_OVERRIDE.
++// Use this when you need to check actual host FIPS status without test overrides.
++// The result is cached after the first call.
++func HostEnabled() bool {
++	hostEnabledOnce.Do(func() {
++		hostEnabled = checkHostFIPS()
++	})
++	return hostEnabled
++}
++
++func checkHostFIPS() bool {
++	// Look at /proc/sys/crypto/fips_enabled to see if FIPS mode is enabled.
++	// If we run into an error reading that file because it doesn't exist, assume FIPS mode is not enabled.
++	data, err := os.ReadFile("/proc/sys/crypto/fips_enabled")
++	if err != nil {
++		if os.IsNotExist(err) {
++			return false
++		}
++		fmt.Fprintf(os.Stderr, "error reading /proc/sys/crypto/fips_enabled: %v\n", err)
++		os.Exit(1)
++	}
++	return len(data) > 0 && data[0] == '1'
++}
