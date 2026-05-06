@@ -174,19 +174,122 @@ index 0000000000..12d90a4742
 +	}
 +	return len(data) > 0 && data[0] == '1'
 +}
-diff --git a/src/cmd/dist/test.go b/src/cmd/dist/test.go
-index 2c1cc27d58..a29118f17d 100644
---- a/src/cmd/dist/test.go
-+++ b/src/cmd/dist/test.go
-@@ -52,6 +52,11 @@ func cmdtest() {
- 		t.rebuild = false
+diff --git a/src/run.bash b/src/run.bash
+index e774f03b30..6e2e504ab0 100755
+--- a/src/run.bash
++++ b/src/run.bash
+@@ -37,6 +37,10 @@ if [ ! -f ../bin/go ]; then
+ fi
+ 
+ export GOENV=off
++# Prevent the go binary from trying to extract a FIPS snapshot into GOPATH,
++# which will be set to /nonexist-gopath below. FIPS-specific tests set
++# GOFIPS140 and GOMODCACHE explicitly in their own environments.
++export GOFIPS140=off
+ eval $(../bin/go tool dist env)
+ 
+ unset CDPATH	# in case user has it set
+diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
+index e8ba18f2ba..e0fd6a641e 100644
+--- a/src/go/build/deps_test.go
++++ b/src/go/build/deps_test.go
+@@ -483,7 +483,8 @@ var depsRules = `
+ 
+ 	internal/byteorder < crypto/internal/fips140deps/byteorder;
+ 	internal/cpu, internal/goarch < crypto/internal/fips140deps/cpu;
+-	internal/godebug < crypto/internal/fips140deps/godebug;
++	fmt, sync < crypto/internal/fips140deps/hostfips;
++	internal/godebug, crypto/internal/fips140deps/hostfips < crypto/internal/fips140deps/godebug;
+ 	time, internal/syscall/windows < crypto/internal/fips140deps/time;
+ 
+ 	crypto/internal/fips140deps/time, errors, math/bits, sync/atomic, unsafe
+diff --git a/src/cmd/compile/internal/loopvar/loopvar_test.go b/src/cmd/compile/internal/loopvar/loopvar_test.go
+index c4ff8f620d..9e6c6efd44 100644
+--- a/src/cmd/compile/internal/loopvar/loopvar_test.go
++++ b/src/cmd/compile/internal/loopvar/loopvar_test.go
+@@ -73,7 +73,7 @@ func TestLoopVarGo1_21(t *testing.T) {
+ 		for _, f := range tc.files {
+ 			source := f
+ 			cmd := testenv.Command(t, gocmd, "build", "-o", output, "-gcflags=-lang=go1.21 -d=loopvar="+tc.lvFlag, source)
+-			cmd.Env = append(cmd.Env, "GOEXPERIMENT=loopvar", "HOME="+tmpdir)
++			cmd.Env = append(cmd.Env, "GOEXPERIMENT=loopvar", "HOME="+tmpdir, "GOFIPS140=off")
+ 			cmd.Dir = "testdata"
+ 			t.Logf("File %s loopvar=%s expect '%s' exit code %d", f, tc.lvFlag, tc.buildExpect, tc.expectRC)
+ 			b, e := cmd.CombinedOutput()
+@@ -127,7 +127,7 @@ func TestLoopVarInlinesGo1_21(t *testing.T) {
+ 		// The effect should follow the package, even though everything (except "c")
+ 		// is inlined.
+ 		cmd := testenv.Command(t, gocmd, "run", "-gcflags="+root+"/...=-lang=go1.21", "-gcflags="+pkg+"=-d=loopvar=1", root)
+-		cmd.Env = append(cmd.Env, "GOEXPERIMENT=noloopvar", "HOME="+tmpdir)
++		cmd.Env = append(cmd.Env, "GOEXPERIMENT=noloopvar", "HOME="+tmpdir, "GOFIPS140=off")
+ 		cmd.Dir = filepath.Join("testdata", "inlines")
+ 
+ 		b, e := cmd.CombinedOutput()
+@@ -191,7 +191,7 @@ func TestLoopVarHashes(t *testing.T) {
+ 		// Go repository is checked out. This is not normally a concern since people
+ 		// do not normally rely on the meaning of specific hashes.
+ 		cmd := testenv.Command(t, gocmd, "run", "-trimpath", root)
+-		cmd.Env = append(cmd.Env, "GOCOMPILEDEBUG=loopvarhash="+hash, "HOME="+tmpdir)
++		cmd.Env = append(cmd.Env, "GOCOMPILEDEBUG=loopvarhash="+hash, "HOME="+tmpdir, "GOFIPS140=off")
+ 		cmd.Dir = filepath.Join("testdata", "inlines")
+ 
+ 		b, _ := cmd.CombinedOutput()
+diff --git a/src/cmd/compile/internal/ssa/fmahash_test.go b/src/cmd/compile/internal/ssa/fmahash_test.go
+index c563d5b8d9..d0b4be4717 100644
+--- a/src/cmd/compile/internal/ssa/fmahash_test.go
++++ b/src/cmd/compile/internal/ssa/fmahash_test.go
+@@ -36,7 +36,7 @@ func TestFmaHash(t *testing.T) {
+ 	cmd := testenv.Command(t, gocmd, "build", "-o", output, source)
+ 	// The hash-dependence on file path name is dodged by specifying "all hashes ending in 1" plus "all hashes ending in 0"
+ 	// i.e., all hashes.  This will print all the FMAs; this test is only interested in one of them (that should appear near the end).
+-	cmd.Env = append(cmd.Env, "GOCOMPILEDEBUG=fmahash=1/0", "GOOS=linux", "GOARCH=arm64", "HOME="+tmpdir)
++	cmd.Env = append(cmd.Env, "GOCOMPILEDEBUG=fmahash=1/0", "GOOS=linux", "GOARCH=arm64", "HOME="+tmpdir, "GOFIPS140=off")
+ 	t.Logf("%v", cmd)
+ 	t.Logf("%v", cmd.Env)
+ 	b, e := cmd.CombinedOutput()
+diff --git a/src/cmd/go/script_test.go b/src/cmd/go/script_test.go
+index 088b9a8b5f..7e33b6c786 100644
+--- a/src/cmd/go/script_test.go
++++ b/src/cmd/go/script_test.go
+@@ -255,6 +255,7 @@ func scriptEnv(srv *vcstest.Server, srvCertFile string) ([]string, error) {
+ 		"CMDGO_TEST_RUN_MAIN=true",
+ 		"HGRCPATH=",
+ 		"GOTOOLCHAIN=auto",
++		"GOFIPS140=off",
+ 		"newline=\n",
  	}
  
-+	// Reset GOFIPS140 to "off" so the std rebuild does not attempt to extract
-+	// a FIPS snapshot zip into GOPATH (which may be read-only in test environments).
-+	// FIPS-specific tests that need GOFIPS140 set it explicitly along with GOMODCACHE.
-+	os.Setenv("GOFIPS140", "off")
-+
- 	t.run()
- }
+diff --git a/src/crypto/internal/fips140deps/hostfips/hostfips.go b/src/crypto/internal/fips140deps/hostfips/hostfips.go
+index 12d90a4742..84cc1e17c7 100644
+--- a/src/crypto/internal/fips140deps/hostfips/hostfips.go
++++ b/src/crypto/internal/fips140deps/hostfips/hostfips.go
+@@ -5,7 +5,6 @@
+ package hostfips
+ 
+ import (
+-	"fmt"
+ 	"os"
+ 	"sync"
+ )
+@@ -53,7 +52,7 @@ func checkHostFIPS() bool {
+ 		if os.IsNotExist(err) {
+ 			return false
+ 		}
+-		fmt.Fprintf(os.Stderr, "error reading /proc/sys/crypto/fips_enabled: %v\n", err)
++		os.Stderr.WriteString("error reading /proc/sys/crypto/fips_enabled: " + err.Error() + "\n")
+ 		os.Exit(1)
+ 	}
+ 	return len(data) > 0 && data[0] == '1'
+diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
+index e0fd6a641e..39aa919dbf 100644
+--- a/src/go/build/deps_test.go
++++ b/src/go/build/deps_test.go
+@@ -483,7 +483,7 @@ var depsRules = `
+ 
+ 	internal/byteorder < crypto/internal/fips140deps/byteorder;
+ 	internal/cpu, internal/goarch < crypto/internal/fips140deps/cpu;
+-	fmt, sync < crypto/internal/fips140deps/hostfips;
++	os, sync < crypto/internal/fips140deps/hostfips;
+ 	internal/godebug, crypto/internal/fips140deps/hostfips < crypto/internal/fips140deps/godebug;
+ 	time, internal/syscall/windows < crypto/internal/fips140deps/time;
  
