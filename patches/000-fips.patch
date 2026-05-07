@@ -4868,13 +4868,15 @@ diff --git a/src/crypto/tls/fips140_test.go b/src/crypto/tls/fips140_test.go
 index 96273c0fe0..7096b0eb83 100644
 --- a/src/crypto/tls/fips140_test.go
 +++ b/src/crypto/tls/fips140_test.go
-@@ -7,8 +7,8 @@ package tls
+@@ -7,10 +7,10 @@ package tls
  import (
  	"crypto/ecdsa"
  	"crypto/elliptic"
+ 	"crypto/fips140"
 -	"crypto/internal/boring"
- 	"crypto/rand"
 +	boring "crypto/internal/backend"
+ 	ifips140 "crypto/internal/fips140"
+ 	"crypto/rand"
  	"crypto/rsa"
  	"crypto/x509"
  	"crypto/x509/pkix"
@@ -4975,9 +4977,10 @@ diff --git a/src/crypto/tls/key_schedule.go b/src/crypto/tls/key_schedule.go
 index bfa22449c8..f16c1ea973 100644
 --- a/src/crypto/tls/key_schedule.go
 +++ b/src/crypto/tls/key_schedule.go
-@@ -8,10 +8,12 @@ import (
+@@ -8,11 +8,13 @@ import (
  	"crypto"
  	"crypto/ecdh"
+ 	"crypto/fips140"
  	"crypto/hmac"
 +	boring "crypto/internal/backend"
  	"crypto/internal/fips140/tls13"
@@ -5042,10 +5045,11 @@ diff --git a/src/crypto/tls/tls_test.go b/src/crypto/tls/tls_test.go
 index 39ebb9d2f1..0b213cb61f 100644
 --- a/src/crypto/tls/tls_test.go
 +++ b/src/crypto/tls/tls_test.go
-@@ -11,7 +11,7 @@ import (
+@@ -11,8 +11,8 @@ import (
  	"crypto/ecdh"
  	"crypto/ecdsa"
  	"crypto/elliptic"
+ 	"crypto/fips140"
 -	"crypto/internal/boring"
 +	boring "crypto/internal/backend"
  	"crypto/rand"
