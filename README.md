@@ -12,6 +12,12 @@ FIPS 140-3 is a standard for cryptographic modules used by federal agencies to p
 
 https://csrc.nist.gov/pubs/fips/140-3/final
 
+### Migration to Upstream FIPS certified cryptography
+
+We intend to sunset our downstream OpenSSL based solution in favor of pure upstream Go cryptography once the upstream sources are FIPS certified. The maintainers of this repository are directly involved in the upstream effort for FIPS certification of the cryptographic packages in the Go standard library, and are committed to continuing this work and ensuring we deliver on our upstream first approach.
+
+**\[2026/05\]**: The upstream Go toolchain has achieved [CMVP certificate #5247](https://csrc.nist.gov/projects/cryptographic-module-validation-program/certificate/5247).  As such, Go 1.26 is the final major release of this fork.  We will continue to update this repository with minor version bumps for the remaining lifetime of Go 1.25 and Go 1.26, but we recommend users switch to the official Go crypto/fips140 module going forward.  The OpenSSL backend patch set has already been removed from the `main` branch of this repository, and is replaced with a small patch implementing automatic system FIPS mode integration on top of crypto/fips140 (Go 1.27).  For source code of the historical fork (Go ≤ 1.26), please see the correspnding `go1.*-fips-release` branches.
+
 ## Go and FIPS
 
 Before Go 1.24 there had never been an attempt to have the Go cryptographic libraries FIPS 140-3 certified. However, there was still a need for Go programs to run in environments where FIPS certification is necessary. To that end, the Go maintainers implemented a fork (maintained as a separate branch) which would link Go against the C library Boring Crypto. This branch would eventually be merged into the main branch, paving the way for their own eventual removal and the creation of the `crypto/internal/fips` module and the attempt to directly certify the Go source itself.
@@ -237,10 +243,6 @@ GOFIPS140=off go build -tags=no_openssl
 ```
 
 The binary uses upstream Go cryptography with no FIPS module embedded and no OpenSSL linkage.
-
-## Migration to Upstream FIPS certified cryptography
-
-We intend to sunset our downstream OpenSSL based solution in favor of pure upstream Go cryptography once the upstream sources are FIPS certified. The maintainers of this repository are directly involved in the upstream effort for FIPS certification of the cryptographic packages in the Go standard library, and are committed to continuing this work and ensuring we deliver on our upstream first approach.
 
 ## Further Reading
 
