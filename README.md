@@ -110,7 +110,7 @@ Different versions of CentOS will have different versions of OpenSSL. Different 
 
 ## Native FIPS Mode (Host-Auto)
 
-Starting with Go 1.24, the upstream Go standard library includes its own FIPS 140-3 module (`crypto/internal/fips140`) that can be certified independently of OpenSSL. This fork supports using that native FIPS module as an alternative to the OpenSSL backend, with a host-auto detection mode that activates FIPS at runtime only when the host operating system is booted in FIPS mode.
+Starting with Go 1.24, the upstream Go standard library includes its own FIPS 140-3 module (`crypto/internal/fips140`) that can be certified independently of OpenSSL. Starting with Go 1.26, this fork supports using that native FIPS module as an alternative to the OpenSSL backend, with a host-auto detection mode that activates FIPS at runtime only when the host operating system is booted in FIPS mode.
 
 ### Overview
 
@@ -146,7 +146,7 @@ Add the `godebug` directive to your `go.mod`:
 ```
 module example.com/myapp
 
-go 1.24
+go 1.26
 
 godebug fips140=auto
 ```
