@@ -99,10 +99,10 @@ index de50d61208..22bda7ad4b 100644
 -	return godebug.New(name).Value()
 +	v := godebug.New(name).Value()
 +	// When fips140=auto is set, check host FIPS mode and resolve to
-+	// "on" if enabled, or "" (off) if not.
++	// "only" if enabled, or "" (off) if not.
 +	if name == "#fips140" && v == "auto" {
 +		if hostfips.Enabled() {
-+			return "on"
++			return "only"
 +		}
 +		return ""
 +	}
