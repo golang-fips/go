@@ -1,0 +1,157 @@
+diff --git a/src/crypto/internal/backend/sem_test.go b/src/crypto/internal/backend/sem_test.go
+new file mode 100644
+index 0000000000..bc52bb98dc
+--- /dev/null
++++ b/src/crypto/internal/backend/sem_test.go
+@@ -0,0 +1,41 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build linux && cgo && !android && !gocrypt && !cmd_go_bootstrap && !msan && !no_openssl && !purego
++// +build linux,cgo,!android,!gocrypt,!cmd_go_bootstrap,!msan,!no_openssl,!purego
++
++package backend
++
++import (
++	"io"
++	"runtime"
++	"sync"
++	"testing"
++)
++
++func TestParallelRand(t *testing.T) {
++	if !enabled {
++		t.Skip("must be in fips mode")
++	}
++	parallel := 1000
++	errChan := make(chan error, parallel)
++	var wg sync.WaitGroup
++	for _ = range parallel {
++		wg.Add(1)
++		go func() {
++			defer wg.Done()
++			buf := make([]byte, 16)
++			_, err := io.ReadFull(RandReader, buf)
++			errChan <- err
++			runtime.KeepAlive(buf)
++		}()
++	}
++	wg.Wait()
++	close(errChan)
++	for err := range errChan {
++		if err != nil {
++			t.Fatal("could not read from openssl.RandReader")
++		}
++	}
++}
+diff --git a/src/vendor/github.com/golang-fips/openssl/v2/rand.go b/src/vendor/github.com/golang-fips/openssl/v2/rand.go
+index 9fd709635c..d48100d69b 100644
+--- a/src/vendor/github.com/golang-fips/openssl/v2/rand.go
++++ b/src/vendor/github.com/golang-fips/openssl/v2/rand.go
+@@ -1,18 +1,62 @@
+ //go:build !cmd_go_bootstrap
+-
+ package openssl
+ 
+ // #include "goopenssl.h"
+ import "C"
+-import "unsafe"
++import (
++	"sync"
++	"sync/atomic"
++	"unsafe"
++)
++
++type drbgSem struct {
++	mu sync.Mutex
++	cond *sync.Cond
++	capacity int
++	count int
++}
++
++func (d *drbgSem) Init(numCPU int) {
++	d.capacity = numCPU
++	d.cond = sync.NewCond(&d.mu)
++}
++
++func (d *drbgSem) Acquire() {
++	d.mu.Lock()
++	for d.count >= d.capacity {
++		d.cond.Wait()
++	}
++	d.count++
++	d.mu.Unlock()
++}
++
++func (d *drbgSem) Release() {
++	d.mu.Lock()
++	if d.count > 0 {
++		d.count--
++	} else {
++		panic("openssl.randReader: double semaphore release")
++	}
++	d.mu.Unlock()
++	d.cond.Signal()
++}
++
++var drbgSemInstance drbgSem
++var drbgSemEnabled atomic.Bool
+ 
+ type randReader int
+ 
+ func (randReader) Read(b []byte) (int, error) {
+ 	// Note: RAND_bytes should never fail; the return value exists only for historical reasons.
+ 	// We check it even so.
+-	if len(b) > 0 && C.go_openssl_RAND_bytes((*C.uchar)(unsafe.Pointer(&b[0])), C.int(len(b))) == 0 {
+-		return 0, newOpenSSLError("RAND_bytes")
++	if len(b) > 0 {
++		if drbgSemEnabled.Load() {
++			drbgSemInstance.Acquire()
++			defer drbgSemInstance.Release()
++		}
++	        if C.go_openssl_RAND_bytes((*C.uchar)(unsafe.Pointer(&b[0])), C.int(len(b))) == 0 {
++			return 0, newOpenSSLError("RAND_bytes")
++		}
+ 	}
+ 	return len(b), nil
+ }
+diff --git a/src/vendor/github.com/golang-fips/openssl/v2/sem.go b/src/vendor/github.com/golang-fips/openssl/v2/sem.go
+new file mode 100644
+index 0000000000..f4c2821a3c
+--- /dev/null
++++ b/src/vendor/github.com/golang-fips/openssl/v2/sem.go
+@@ -0,0 +1,33 @@
++//go:build cgo && !openssl_no_sem && !cmd_go_bootstrap
++
++package openssl
++
++import (
++	"runtime"
++	"strconv"
++	"syscall"
++)
++
++func init() {
++	// By default, limit concurency to 4x physical CPU count.
++	var threadLimit int
++	var err error
++	if limit, ok := syscall.Getenv("GOLANG_FIPS_DRBG_LIMIT"); ok {
++		threadLimit, err = strconv.Atoi(limit)
++		if err != nil {
++			panic("could not read GOLANG_FIPS_DRBG_LIMIT")
++		}
++	} else {
++		threadLimit = max(runtime.NumCPU(), 1) * 4
++	}
++	switch {
++	case threadLimit < 0:
++		panic("invalid GOLANG_FIPS_DRBG_LIMIT")
++	case threadLimit == 0:
++		// return without enabling semaphore
++		return
++	default:
++		drbgSemInstance.Init(threadLimit)
++		drbgSemEnabled.Store(true)
++	}
++}
