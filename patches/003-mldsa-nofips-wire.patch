@@ -1,0 +1,724 @@
+From 768f1241b01e28d473cbd0af869bc6673309b951 Mon Sep 17 00:00:00 2001
+From: Derek Parker <parkerderek86@gmail.com>
+Date: Tue, 21 Jul 2026 13:35:56 -0700
+Subject: [PATCH] 003-mldsa-nofips-wire.patch
+
+---
+ .../internal/fips140only/fips140only_test.go  |  16 ++
+ .../mldsa_only_fips140v1.0_test.go            |  15 ++
+ .../internal/fips140only/mldsa_only_test.go   |  13 ++
+ src/crypto/mldsa/example_test.go              |  11 +-
+ src/crypto/mldsa/mldsa.go                     |  11 +-
+ src/crypto/mldsa/mldsa_fips140v1.0.go         | 193 +++++++++++++++---
+ src/crypto/mldsa/mldsa_fips140v1.0_test.go    | 123 ++++++-----
+ src/crypto/mldsa/mldsa_test.go                |  34 ++-
+ src/go/build/deps_test.go                     |   5 +-
+ 9 files changed, 330 insertions(+), 91 deletions(-)
+ create mode 100644 src/crypto/internal/fips140only/mldsa_only_fips140v1.0_test.go
+ create mode 100644 src/crypto/internal/fips140only/mldsa_only_test.go
+
+diff --git a/src/crypto/internal/fips140only/fips140only_test.go b/src/crypto/internal/fips140only/fips140only_test.go
+index a940fb2a3a..824ac9ac98 100644
+--- a/src/crypto/internal/fips140only/fips140only_test.go
++++ b/src/crypto/internal/fips140only/fips140only_test.go
+@@ -21,6 +21,7 @@ import (
+ 	"crypto/internal/fips140"
+ 	"crypto/internal/fips140only"
+ 	"crypto/md5"
++	"crypto/mldsa"
+ 	"crypto/mlkem"
+ 	"crypto/mlkem/mlkemtest"
+ 	"crypto/pbkdf2"
+@@ -107,6 +108,17 @@ func testFIPS140Only(t *testing.T) {
+ 	expectErr(t, errRet2(sha1.New().Write(make([]byte, 16))))
+ 	expectPanic(t, func() { sha1.Sum([]byte("foo")) })
+ 
++	if mldsaRejectedInOnlyMode {
++		expectErr(t, errRet2(mldsa.GenerateKey(mldsa.MLDSA44())))
++		expectErr(t, errRet2(mldsa.NewPrivateKey(mldsa.MLDSA44(), make([]byte, mldsa.PrivateKeySize))))
++		expectErr(t, errRet2(mldsa.NewPublicKey(mldsa.MLDSA44(), make([]byte, mldsa.MLDSA44PublicKeySize))))
++		expectErr(t, errRet1(mldsa.Verify(&mldsa.PublicKey{}, nil, nil, nil)))
++	} else {
++		// Outside the v1.0.0 certified snapshot, ML-DSA uses the in-module
++		// implementation and is a fully approved algorithm.
++		expectNoErr(t, errRet2(mldsa.GenerateKey(mldsa.MLDSA44())))
++	}
++
+ 	withApprovedHash(func(h crypto.Hash) { h.New().Sum(nil) })
+ 	withNonApprovedHash(func(h crypto.Hash) { expectPanic(t, func() { h.New().Sum(nil) }) })
+ 
+@@ -381,6 +393,10 @@ func expectErrIfCustomRand(t *testing.T, err error) {
+ 	}
+ }
+ 
++func errRet1(err error) error {
++	return err
++}
++
+ func errRet2[T any](_ T, err error) error {
+ 	return err
+ }
+diff --git a/src/crypto/internal/fips140only/mldsa_only_fips140v1.0_test.go b/src/crypto/internal/fips140only/mldsa_only_fips140v1.0_test.go
+new file mode 100644
+index 0000000000..e417e9df58
+--- /dev/null
++++ b/src/crypto/internal/fips140only/mldsa_only_fips140v1.0_test.go
+@@ -0,0 +1,15 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build fips140v1.0
++
++package fips140only_test
++
++// mldsaRejectedInOnlyMode reports whether crypto/mldsa is expected to be
++// rejected under GODEBUG=fips140=only. Under the certified v1.0.0 FIPS
++// 140-3 module, ML-DSA is provided by a non-module implementation (see
++// crypto/mldsa's fips140v1.0 build) and is rejected whenever FIPS 140 mode
++// is enabled, including only mode, just like other non-module algorithms
++// such as MD5 and DSA.
++const mldsaRejectedInOnlyMode = true
+diff --git a/src/crypto/internal/fips140only/mldsa_only_test.go b/src/crypto/internal/fips140only/mldsa_only_test.go
+new file mode 100644
+index 0000000000..a274a3cec0
+--- /dev/null
++++ b/src/crypto/internal/fips140only/mldsa_only_test.go
+@@ -0,0 +1,13 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build !fips140v1.0
++
++package fips140only_test
++
++// mldsaRejectedInOnlyMode reports whether crypto/mldsa is expected to be
++// rejected under GODEBUG=fips140=only. Outside of the certified v1.0.0
++// snapshot, ML-DSA is provided by the in-module implementation and is a
++// fully approved algorithm, so it is not rejected in only mode.
++const mldsaRejectedInOnlyMode = false
+diff --git a/src/crypto/mldsa/example_test.go b/src/crypto/mldsa/example_test.go
+index 4b362d2014..8d321f4f06 100644
+--- a/src/crypto/mldsa/example_test.go
++++ b/src/crypto/mldsa/example_test.go
+@@ -2,17 +2,24 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build !fips140v1.0
+-
+ package mldsa_test
+ 
+ import (
++	"crypto/fips140"
+ 	"crypto/mldsa"
+ 	"fmt"
+ 	"log"
+ )
+ 
+ func Example() {
++	if isFIPS140v10(fips140.Version()) && fips140.Enabled() {
++		// Under a v1.0.x module, ML-DSA is unavailable when FIPS 140 mode is
++		// enabled. Still document the fixed encoding sizes.
++		fmt.Printf("public key: %d bytes\n", mldsa.MLDSA44PublicKeySize)
++		fmt.Printf("signature: %d bytes\n", mldsa.MLDSA44SignatureSize)
++		return
++	}
++
+ 	// The signer generates a new ML-DSA-44 key pair.
+ 	sk, err := mldsa.GenerateKey(mldsa.MLDSA44())
+ 	if err != nil {
+diff --git a/src/crypto/mldsa/mldsa.go b/src/crypto/mldsa/mldsa.go
+index f151c17c43..2838283504 100644
+--- a/src/crypto/mldsa/mldsa.go
++++ b/src/crypto/mldsa/mldsa.go
+@@ -5,9 +5,14 @@
+ // Package mldsa implements the post-quantum ML-DSA signature scheme specified
+ // in [FIPS 204].
+ //
+-// This package is unavailable if using the [FIPS 140-3 Go Cryptographic Module]
+-// v1.0.0, in which case [GenerateKey], [NewPrivateKey], [NewPublicKey], and
+-// [Verify] will return an error. It is available if using v1.26.0 or later.
++// When building against the [FIPS 140-3 Go Cryptographic Module] v1.0.0 (the
++// default certified snapshot in this toolchain), ML-DSA is provided by a
++// non-module implementation. It is available only when FIPS 140 mode is
++// disabled (GODEBUG fips140=off, or fips140=auto when the host is not in FIPS
++// mode), and records a non-approved service indicator. When FIPS 140 mode is
++// enabled (fips140=on, fips140=only, or fips140=auto on a FIPS host), ML-DSA
++// operations return an error. When building against v1.26.0 or later (or
++// GOFIPS140=latest), ML-DSA uses the in-module implementation.
+ //
+ // [FIPS 204]: https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.204.pdf
+ // [FIPS 140-3 Go Cryptographic Module]: https://go.dev/doc/security/fips140
+diff --git a/src/crypto/mldsa/mldsa_fips140v1.0.go b/src/crypto/mldsa/mldsa_fips140v1.0.go
+index 3b2b580ea3..af783717f3 100644
+--- a/src/crypto/mldsa/mldsa_fips140v1.0.go
++++ b/src/crypto/mldsa/mldsa_fips140v1.0.go
+@@ -8,40 +8,77 @@ package mldsa
+ 
+ import (
+ 	"crypto"
++	"crypto/internal/fips140"
++	"crypto/internal/nofips/mldsa"
+ 	"errors"
+ 	"io"
+ )
+ 
+-// This file provides stub implementations of the ML-DSA API for building
+-// against the FIPS 140-3 Go Cryptographic Module v1.0.0, which does not include
+-// ML-DSA. Top-level functions return an error, and methods are unreachable
+-// since there is no way to construct a valid PublicKey or PrivateKey.
+-
+-var errUnavailable = errors.New("mldsa: unavailable in FIPS 140-3 Go Cryptographic Module v1.0.0")
+-
+ // PrivateKey is an in-memory ML-DSA private key. It implements [crypto.Signer]
+ // and the informal extended [crypto.PrivateKey] interface.
+ //
+ // A PrivateKey is safe for concurrent use.
+-type PrivateKey struct{}
++type PrivateKey struct {
++	k mldsa.PrivateKey
++}
++
++var (
++	errInvalidParameters = errors.New("mldsa: invalid parameters")
++	errFIPS140           = errors.New("crypto/mldsa: use of ML-DSA is not allowed in FIPS 140 mode")
++)
+ 
+ // GenerateKey generates a new random ML-DSA private key.
+ func GenerateKey(params Parameters) (*PrivateKey, error) {
+-	return nil, errUnavailable
++	if fips140.Enabled {
++		return nil, errFIPS140
++	}
++	var priv *PrivateKey
++	switch params {
++	case MLDSA44():
++		priv = &PrivateKey{k: *mldsa.GenerateKey44()}
++	case MLDSA65():
++		priv = &PrivateKey{k: *mldsa.GenerateKey65()}
++	case MLDSA87():
++		priv = &PrivateKey{k: *mldsa.GenerateKey87()}
++	default:
++		return nil, errInvalidParameters
++	}
++	// ML-DSA is outside the v1.0.0 certified module boundary.
++	fips140.RecordNonApproved()
++	return priv, nil
+ }
+ 
+ // NewPrivateKey decodes an ML-DSA private key from the given seed.
+ //
+ // The seed must be exactly [PrivateKeySize] bytes long.
+ func NewPrivateKey(params Parameters, seed []byte) (*PrivateKey, error) {
+-	return nil, errUnavailable
++	if fips140.Enabled {
++		return nil, errFIPS140
++	}
++	var err error
++	var k *mldsa.PrivateKey
++	switch params {
++	case MLDSA44():
++		k, err = mldsa.NewPrivateKey44(seed)
++	case MLDSA65():
++		k, err = mldsa.NewPrivateKey65(seed)
++	case MLDSA87():
++		k, err = mldsa.NewPrivateKey87(seed)
++	default:
++		return nil, errInvalidParameters
++	}
++	if err != nil {
++		return nil, err
++	}
++	fips140.RecordNonApproved()
++	return &PrivateKey{k: *k}, nil
+ }
+ 
+ // Public returns the corresponding [PublicKey] for this private key.
+ //
+ // It implements the [crypto.Signer] interface.
+ func (sk *PrivateKey) Public() crypto.PublicKey {
+-	panic("mldsa: methods are unreachable in FIPS 140-3 Go Cryptographic Module v1.0.0")
++	return sk.PublicKey()
+ }
+ 
+ // Equal reports whether sk and x are the same key (i.e. they are derived from
+@@ -49,51 +86,123 @@ func (sk *PrivateKey) Public() crypto.PublicKey {
+ //
+ // If x is not a *PrivateKey, Equal returns false.
+ func (sk *PrivateKey) Equal(x crypto.PrivateKey) bool {
+-	panic("mldsa: methods are unreachable in FIPS 140-3 Go Cryptographic Module v1.0.0")
++	other, ok := x.(*PrivateKey)
++	if !ok || other == nil {
++		return false
++	}
++	return sk.k.Equal(&other.k)
+ }
+ 
+ // PublicKey returns the corresponding [PublicKey] for this private key.
+ func (sk *PrivateKey) PublicKey() *PublicKey {
+-	panic("mldsa: methods are unreachable in FIPS 140-3 Go Cryptographic Module v1.0.0")
++	// Making a copy severs the pointer relationship between the private and
++	// public keys, so that keeping the public key around doesn't keep the
++	// private key alive. This costs a copy and an allocation.
++	return &PublicKey{p: *sk.k.PublicKey()}
+ }
+ 
+ // Bytes returns the private key seed.
+ func (sk *PrivateKey) Bytes() []byte {
+-	panic("mldsa: methods are unreachable in FIPS 140-3 Go Cryptographic Module v1.0.0")
++	return sk.k.Bytes()
+ }
+ 
++var errInvalidSignerOpts = errors.New("mldsa: invalid SignerOpts")
++
+ // Sign returns a signature of the given message using this private key.
+-//
+-// If opts is nil or opts.HashFunc returns zero, the message is signed directly.
+-// If opts.HashFunc returns [crypto.MLDSAMu], the provided message must be a
+-// [pre-hashed μ message representative]. opts can be of type *[Options].
+-// The io.Reader argument is ignored.
+-//
+-// [pre-hashed μ message representative]: https://www.rfc-editor.org/rfc/rfc9881.html#externalmu
+ func (sk *PrivateKey) Sign(_ io.Reader, message []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+-	panic("mldsa: methods are unreachable in FIPS 140-3 Go Cryptographic Module v1.0.0")
++	if fips140.Enabled {
++		return nil, errFIPS140
++	}
++	if opts == nil {
++		opts = &Options{}
++	}
++	switch opts.HashFunc() {
++	case 0:
++		var context string
++		if opts, ok := opts.(*Options); ok {
++			context = opts.Context
++		}
++		signature, err = mldsa.Sign(&sk.k, message, context)
++	case crypto.MLDSAMu:
++		signature, err = mldsa.SignExternalMu(&sk.k, message)
++	default:
++		return nil, errInvalidSignerOpts
++	}
++	if err != nil {
++		return nil, err
++	}
++	fips140.RecordNonApproved()
++	return signature, nil
+ }
+ 
+ // SignDeterministic works like [PrivateKey.Sign], but the signature is
+ // deterministic.
+ func (sk *PrivateKey) SignDeterministic(message []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+-	panic("mldsa: methods are unreachable in FIPS 140-3 Go Cryptographic Module v1.0.0")
++	if fips140.Enabled {
++		return nil, errFIPS140
++	}
++	if opts == nil {
++		opts = &Options{}
++	}
++	switch opts.HashFunc() {
++	case 0:
++		var context string
++		if opts, ok := opts.(*Options); ok {
++			context = opts.Context
++		}
++		signature, err = mldsa.SignDeterministic(&sk.k, message, context)
++	case crypto.MLDSAMu:
++		signature, err = mldsa.SignExternalMuDeterministic(&sk.k, message)
++	default:
++		return nil, errInvalidSignerOpts
++	}
++	if err != nil {
++		return nil, err
++	}
++	fips140.RecordNonApproved()
++	return signature, nil
+ }
+ 
+ // PublicKey is an ML-DSA public key. It implements the informal extended
+ // [crypto.PublicKey] interface.
+ //
+ // A PublicKey is safe for concurrent use.
+-type PublicKey struct{}
++type PublicKey struct {
++	p mldsa.PublicKey
++}
+ 
+ // NewPublicKey creates a new ML-DSA public key from the given encoding.
+ func NewPublicKey(params Parameters, encoding []byte) (*PublicKey, error) {
+-	return nil, errUnavailable
++	if fips140.Enabled {
++		return nil, errFIPS140
++	}
++	return newPublicKey(&PublicKey{}, params, encoding)
++}
++
++func newPublicKey(pub *PublicKey, params Parameters, encoding []byte) (*PublicKey, error) {
++	var err error
++	var pk *mldsa.PublicKey
++	switch params {
++	case MLDSA44():
++		pk, err = mldsa.NewPublicKey44(encoding)
++	case MLDSA65():
++		pk, err = mldsa.NewPublicKey65(encoding)
++	case MLDSA87():
++		pk, err = mldsa.NewPublicKey87(encoding)
++	default:
++		return nil, errInvalidParameters
++	}
++	if err != nil {
++		return nil, err
++	}
++	pub.p = *pk
++	fips140.RecordNonApproved()
++	return pub, nil
+ }
+ 
+ // Bytes returns the public key encoding.
+ func (pk *PublicKey) Bytes() []byte {
+-	panic("mldsa: methods are unreachable in FIPS 140-3 Go Cryptographic Module v1.0.0")
++	return pk.p.Bytes()
+ }
+ 
+ // Equal reports whether pk and x are the same key (i.e. they have the same
+@@ -101,16 +210,42 @@ func (pk *PublicKey) Bytes() []byte {
+ //
+ // If x is not a *PublicKey, Equal returns false.
+ func (pk *PublicKey) Equal(x crypto.PublicKey) bool {
+-	panic("mldsa: methods are unreachable in FIPS 140-3 Go Cryptographic Module v1.0.0")
++	other, ok := x.(*PublicKey)
++	if !ok || other == nil {
++		return false
++	}
++	return pk.p.Equal(&other.p)
+ }
+ 
+ // Parameters returns the parameters associated with this public key.
+ func (pk *PublicKey) Parameters() Parameters {
+-	panic("mldsa: methods are unreachable in FIPS 140-3 Go Cryptographic Module v1.0.0")
++	switch pk.p.Parameters() {
++	case "ML-DSA-44":
++		return MLDSA44()
++	case "ML-DSA-65":
++		return MLDSA65()
++	case "ML-DSA-87":
++		return MLDSA87()
++	default:
++		panic("mldsa: invalid parameters in public key")
++	}
+ }
+ 
+ // Verify reports whether signature is a valid signature of message by pk.
+ // If opts is nil, it's equivalent to the zero value of Options.
+ func Verify(pk *PublicKey, message []byte, signature []byte, opts *Options) error {
+-	return errUnavailable
++	if fips140.Enabled {
++		return errFIPS140
++	}
++	if pk == nil {
++		return errors.New("mldsa: nil public key")
++	}
++	if opts == nil {
++		opts = &Options{}
++	}
++	if err := mldsa.Verify(&pk.p, message, signature, opts.Context); err != nil {
++		return err
++	}
++	fips140.RecordNonApproved()
++	return nil
+ }
+diff --git a/src/crypto/mldsa/mldsa_fips140v1.0_test.go b/src/crypto/mldsa/mldsa_fips140v1.0_test.go
+index bfeede4227..21a0d04277 100644
+--- a/src/crypto/mldsa/mldsa_fips140v1.0_test.go
++++ b/src/crypto/mldsa/mldsa_fips140v1.0_test.go
+@@ -8,67 +8,16 @@ package mldsa_test
+ 
+ import (
+ 	"crypto"
++	"crypto/internal/cryptotest"
++	"crypto/internal/fips140"
+ 	. "crypto/mldsa"
++	"strings"
+ 	"testing"
+ )
+ 
+ var _ crypto.Signer = (*PrivateKey)(nil)
+ 
+-func TestUnavailable(t *testing.T) {
+-	for _, params := range []Parameters{MLDSA44(), MLDSA65(), MLDSA87()} {
+-		t.Run(params.String(), func(t *testing.T) {
+-			if _, err := GenerateKey(params); err == nil {
+-				t.Errorf("GenerateKey: want error, got nil")
+-			}
+-			if _, err := NewPrivateKey(params, make([]byte, PrivateKeySize)); err == nil {
+-				t.Errorf("NewPrivateKey: want error, got nil")
+-			}
+-			if _, err := NewPublicKey(params, make([]byte, params.PublicKeySize())); err == nil {
+-				t.Errorf("NewPublicKey: want error, got nil")
+-			}
+-			if err := Verify(&PublicKey{}, nil, nil, nil); err == nil {
+-				t.Errorf("Verify: want error, got nil")
+-			}
+-		})
+-	}
+-}
+-
+-func TestMethodsPanic(t *testing.T) {
+-	// All PrivateKey and PublicKey methods are unreachable in the v1.0 stub
+-	// (since there is no way to construct a non-zero key) and panic if invoked
+-	// on the zero value.
+-	sk := &PrivateKey{}
+-	pk := &PublicKey{}
+-	cases := []struct {
+-		name string
+-		fn   func()
+-	}{
+-		{"PrivateKey.Public", func() { sk.Public() }},
+-		{"PrivateKey.Equal", func() { sk.Equal(sk) }},
+-		{"PrivateKey.PublicKey", func() { sk.PublicKey() }},
+-		{"PrivateKey.Bytes", func() { sk.Bytes() }},
+-		{"PrivateKey.Sign", func() { sk.Sign(nil, nil, nil) }},
+-		{"PrivateKey.SignDeterministic", func() { sk.SignDeterministic(nil, nil) }},
+-		{"PublicKey.Bytes", func() { pk.Bytes() }},
+-		{"PublicKey.Equal", func() { pk.Equal(pk) }},
+-		{"PublicKey.Parameters", func() { pk.Parameters() }},
+-	}
+-	for _, tc := range cases {
+-		t.Run(tc.name, func(t *testing.T) {
+-			defer func() {
+-				if r := recover(); r == nil {
+-					t.Errorf("%s: did not panic", tc.name)
+-				}
+-			}()
+-			tc.fn()
+-		})
+-	}
+-}
+-
+ func TestParametersAvailable(t *testing.T) {
+-	// The Parameters value type and its methods must remain usable even under
+-	// the v1.0 stub, so callers can introspect parameter sets without invoking
+-	// the unavailable key APIs.
+ 	cases := []struct {
+ 		params  Parameters
+ 		name    string
+@@ -91,3 +40,69 @@ func TestParametersAvailable(t *testing.T) {
+ 		}
+ 	}
+ }
++
++func TestAvailableUnderV10(t *testing.T) {
++	skipIfMLDSARejectedByFIPS(t)
++	priv, err := GenerateKey(MLDSA44())
++	if err != nil {
++		t.Fatalf("GenerateKey: %v", err)
++	}
++	msg := []byte("hello")
++	sig, err := priv.Sign(nil, msg, nil)
++	if err != nil {
++		t.Fatalf("Sign: %v", err)
++	}
++	if err := Verify(priv.PublicKey(), msg, sig, nil); err != nil {
++		t.Fatalf("Verify: %v", err)
++	}
++}
++
++func TestServiceIndicatorNonApproved(t *testing.T) {
++	skipIfMLDSARejectedByFIPS(t)
++	fips140.ResetServiceIndicator()
++	priv, err := GenerateKey(MLDSA44())
++	if err != nil {
++		t.Fatalf("GenerateKey: %v", err)
++	}
++	if fips140.ServiceIndicator() {
++		t.Fatal("GenerateKey: service indicator unexpectedly approved under v1.0.0 module")
++	}
++
++	fips140.ResetServiceIndicator()
++	msg := []byte("hello")
++	sig, err := priv.Sign(nil, msg, nil)
++	if err != nil {
++		t.Fatalf("Sign: %v", err)
++	}
++	if fips140.ServiceIndicator() {
++		t.Fatal("Sign: service indicator unexpectedly approved under v1.0.0 module")
++	}
++
++	fips140.ResetServiceIndicator()
++	if err := Verify(priv.PublicKey(), msg, sig, nil); err != nil {
++		t.Fatalf("Verify: %v", err)
++	}
++	if fips140.ServiceIndicator() {
++		t.Fatal("Verify: service indicator unexpectedly approved under v1.0.0 module")
++	}
++}
++
++func TestFIPS140Rejects(t *testing.T) {
++	if !fips140.Enabled {
++		cryptotest.RerunWithFIPS140Enabled(t)
++		return
++	}
++	const want = "not allowed in FIPS 140 mode"
++	if _, err := GenerateKey(MLDSA44()); err == nil || !strings.Contains(err.Error(), want) {
++		t.Fatalf("GenerateKey: got %v, want error containing %q", err, want)
++	}
++	if _, err := NewPrivateKey(MLDSA44(), make([]byte, PrivateKeySize)); err == nil || !strings.Contains(err.Error(), want) {
++		t.Fatalf("NewPrivateKey: got %v, want error containing %q", err, want)
++	}
++	if _, err := NewPublicKey(MLDSA44(), make([]byte, MLDSA44PublicKeySize)); err == nil || !strings.Contains(err.Error(), want) {
++		t.Fatalf("NewPublicKey: got %v, want error containing %q", err, want)
++	}
++	if err := Verify(&PublicKey{}, nil, nil, nil); err == nil || !strings.Contains(err.Error(), want) {
++		t.Fatalf("Verify: got %v, want error containing %q", err, want)
++	}
++}
+diff --git a/src/crypto/mldsa/mldsa_test.go b/src/crypto/mldsa/mldsa_test.go
+index 375333a70c..555401022a 100644
+--- a/src/crypto/mldsa/mldsa_test.go
++++ b/src/crypto/mldsa/mldsa_test.go
+@@ -2,8 +2,6 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build !fips140v1.0
+-
+ package mldsa_test
+ 
+ import (
+@@ -24,6 +22,22 @@ var _ crypto.Signer = (*PrivateKey)(nil)
+ 
+ var sixtyMillionFlag = flag.Bool("60million", false, "run 60M-iterations accumulated test")
+ 
++// isFIPS140v10 reports whether version is in the v1.0.x certified module
++// series (matching the fips140v1.0 build tag), including patch releases
++// such as v1.0.1.
++func isFIPS140v10(version string) bool {
++	return strings.HasPrefix(version, "v1.0.")
++}
++
++// skipIfMLDSARejectedByFIPS skips tests that need a working crypto/mldsa
++// implementation under a v1.0.x certified module when FIPS 140 mode is on.
++func skipIfMLDSARejectedByFIPS(t *testing.T) {
++	t.Helper()
++	if isFIPS140v10(fips140.Version()) && fips140.Enabled() {
++		t.Skip("ML-DSA is not available when FIPS 140 mode is enabled under a v1.0.x module")
++	}
++}
++
+ // TestAccumulated accumulates 10k (or 100, or 60M) random vectors and checks
+ // the hash of the result, to avoid checking in megabytes of test vectors.
+ //
+@@ -34,6 +48,7 @@ var sixtyMillionFlag = flag.Bool("60million", false, "run 60M-iterations accumul
+ //
+ // If setting -60million, remember to also set -timeout 0.
+ func TestAccumulated(t *testing.T) {
++	skipIfMLDSARejectedByFIPS(t)
+ 	t.Run("ML-DSA-44/100", func(t *testing.T) {
+ 		testAccumulated(t, MLDSA44(), 100,
+ 			"d51148e1f9f4fa1a723a6cf42e25f2a99eb5c1b378b3d2dbbd561b1203beeae4")
+@@ -130,6 +145,7 @@ func testAllParameters(t *testing.T, f func(*testing.T, Parameters)) {
+ }
+ 
+ func TestGenerateKey(t *testing.T) {
++	skipIfMLDSARejectedByFIPS(t)
+ 	testAllParameters(t, testGenerateKey)
+ }
+ 
+@@ -155,6 +171,7 @@ func testGenerateKey(t *testing.T, params Parameters) {
+ }
+ 
+ func TestAllocations(t *testing.T) {
++	skipIfMLDSARejectedByFIPS(t)
+ 	// We allocate
+ 	//
+ 	//   - the PrivateKey (k and kk) structs
+@@ -177,6 +194,13 @@ func TestAllocations(t *testing.T) {
+ 		// return value of k.PublicKey().
+ 		expected += 3
+ 	}
++	if isFIPS140v10(fips140.Version()) {
++		// Under a v1.0.x certified module, mldsa_fips140v1.0.go wraps
++		// crypto/internal/nofips/mldsa with additional FIPS enablement and
++		// service indicator plumbing in newPublicKey, which defeats
++		// inlining and makes the PublicKey argument escape to the heap.
++		expected += 1
++	}
+ 	cryptotest.SkipTestAllocations(t)
+ 	if allocs := testing.AllocsPerRun(100, func() {
+ 		k, err := GenerateKey(MLDSA44())
+@@ -247,6 +271,7 @@ type fakeSignerOpts struct{ h crypto.Hash }
+ func (f fakeSignerOpts) HashFunc() crypto.Hash { return f.h }
+ 
+ func TestSign(t *testing.T) {
++	skipIfMLDSARejectedByFIPS(t)
+ 	testAllParameters(t, func(t *testing.T, params Parameters) {
+ 		sk, err := GenerateKey(params)
+ 		if err != nil {
+@@ -377,6 +402,7 @@ func TestSign(t *testing.T) {
+ }
+ 
+ func TestExternalMu(t *testing.T) {
++	skipIfMLDSARejectedByFIPS(t)
+ 	testAllParameters(t, func(t *testing.T, params Parameters) {
+ 		sk, err := GenerateKey(params)
+ 		if err != nil {
+@@ -440,6 +466,7 @@ func TestExternalMu(t *testing.T) {
+ }
+ 
+ func TestPublicKey(t *testing.T) {
++	skipIfMLDSARejectedByFIPS(t)
+ 	cases := []struct {
+ 		params  Parameters
+ 		name    string
+@@ -507,6 +534,7 @@ func TestPublicKey(t *testing.T) {
+ }
+ 
+ func TestEqualWrongType(t *testing.T) {
++	skipIfMLDSARejectedByFIPS(t)
+ 	sk, err := GenerateKey(MLDSA44())
+ 	if err != nil {
+ 		t.Fatalf("GenerateKey: %v", err)
+@@ -538,6 +566,7 @@ func TestEqualWrongType(t *testing.T) {
+ }
+ 
+ func TestInvalidParameters(t *testing.T) {
++	skipIfMLDSARejectedByFIPS(t)
+ 	var zero Parameters
+ 	if _, err := GenerateKey(zero); err == nil {
+ 		t.Errorf("GenerateKey(zero Parameters): want error, got nil")
+@@ -551,6 +580,7 @@ func TestInvalidParameters(t *testing.T) {
+ }
+ 
+ func TestInvalidSize(t *testing.T) {
++	skipIfMLDSARejectedByFIPS(t)
+ 	testAllParameters(t, func(t *testing.T, params Parameters) {
+ 		if _, err := NewPrivateKey(params, make([]byte, PrivateKeySize-1)); err == nil {
+ 			t.Errorf("NewPrivateKey with short seed: want error, got nil")
+diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
+index 5c909e914d..648290860a 100644
+--- a/src/go/build/deps_test.go
++++ b/src/go/build/deps_test.go
+@@ -533,6 +533,9 @@ var depsRules = `
+ 	< crypto/internal/fips140/rsa
+ 	< crypto/fips140 < FIPS;
+ 
++	# Non-module copy of ML-DSA for builds against FIPS snapshots that omit it.
++	FIPS < crypto/internal/nofips/mldsa;
++
+ 	crypto !< FIPS;
+ 
+ 	# CRYPTO is core crypto algorithms - no cgo, fmt, net.
+@@ -541,7 +544,7 @@ var depsRules = `
+ 	NONE < crypto/internal/boring/sig, crypto/internal/boring/syso;
+ 	sync/atomic < crypto/internal/boring/bcache;
+ 
+-	FIPS, internal/godebug, embed,
++	FIPS, crypto/internal/nofips/mldsa, internal/godebug, embed,
+ 	crypto/internal/boring/sig,
+ 	crypto/internal/boring/syso,
+ 	crypto/internal/boring/bcache
+-- 
+2.55.0
+
