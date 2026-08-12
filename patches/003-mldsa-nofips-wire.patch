@@ -1,4 +1,4 @@
-From 010546f6cfb5ee9b80ecf2587ebaee0d8254b405 Mon Sep 17 00:00:00 2001
+From 768f1241b01e28d473cbd0af869bc6673309b951 Mon Sep 17 00:00:00 2001
 From: Derek Parker <parkerderek86@gmail.com>
 Date: Tue, 21 Jul 2026 13:35:56 -0700
 Subject: [PATCH] 003-mldsa-nofips-wire.patch
@@ -11,9 +11,9 @@ Subject: [PATCH] 003-mldsa-nofips-wire.patch
  src/crypto/mldsa/mldsa.go                     |  11 +-
  src/crypto/mldsa/mldsa_fips140v1.0.go         | 193 +++++++++++++++---
  src/crypto/mldsa/mldsa_fips140v1.0_test.go    | 123 ++++++-----
- src/crypto/mldsa/mldsa_test.go                |  27 ++-
+ src/crypto/mldsa/mldsa_test.go                |  34 ++-
  src/go/build/deps_test.go                     |   5 +-
- 9 files changed, 323 insertions(+), 91 deletions(-)
+ 9 files changed, 330 insertions(+), 91 deletions(-)
  create mode 100644 src/crypto/internal/fips140only/mldsa_only_fips140v1.0_test.go
  create mode 100644 src/crypto/internal/fips140only/mldsa_only_test.go
 
@@ -99,7 +99,7 @@ index 0000000000..a274a3cec0
 +// fully approved algorithm, so it is not rejected in only mode.
 +const mldsaRejectedInOnlyMode = false
 diff --git a/src/crypto/mldsa/example_test.go b/src/crypto/mldsa/example_test.go
-index 4b362d2014..67968200e8 100644
+index 4b362d2014..8d321f4f06 100644
 --- a/src/crypto/mldsa/example_test.go
 +++ b/src/crypto/mldsa/example_test.go
 @@ -2,17 +2,24 @@
@@ -118,8 +118,8 @@ index 4b362d2014..67968200e8 100644
  )
  
  func Example() {
-+	if fips140.Version() == "v1.0.0" && fips140.Enabled() {
-+		// Under the v1.0.0 module, ML-DSA is unavailable when FIPS 140 mode is
++	if isFIPS140v10(fips140.Version()) && fips140.Enabled() {
++		// Under a v1.0.x module, ML-DSA is unavailable when FIPS 140 mode is
 +		// enabled. Still document the fixed encoding sizes.
 +		fmt.Printf("public key: %d bytes\n", mldsa.MLDSA44PublicKeySize)
 +		fmt.Printf("signature: %d bytes\n", mldsa.MLDSA44SignatureSize)
@@ -575,7 +575,7 @@ index bfeede4227..21a0d04277 100644
 +	}
 +}
 diff --git a/src/crypto/mldsa/mldsa_test.go b/src/crypto/mldsa/mldsa_test.go
-index 375333a70c..1f687ffb2f 100644
+index 375333a70c..555401022a 100644
 --- a/src/crypto/mldsa/mldsa_test.go
 +++ b/src/crypto/mldsa/mldsa_test.go
 @@ -2,8 +2,6 @@
@@ -587,23 +587,30 @@ index 375333a70c..1f687ffb2f 100644
  package mldsa_test
  
  import (
-@@ -24,6 +22,15 @@ var _ crypto.Signer = (*PrivateKey)(nil)
+@@ -24,6 +22,22 @@ var _ crypto.Signer = (*PrivateKey)(nil)
  
  var sixtyMillionFlag = flag.Bool("60million", false, "run 60M-iterations accumulated test")
  
++// isFIPS140v10 reports whether version is in the v1.0.x certified module
++// series (matching the fips140v1.0 build tag), including patch releases
++// such as v1.0.1.
++func isFIPS140v10(version string) bool {
++	return strings.HasPrefix(version, "v1.0.")
++}
++
 +// skipIfMLDSARejectedByFIPS skips tests that need a working crypto/mldsa
-+// implementation under the v1.0.0 certified module when FIPS 140 mode is on.
++// implementation under a v1.0.x certified module when FIPS 140 mode is on.
 +func skipIfMLDSARejectedByFIPS(t *testing.T) {
 +	t.Helper()
-+	if fips140.Version() == "v1.0.0" && fips140.Enabled() {
-+		t.Skip("ML-DSA is not available when FIPS 140 mode is enabled under the v1.0.0 module")
++	if isFIPS140v10(fips140.Version()) && fips140.Enabled() {
++		t.Skip("ML-DSA is not available when FIPS 140 mode is enabled under a v1.0.x module")
 +	}
 +}
 +
  // TestAccumulated accumulates 10k (or 100, or 60M) random vectors and checks
  // the hash of the result, to avoid checking in megabytes of test vectors.
  //
-@@ -34,6 +41,7 @@ var sixtyMillionFlag = flag.Bool("60million", false, "run 60M-iterations accumul
+@@ -34,6 +48,7 @@ var sixtyMillionFlag = flag.Bool("60million", false, "run 60M-iterations accumul
  //
  // If setting -60million, remember to also set -timeout 0.
  func TestAccumulated(t *testing.T) {
@@ -611,7 +618,7 @@ index 375333a70c..1f687ffb2f 100644
  	t.Run("ML-DSA-44/100", func(t *testing.T) {
  		testAccumulated(t, MLDSA44(), 100,
  			"d51148e1f9f4fa1a723a6cf42e25f2a99eb5c1b378b3d2dbbd561b1203beeae4")
-@@ -130,6 +138,7 @@ func testAllParameters(t *testing.T, f func(*testing.T, Parameters)) {
+@@ -130,6 +145,7 @@ func testAllParameters(t *testing.T, f func(*testing.T, Parameters)) {
  }
  
  func TestGenerateKey(t *testing.T) {
@@ -619,7 +626,7 @@ index 375333a70c..1f687ffb2f 100644
  	testAllParameters(t, testGenerateKey)
  }
  
-@@ -155,6 +164,7 @@ func testGenerateKey(t *testing.T, params Parameters) {
+@@ -155,6 +171,7 @@ func testGenerateKey(t *testing.T, params Parameters) {
  }
  
  func TestAllocations(t *testing.T) {
@@ -627,12 +634,12 @@ index 375333a70c..1f687ffb2f 100644
  	// We allocate
  	//
  	//   - the PrivateKey (k and kk) structs
-@@ -177,6 +187,13 @@ func TestAllocations(t *testing.T) {
+@@ -177,6 +194,13 @@ func TestAllocations(t *testing.T) {
  		// return value of k.PublicKey().
  		expected += 3
  	}
-+	if fips140.Version() == "v1.0.0" {
-+		// Under the v1.0.0 certified module, mldsa_fips140v1.0.go wraps
++	if isFIPS140v10(fips140.Version()) {
++		// Under a v1.0.x certified module, mldsa_fips140v1.0.go wraps
 +		// crypto/internal/nofips/mldsa with additional FIPS enablement and
 +		// service indicator plumbing in newPublicKey, which defeats
 +		// inlining and makes the PublicKey argument escape to the heap.
@@ -641,7 +648,7 @@ index 375333a70c..1f687ffb2f 100644
  	cryptotest.SkipTestAllocations(t)
  	if allocs := testing.AllocsPerRun(100, func() {
  		k, err := GenerateKey(MLDSA44())
-@@ -247,6 +264,7 @@ type fakeSignerOpts struct{ h crypto.Hash }
+@@ -247,6 +271,7 @@ type fakeSignerOpts struct{ h crypto.Hash }
  func (f fakeSignerOpts) HashFunc() crypto.Hash { return f.h }
  
  func TestSign(t *testing.T) {
@@ -649,7 +656,7 @@ index 375333a70c..1f687ffb2f 100644
  	testAllParameters(t, func(t *testing.T, params Parameters) {
  		sk, err := GenerateKey(params)
  		if err != nil {
-@@ -377,6 +395,7 @@ func TestSign(t *testing.T) {
+@@ -377,6 +402,7 @@ func TestSign(t *testing.T) {
  }
  
  func TestExternalMu(t *testing.T) {
@@ -657,7 +664,7 @@ index 375333a70c..1f687ffb2f 100644
  	testAllParameters(t, func(t *testing.T, params Parameters) {
  		sk, err := GenerateKey(params)
  		if err != nil {
-@@ -440,6 +459,7 @@ func TestExternalMu(t *testing.T) {
+@@ -440,6 +466,7 @@ func TestExternalMu(t *testing.T) {
  }
  
  func TestPublicKey(t *testing.T) {
@@ -665,7 +672,7 @@ index 375333a70c..1f687ffb2f 100644
  	cases := []struct {
  		params  Parameters
  		name    string
-@@ -507,6 +527,7 @@ func TestPublicKey(t *testing.T) {
+@@ -507,6 +534,7 @@ func TestPublicKey(t *testing.T) {
  }
  
  func TestEqualWrongType(t *testing.T) {
@@ -673,7 +680,7 @@ index 375333a70c..1f687ffb2f 100644
  	sk, err := GenerateKey(MLDSA44())
  	if err != nil {
  		t.Fatalf("GenerateKey: %v", err)
-@@ -538,6 +559,7 @@ func TestEqualWrongType(t *testing.T) {
+@@ -538,6 +566,7 @@ func TestEqualWrongType(t *testing.T) {
  }
  
  func TestInvalidParameters(t *testing.T) {
@@ -681,7 +688,7 @@ index 375333a70c..1f687ffb2f 100644
  	var zero Parameters
  	if _, err := GenerateKey(zero); err == nil {
  		t.Errorf("GenerateKey(zero Parameters): want error, got nil")
-@@ -551,6 +573,7 @@ func TestInvalidParameters(t *testing.T) {
+@@ -551,6 +580,7 @@ func TestInvalidParameters(t *testing.T) {
  }
  
  func TestInvalidSize(t *testing.T) {
