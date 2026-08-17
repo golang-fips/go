@@ -200,6 +200,17 @@ run_mutual_exclusivity_tests() {
     exit 1
   fi
 
+  # Test 5: GOLANG_FIPS=1 with GODEBUG=fips140=on should not panic with -tags no_openssl
+  notify_running ${mode} "openssl-fips-with-godebug+no-openssl-tag"
+  output=$(GOLANG_FIPS=1 GODEBUG=fips140=only $GO test -tags=no_openssl -count=1 crypto/sha256 2>&1 || true)
+  if echo "$output" | grep -q "GOLANG_FIPS and GODEBUG=fips140 are mutually exclusive"; then
+    echo "FAIL: Panicked with FIPS mutual exclusivity + -tags no_openssl"
+    echo "Output: $output"
+    exit 1
+  else
+    echo "PASS: Did not panic - GOLANG_FIPS=1 + fips140=only + -tags no_openssl"
+  fi
+
   quiet popd
 }
 

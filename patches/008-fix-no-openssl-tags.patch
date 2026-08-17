@@ -1,0 +1,150 @@
+diff --git a/src/crypto/internal/backend/bbig/big.go b/src/crypto/internal/backend/bbig/big.go
+index 5652398605..c630afd2a6 100644
+--- a/src/crypto/internal/backend/bbig/big.go
++++ b/src/crypto/internal/backend/bbig/big.go
+@@ -5,6 +5,9 @@
+ // This is a mirror of
+ // https://github.com/golang/go/blob/36b87f273cc43e21685179dc1664ebb5493d26ae/src/crypto/internal/boring/bbig/big.go.
+ 
++//go:build linux && cgo && !android && !gocrypt && !cmd_go_bootstrap && !msan && !no_openssl && !purego
++// +build linux,cgo,!android,!gocrypt,!cmd_go_bootstrap,!msan,!no_openssl,!purego
++
+ package bbig
+ 
+ import (
+diff --git a/src/crypto/internal/backend/bbig/nobackend.go b/src/crypto/internal/backend/bbig/nobackend.go
+new file mode 100644
+index 0000000000..f63bd12dc9
+--- /dev/null
++++ b/src/crypto/internal/backend/bbig/nobackend.go
+@@ -0,0 +1,16 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build !linux || !cgo || android || cmd_go_bootstrap || msan || no_openssl || purego
++// +build !linux !cgo android cmd_go_bootstrap msan no_openssl purego
++
++package bbig
++
++
++import (
++       "crypto/internal/boring/bbig"
++)
++
++var Enc = bbig.Enc
++var Dec = bbig.Dec
+diff --git a/src/crypto/internal/boring/bbig/big.go b/src/crypto/internal/boring/bbig/big.go
+index 5ce46972b3..47bae33f81 100644
+--- a/src/crypto/internal/boring/bbig/big.go
++++ b/src/crypto/internal/boring/bbig/big.go
+@@ -7,27 +7,12 @@ package bbig
+ import (
+ 	"crypto/internal/boring"
+ 	"math/big"
+-	"unsafe"
+ )
+ 
+ func Enc(b *big.Int) boring.BigInt {
+-	if b == nil {
+-		return nil
+-	}
+-	x := b.Bits()
+-	if len(x) == 0 {
+-		return boring.BigInt{}
+-	}
+-	return unsafe.Slice((*uint)(&x[0]), len(x))
++	panic("openssl backend unavailable")
+ }
+ 
+ func Dec(b boring.BigInt) *big.Int {
+-	if b == nil {
+-		return nil
+-	}
+-	if len(b) == 0 {
+-		return new(big.Int)
+-	}
+-	x := unsafe.Slice((*big.Word)(&b[0]), len(b))
+-	return new(big.Int).SetBits(x)
++	panic("openssl backend unavailable")
+ }
+diff --git a/src/crypto/internal/boring/doc.go b/src/crypto/internal/boring/doc.go
+index f83dc83ced..74b83b795d 100644
+--- a/src/crypto/internal/boring/doc.go
++++ b/src/crypto/internal/boring/doc.go
+@@ -5,6 +5,10 @@
+ // Package boring provides access to BoringCrypto implementation functions.
+ // Check the constant Enabled to find out whether BoringCrypto is available.
+ // If BoringCrypto is not available, the functions in this package all panic.
++
++//go:build linux && cgo && !android && !gocrypt && !cmd_go_bootstrap && !msan && !no_openssl && !purego
++// +build linux,cgo,!android,!gocrypt,!cmd_go_bootstrap,!msan,!no_openssl,!purego
++
+ package boring
+ 
+ import "github.com/golang-fips/openssl/v2"
+diff --git a/src/crypto/internal/boring/noopenssl.go b/src/crypto/internal/boring/noopenssl.go
+new file mode 100644
+index 0000000000..48af2385b2
+--- /dev/null
++++ b/src/crypto/internal/boring/noopenssl.go
+@@ -0,0 +1,17 @@
++// Copyright 2017 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++// Package boring provides access to BoringCrypto implementation functions.
++// Check the constant Enabled to find out whether BoringCrypto is available.
++// If BoringCrypto is not available, the functions in this package all panic.
++
++//go:build !linux || !cgo || android || cmd_go_bootstrap || msan || no_openssl || purego
++// +build !linux !cgo android cmd_go_bootstrap msan no_openssl purego
++
++package boring
++
++// A BigInt is the raw words from a BigInt.
++// This definition allows us to avoid importing math/big.
++// Conversion between BigInt and *big.Int is in crypto/internal/boring/bbig.
++type BigInt []uint
+diff --git a/src/crypto/rsa/boring.go b/src/crypto/rsa/boring.go
+index 85c2a45848..12049178ba 100644
+--- a/src/crypto/rsa/boring.go
++++ b/src/crypto/rsa/boring.go
+@@ -2,7 +2,8 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build !no_openssl
++//go:build linux && cgo && !android && !gocrypt && !cmd_go_bootstrap && !msan && !no_openssl && !purego
++// +build linux,cgo,!android,!gocrypt,!cmd_go_bootstrap,!msan,!no_openssl,!purego
+ 
+ package rsa
+ 
+diff --git a/src/crypto/rsa/boring_test.go b/src/crypto/rsa/boring_test.go
+index fa50352a3f..f1ff72f591 100644
+--- a/src/crypto/rsa/boring_test.go
++++ b/src/crypto/rsa/boring_test.go
+@@ -2,7 +2,8 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build !no_openssl
++//go:build linux && cgo && !android && !gocrypt && !cmd_go_bootstrap && !msan && !no_openssl && !purego
++// +build linux,cgo,!android,!gocrypt,!cmd_go_bootstrap,!msan,!no_openssl,!purego
+ 
+ // Note: Can run these tests against the non-BoringCrypto
+ // version of the code by using "CGO_ENABLED=0 go test".
+diff --git a/src/crypto/rsa/notboring.go b/src/crypto/rsa/notboring.go
+index a83be6dfdb..bc28b06c7f 100644
+--- a/src/crypto/rsa/notboring.go
++++ b/src/crypto/rsa/notboring.go
+@@ -2,7 +2,8 @@
+ // Use of this source code is governed by a BSD-style
+ // license that can be found in the LICENSE file.
+ 
+-//go:build no_openssl
++//go:build !linux || !cgo || android || cmd_go_bootstrap || msan || no_openssl || purego
++// +build !linux !cgo android cmd_go_bootstrap msan no_openssl purego
+ 
+ package rsa
+ 
