@@ -90,13 +90,13 @@ run_http_test_suite() {
   quiet pushd ${GOROOT}/src/net/http
   GOLANG_FIPS=1 OPENSSL_FORCE_FIPS_MODE=1 \
     $GO test $tags -count=1 $VERBOSE
+  quiet popd
 
   local suite="net-http-fips-parity-nocgo"
   notify_running ${mode} ${suite}
   quiet pushd ${GOROOT}/src/net/http
   GOLANG_FIPS=1 OPENSSL_FORCE_FIPS_MODE=1 \
     CGO_ENABLED=0 $GO test $tags -count=1 $VERBOSE
-
   quiet popd
 }
 
@@ -139,6 +139,7 @@ run_native_fips_test_suite() {
   # Must use GOFLAGS=-tags=no_openssl to disable OpenSSL backend in all subprocess calls
   GODEBUG=fips140=auto GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 GOFLAGS="-tags=no_openssl" \
     $GO test -tags=no_openssl -count=1 $($GO list -tags=no_openssl ./... | grep -v tls) $VERBOSE
+  quiet popd
 
   local suite="tls-native-fips"
   notify_running ${mode} ${suite}
@@ -146,7 +147,29 @@ run_native_fips_test_suite() {
   GODEBUG=fips140=auto GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 GOFLAGS="-tags=no_openssl" \
     $GO test -tags=no_openssl -count=1 crypto/tls -run "^TestBoring" $VERBOSE
   quiet popd
+}
 
+run_native_fips_strict_test_suite() {
+  local mode=$1
+  quiet pushd ${GOROOT}/src
+  notify_running ${mode} "native-fips-strict-auto"
+  local output=$(GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 GOEXPERIMENT=strictfipsruntime GODEBUG=fips140=auto $GO test -tags no_openssl crypto/sha256 -count=1 2>&1 || true)
+  if echo "$output" | grep -q "^ok"; then
+    echo "PASS: Native FIPS works when in strict fips mode"
+  else
+    echo "FAIL: Expected native FIPS to work without OpenSSL backend"
+    echo "Output: $output"
+    exit 1
+  fi
+  notify_running ${mode} "native-fips-strict-off"
+  local output=$(GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 GOEXPERIMENT=strictfipsruntime $GO test -tags no_openssl crypto/sha256 -count=1 2>&1 || true)
+  if echo "$output" | grep -q "Host FIPS mode is enabled, but the required GODEBUG=fips140 module is disabled"; then
+    echo "PASS: Native FIPS correctly aborts in strict fipsmode"
+  else
+    echo "Host FIPS mode is enabled, but the required GODEBUG=fips140 module is disabled"
+    echo "Output: $output"
+    exit 1
+  fi
   quiet popd
 }
 
@@ -234,6 +257,10 @@ fi
 
 if [[ "$MODES" == "all" || "$MODES" == *"native-fips-auto"* ]]; then
   run_native_fips_test_suite "native-fips-auto"
+fi
+
+if [[ "$MODES" == "all" || "$MODES" == *"native-fips-strict"* ]]; then
+  run_native_fips_strict_test_suite "native-fips-strict"
 fi
 
 if [[ "$MODES" == "all" || "$MODES" == *"mutual-exclusivity"* ]]; then
