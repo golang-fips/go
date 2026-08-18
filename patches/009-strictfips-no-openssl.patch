@@ -1,0 +1,83 @@
+diff --git a/src/crypto/internal/backend/hostfips.go b/src/crypto/internal/backend/hostfips.go
+index 297a16ad5a..5cbc2a421a 100644
+--- a/src/crypto/internal/backend/hostfips.go
++++ b/src/crypto/internal/backend/hostfips.go
+@@ -14,3 +14,7 @@ import (
+ func HostFIPSModeEnabled() bool {
+ 	return hostfips.HostEnabled()
+ }
++
++func HostFIPSModeEnabledNative() bool {
++	return hostfips.Enabled()
++}
+diff --git a/src/crypto/internal/backend/nobackend.go b/src/crypto/internal/backend/nobackend.go
+index 95c2cdc10e..bdba2d552a 100644
+--- a/src/crypto/internal/backend/nobackend.go
++++ b/src/crypto/internal/backend/nobackend.go
+@@ -17,7 +17,7 @@ import (
+ )
+ 
+ func init() {
+-	strictFIPSNonCompliantBinaryCheck()
++	strictFIPSNoOpenSSLRuntimeCheck()
+ }
+ 
+ var enabled = false
+diff --git a/src/crypto/internal/backend/not_strict_fips.go b/src/crypto/internal/backend/not_strict_fips.go
+index e27a631383..0e98c635b3 100644
+--- a/src/crypto/internal/backend/not_strict_fips.go
++++ b/src/crypto/internal/backend/not_strict_fips.go
+@@ -12,5 +12,6 @@ var isStrictFIPS bool = false
+ func strictFIPSOpenSSLRuntimeCheck() {
+ }
+ 
+-func strictFIPSNonCompliantBinaryCheck() {
++func strictFIPSNoOpenSSLRuntimeCheck() {
+ }
++
+diff --git a/src/crypto/internal/backend/strict_fips.go b/src/crypto/internal/backend/strict_fips.go
+index dd2888c78c..09b4c2e65a 100644
+--- a/src/crypto/internal/backend/strict_fips.go
++++ b/src/crypto/internal/backend/strict_fips.go
+@@ -10,6 +10,7 @@ package backend
+ import (
+ 	"fmt"
+ 	"os"
++	"crypto/internal/fips140"
+ )
+ 
+ var isStrictFIPS bool = true
+@@ -21,9 +22,10 @@ func strictFIPSOpenSSLRuntimeCheck() {
+ 	}
+ }
+ 
+-func strictFIPSNonCompliantBinaryCheck() {
+-	if HostFIPSModeEnabled() {
+-		fmt.Fprintln(os.Stderr, "FIPS mode is enabled, but this binary is not compiled with FIPS compliant mode enabled")
++func strictFIPSNoOpenSSLRuntimeCheck() {
++	if HostFIPSModeEnabledNative() && !fips140.Enabled {
++		fmt.Fprintln(os.Stderr, "Host FIPS mode is enabled, but the required GODEBUG=fips140 module is disabled")
+ 		os.Exit(1)
+ 	}
+ }
++
+diff --git a/src/internal/testenv/exec.go b/src/internal/testenv/exec.go
+index 7b251b6022..02a5d01dc2 100644
+--- a/src/internal/testenv/exec.go
++++ b/src/internal/testenv/exec.go
+@@ -130,7 +130,14 @@ func CleanCmdEnv(cmd *exec.Cmd) *exec.Cmd {
+ 	for _, env := range cmd.Environ() {
+ 		// Exclude GODEBUG from the environment to prevent its output
+ 		// from breaking tests that are trying to parse other command output.
+-		if strings.HasPrefix(env, "GODEBUG=") {
++		debug, found := strings.CutPrefix(env, "GODEBUG=")
++		if found {
++			opts := strings.Split(debug, ",")
++			for _, opt := range opts {
++				if strings.HasPrefix(opt, "fips140=") {
++					cmd.Env = append(cmd.Env, "GODEBUG="+opt)
++				}
++			}
+ 			continue
+ 		}
+ 		// Exclude GOTRACEBACK for the same reason.
