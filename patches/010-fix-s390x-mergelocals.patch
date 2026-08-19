@@ -1,0 +1,101 @@
+	
+From 5d5c7ff1f012bb70d653c1a2b282ee46161b6914 Mon Sep 17 00:00:00 2001
+From: "khr@golang.org" <khr@golang.org>
+Date: Tue, 21 Jul 2026 09:19:28 -0700
+Subject: [PATCH] cmd/compile: fix mergelocals for arm32/s390x/riscv64
+ 
+LoweredZero on arm32 and s390x also take an end-of-zero-range
+address. That input is also an address sink.
+ 
+Also allow propagation of addresses from input to output of a value,
+so that we handle at least simple address arithmetic. This is required
+to fix riscv64 because it has no indexed load/store, and thus does
+a bunch more explicit address arithmetic than other archs.
+ 
+Fixes #80484
+ 
+Change-Id: I126eec1e2cc6c2ab5a39611ccc4d3371dca28292
+Reviewed-on: https://go-review.googlesource.com/c/go/+/803660
+Reviewed-by: Junyang Shao <shaojunyang@google.com>
+Reviewed-by: David du Colombier <0intro@gmail.com>
+LUCI-TryBot-Result: golang-scoped@luci-project-accounts.iam.gserviceaccount.com <golang-scoped@luci-project-accounts.iam.gserviceaccount.com>
+Reviewed-by: Keith Randall <khr@google.com>
+Auto-Submit: Keith Randall <khr@golang.org>
+---
+ .../compile/internal/liveness/mergelocals.go  | 19 ++++++++++++++++---
+ src/cmd/compile/internal/ssa/_gen/ARMOps.go   |  2 ++
+ src/cmd/compile/internal/ssa/_gen/S390XOps.go |  2 ++
+ 3 files changed, 20 insertions(+), 3 deletions(-)
+ 
+diff --git a/src/cmd/compile/internal/liveness/mergelocals.go b/src/cmd/compile/internal/liveness/mergelocals.go
+index 28d034a90e..b9be0dd4c9 100644
+--- a/src/cmd/compile/internal/liveness/mergelocals.go
++++ b/src/cmd/compile/internal/liveness/mergelocals.go
+@@ -516,9 +516,22 @@ func (cs *cstate) populateIndirectUseTable(cands []*ir.Name) ([]*ir.Name, []cand
+ 			for idx, arg := range v.Args {
+ 				if nc, ok := pendingUses[arg.ID]; ok {
+ 					if !v.AddrSinkArg(idx) {
+-						// If this op may propagate the argument address to its output,
+-						// then give up. See issue 80127.
+-						continue
++						// If this op may propagate its input address
++						// to somewhere else, we must track where that
++						// somewhere else might be. See issue 80127.
++						if v.Type.IsMemory() {
++							// Might be stored to memory. Give up.
++							continue
++						}
++						// Some sort of address arithmetic.
++						if _, ok := pendingUses[v.ID]; ok {
++							// v has used multiple addresses, which is something
++							// we can't keep track of. Give up.
++							continue
++						}
++						// Treat this op as producing the address of the same variable
++						// that its argument was the address of.
++						pendingUses[v.ID] = nameCount{n: nc.n, count: v.Uses}
+ 					}
+ 					// We found a use of some value that took the
+ 					// address of nc.n. Record this inst as a
+diff --git a/src/cmd/compile/internal/ssa/_gen/ARMOps.go b/src/cmd/compile/internal/ssa/_gen/ARMOps.go
+index b03a09df83..dc16ea6da4 100644
+--- a/src/cmd/compile/internal/ssa/_gen/ARMOps.go
++++ b/src/cmd/compile/internal/ssa/_gen/ARMOps.go
+@@ -508,6 +508,7 @@ func init() {
+ 			clobberFlags:   true,
+ 			faultOnNilArg0: true,
+ 			addrSinkArg0:   true,
++			addrSinkArg1:   true,
+ 		},
+ 
+ 		// large or unaligned move
+@@ -533,6 +534,7 @@ func init() {
+ 			faultOnNilArg1: true,
+ 			addrSinkArg0:   true,
+ 			addrSinkArg1:   true,
++			// TODO: could use addrSinkArg2 here.
+ 		},
+ 
+ 		// Scheduler ensures LoweredGetClosurePtr occurs only in entry block,
+diff --git a/src/cmd/compile/internal/ssa/_gen/S390XOps.go b/src/cmd/compile/internal/ssa/_gen/S390XOps.go
+index 0fabb2540a..26b9d98241 100644
+--- a/src/cmd/compile/internal/ssa/_gen/S390XOps.go
++++ b/src/cmd/compile/internal/ssa/_gen/S390XOps.go
+@@ -758,6 +758,7 @@ func init() {
+ 			faultOnNilArg1: true,
+ 			addrSinkArg0:   true,
+ 			addrSinkArg1:   true,
++			// TODO: could use addrSinkArg2 here.
+ 		},
+ 
+ 		// large clear
+@@ -784,6 +785,7 @@ func init() {
+ 			typ:            "Mem",
+ 			faultOnNilArg0: true,
+ 			addrSinkArg0:   true,
++			addrSinkArg1:   true,
+ 		},
+ 	}
+ 
+-- 
+2.55.0
