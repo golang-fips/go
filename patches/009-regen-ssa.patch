@@ -1,0 +1,20 @@
+diff --git a/src/cmd/compile/internal/ssa/opGen.go b/src/cmd/compile/internal/ssa/opGen.go
+index 442ac71848..32d321825f 100644
+--- a/src/cmd/compile/internal/ssa/opGen.go
++++ b/src/cmd/compile/internal/ssa/opGen.go
+@@ -19480,6 +19480,7 @@ var opcodeTable = [...]opInfo{
+ 		clobberFlags:   true,
+ 		faultOnNilArg0: true,
+ 		addrSinkArg0:   true,
++		addrSinkArg1:   true,
+ 		reg: regInfo{
+ 			inputs: []inputInfo{
+ 				{0, 2},     // R1
+@@ -39735,6 +39736,7 @@ var opcodeTable = [...]opInfo{
+ 		clobberFlags:   true,
+ 		faultOnNilArg0: true,
+ 		addrSinkArg0:   true,
++		addrSinkArg1:   true,
+ 		reg: regInfo{
+ 			inputs: []inputInfo{
+ 				{0, 2},     // R1

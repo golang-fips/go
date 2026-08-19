@@ -1,0 +1,157 @@
+From 81afd3a59be1a3f343bf2b9d6665cd0fc825c6ba Mon Sep 17 00:00:00 2001
+From: Jorropo <jorropo.pgm@gmail.com>
+Date: Tue, 28 Oct 2025 10:11:03 +0100
+Subject: [PATCH] cmd/compile: extend ppc64 MADDLD to match const ADDconst &
+ MULLDconst
+ 
+Fixes #76084
+ 
+I was focused on restoring the old behavior and fixing the failing
+test/codegen/arithmetic.go:MergeMuls2 test.
+ 
+It is probable this same bug hides elsewhere in this file.
+ 
+Change-Id: I17f2ee6b97a1e33b8132648d9d750749d006f7e0
+Reviewed-on: https://go-review.googlesource.com/c/go/+/715560
+Reviewed-by: Keith Randall <khr@golang.org>
+Reviewed-by: Keith Randall <khr@google.com>
+Reviewed-by: Paul Murphy <paumurph@redhat.com>
+Reviewed-by: Michael Knyszek <mknyszek@google.com>
+Auto-Submit: Jorropo <jorropo.pgm@gmail.com>
+LUCI-TryBot-Result: Go LUCI <golang-scoped@luci-project-accounts.iam.gserviceaccount.com>
+Reviewed-by: Jayanth Krishnamurthy <jayanth.krishnamurthy@ibm.com>
+---
+ src/cmd/compile/internal/ssa/_gen/PPC64.rules |  5 +-
+ src/cmd/compile/internal/ssa/rewritePPC64.go  | 79 ++++++++++++++++++-
+ 2 files changed, 79 insertions(+), 5 deletions(-)
+ 
+diff --git a/src/cmd/compile/internal/ssa/_gen/PPC64.rules b/src/cmd/compile/internal/ssa/_gen/PPC64.rules
+index f5e381ac41..b5e8d81da2 100644
+--- a/src/cmd/compile/internal/ssa/_gen/PPC64.rules
++++ b/src/cmd/compile/internal/ssa/_gen/PPC64.rules
+@@ -18,7 +18,10 @@
+ (Max(32|64)F x y) && buildcfg.GOPPC64 >= 9 => (XSMAXJDP x y)
+ 
+ // Combine 64 bit integer multiply and adds
+-(ADD l:(MULLD x y) z) && buildcfg.GOPPC64 >= 9 && l.Uses == 1 && clobber(l) => (MADDLD x y z)
++(ADD            z  l:(MULLD            x  y)) && buildcfg.GOPPC64 >= 9 && l.Uses == 1 && clobber(l) => (MADDLD                        x    y                        z   )
++(ADD            z  l:(MULLDconst <mt> [x] y)) && buildcfg.GOPPC64 >= 9 && l.Uses == 1 && clobber(l) => (MADDLD (MOVDconst <mt> [int64(x)]) y                        z   )
++(ADDconst <at> [z] l:(MULLD            x  y)) && buildcfg.GOPPC64 >= 9 && l.Uses == 1 && clobber(l) => (MADDLD                        x    y (MOVDconst <at> [int64(z)]))
++(ADDconst <at> [z] l:(MULLDconst <mt> [x] y)) && buildcfg.GOPPC64 >= 9 && l.Uses == 1 && clobber(l) => (MADDLD (MOVDconst <mt> [int64(x)]) y (MOVDconst <at> [int64(z)]))
+ 
+ (Mod16 x y) => (Mod32 (SignExt16to32 x) (SignExt16to32 y))
+ (Mod16u x y) => (Mod32u (ZeroExt16to32 x) (ZeroExt16to32 y))
+diff --git a/src/cmd/compile/internal/ssa/rewritePPC64.go b/src/cmd/compile/internal/ssa/rewritePPC64.go
+index 050ace83de..2225aee975 100644
+--- a/src/cmd/compile/internal/ssa/rewritePPC64.go
++++ b/src/cmd/compile/internal/ssa/rewritePPC64.go
+@@ -4125,18 +4125,19 @@ func rewriteValuePPC64_OpOffPtr(v *Value) bool {
+ func rewriteValuePPC64_OpPPC64ADD(v *Value) bool {
+ 	v_1 := v.Args[1]
+ 	v_0 := v.Args[0]
+-	// match: (ADD l:(MULLD x y) z)
++	b := v.Block
++	// match: (ADD z l:(MULLD x y))
+ 	// cond: buildcfg.GOPPC64 >= 9 && l.Uses == 1 && clobber(l)
+-	// result: (MADDLD x y z)
++	// result: (MADDLD x y z )
+ 	for {
+ 		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
+-			l := v_0
++			z := v_0
++			l := v_1
+ 			if l.Op != OpPPC64MULLD {
+ 				continue
+ 			}
+ 			y := l.Args[1]
+ 			x := l.Args[0]
+-			z := v_1
+ 			if !(buildcfg.GOPPC64 >= 9 && l.Uses == 1 && clobber(l)) {
+ 				continue
+ 			}
+@@ -4146,6 +4147,30 @@ func rewriteValuePPC64_OpPPC64ADD(v *Value) bool {
+ 		}
+ 		break
+ 	}
++	// match: (ADD z l:(MULLDconst <mt> [x] y))
++	// cond: buildcfg.GOPPC64 >= 9 && l.Uses == 1 && clobber(l)
++	// result: (MADDLD (MOVDconst <mt> [int64(x)]) y z )
++	for {
++		for _i0 := 0; _i0 <= 1; _i0, v_0, v_1 = _i0+1, v_1, v_0 {
++			z := v_0
++			l := v_1
++			if l.Op != OpPPC64MULLDconst {
++				continue
++			}
++			mt := l.Type
++			x := auxIntToInt32(l.AuxInt)
++			y := l.Args[0]
++			if !(buildcfg.GOPPC64 >= 9 && l.Uses == 1 && clobber(l)) {
++				continue
++			}
++			v.reset(OpPPC64MADDLD)
++			v0 := b.NewValue0(v.Pos, OpPPC64MOVDconst, mt)
++			v0.AuxInt = int64ToAuxInt(int64(x))
++			v.AddArg3(v0, y, z)
++			return true
++		}
++		break
++	}
+ 	// match: (ADD x (MOVDconst <t> [c]))
+ 	// cond: is32Bit(c) && !t.IsPtr()
+ 	// result: (ADDconst [c] x)
+@@ -4239,6 +4264,52 @@ func rewriteValuePPC64_OpPPC64ADDE(v *Value) bool {
+ }
+ func rewriteValuePPC64_OpPPC64ADDconst(v *Value) bool {
+ 	v_0 := v.Args[0]
++	b := v.Block
++	// match: (ADDconst <at> [z] l:(MULLD x y))
++	// cond: buildcfg.GOPPC64 >= 9 && l.Uses == 1 && clobber(l)
++	// result: (MADDLD x y (MOVDconst <at> [int64(z)]))
++	for {
++		at := v.Type
++		z := auxIntToInt64(v.AuxInt)
++		l := v_0
++		if l.Op != OpPPC64MULLD {
++			break
++		}
++		y := l.Args[1]
++		x := l.Args[0]
++		if !(buildcfg.GOPPC64 >= 9 && l.Uses == 1 && clobber(l)) {
++			break
++		}
++		v.reset(OpPPC64MADDLD)
++		v0 := b.NewValue0(v.Pos, OpPPC64MOVDconst, at)
++		v0.AuxInt = int64ToAuxInt(int64(z))
++		v.AddArg3(x, y, v0)
++		return true
++	}
++	// match: (ADDconst <at> [z] l:(MULLDconst <mt> [x] y))
++	// cond: buildcfg.GOPPC64 >= 9 && l.Uses == 1 && clobber(l)
++	// result: (MADDLD (MOVDconst <mt> [int64(x)]) y (MOVDconst <at> [int64(z)]))
++	for {
++		at := v.Type
++		z := auxIntToInt64(v.AuxInt)
++		l := v_0
++		if l.Op != OpPPC64MULLDconst {
++			break
++		}
++		mt := l.Type
++		x := auxIntToInt32(l.AuxInt)
++		y := l.Args[0]
++		if !(buildcfg.GOPPC64 >= 9 && l.Uses == 1 && clobber(l)) {
++			break
++		}
++		v.reset(OpPPC64MADDLD)
++		v0 := b.NewValue0(v.Pos, OpPPC64MOVDconst, mt)
++		v0.AuxInt = int64ToAuxInt(int64(x))
++		v1 := b.NewValue0(v.Pos, OpPPC64MOVDconst, at)
++		v1.AuxInt = int64ToAuxInt(int64(z))
++		v.AddArg3(v0, y, v1)
++		return true
++	}
+ 	// match: (ADDconst [c] (ADDconst [d] x))
+ 	// cond: is32Bit(c+d)
+ 	// result: (ADDconst [c+d] x)
+-- 
+2.55.0

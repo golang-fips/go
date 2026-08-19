@@ -5238,7 +5238,7 @@ index 410eb8648a..3521b49a3e 100644
 +github.com/golang-fips/openssl/v2 v2.0.4-0.20240925082504-4fb8ffc9b3b8/go.mod h1:OYUBsoxLpFu8OFyhZHxfpN8lgcsw8JhTC3BQK7+XUc0=
  golang.org/x/crypto v0.39.0 h1:SHs+kF4LP+f+p14esP5jAoDpHU8Gu/v9lFRK6IT5imM=
  golang.org/x/crypto v0.39.0/go.mod h1:L+Xg3Wf6HoL4Bn4238Z6ft6KfEpN0tJGo53AAPC632U=
- golang.org/x/net v0.41.1-0.20260417201234-a9171bc8c6f1 h1:m1pqrn0a8dUQblLBpuciZTjkJ34uU561s+HLlQi2Kec=
+ golang.org/x/net v0.41.1-0.20260708234123-5ef02b8d6d76 h1:jA1g5GGX0NLnGqcKByJm2gbaY5FO5x4NQNgFAkGbFG0=
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
 index 641d1a325a..1ac5f17fa8 100644
 --- a/src/go/build/deps_test.go
