@@ -190,7 +190,7 @@ index 14c911101b..9620fff469 100644
  
  // These functions are forwarded to crypto/internal/constanttime for intrinsified
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
-index 648290860a..508b09ac4a 100644
+index 648290860a..eb6f69d3a2 100644
 --- a/src/go/build/deps_test.go
 +++ b/src/go/build/deps_test.go
 @@ -531,6 +531,7 @@ var depsRules = `
@@ -201,10 +201,12 @@ index 648290860a..508b09ac4a 100644
  	< crypto/fips140 < FIPS;
  
  	# Non-module copy of ML-DSA for builds against FIPS snapshots that omit it.
-@@ -954,6 +955,67 @@ func TestDependencies(t *testing.T) {
+@@ -954,6 +955,69 @@ func TestDependencies(t *testing.T) {
  	}
  }
  
++// TestStrictFIPSHubCoverage verifies that FIPS module importers transitively
++// reach the strict FIPS startup check through an init hub.
 +func TestStrictFIPSHubCoverage(t *testing.T) {
 +	testenv.MustHaveSource(t)
 +
