@@ -21,7 +21,7 @@ export GO=${GOROOT}/bin/go
 
 # Test suites to run
 SUITES="crypto,tls"
-# Modes to run (native-fips-auto, non-fips, or all)
+# Modes to run (native-fips-auto, native-fips-strict, non-fips, or all)
 MODES="all"
 # Verbosity flags to pass to Go
 VERBOSE=""
@@ -81,6 +81,46 @@ run_native_fips_test_suite() {
 
 }
 
+# Run strict FIPS runtime checks against the native module.
+# Verifies GOEXPERIMENT=strictfipsruntime and -tags strictfipsruntime.
+run_native_fips_strict_test_suite() {
+  local mode=$1
+  quiet pushd ${GOROOT}/src
+
+  notify_running ${mode} "native-fips-strict-auto"
+  local output
+  output=$(GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 GOEXPERIMENT=strictfipsruntime GODEBUG=fips140=auto $GO test crypto/sha256 -count=1 2>&1 || true)
+  if echo "$output" | grep -q "^ok"; then
+    echo "PASS: Native FIPS works when in strict fips mode"
+  else
+    echo "FAIL: Expected native FIPS to work without OpenSSL backend"
+    echo "Output: $output"
+    exit 1
+  fi
+
+  notify_running ${mode} "native-fips-strict-off"
+  output=$(GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 GOEXPERIMENT=strictfipsruntime GODEBUG=fips140=off $GO test crypto/sha256 -count=1 2>&1 || true)
+  if echo "$output" | grep -q "Host FIPS mode is enabled, but the required GODEBUG=fips140 module is disabled"; then
+    echo "PASS: Native FIPS correctly aborts in strict fips mode"
+  else
+    echo "FAIL: Expected strict fips mode to abort when GODEBUG=fips140 is disabled"
+    echo "Output: $output"
+    exit 1
+  fi
+
+  notify_running ${mode} "native-fips-strict-tags"
+  output=$(GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 GODEBUG=fips140=off $GO test -tags strictfipsruntime crypto/sha256 -count=1 2>&1 || true)
+  if echo "$output" | grep -q "Host FIPS mode is enabled, but the required GODEBUG=fips140 module is disabled"; then
+    echo "PASS: -tags strictfipsruntime correctly aborts when GODEBUG=fips140 is disabled"
+  else
+    echo "FAIL: Expected -tags strictfipsruntime to abort when GODEBUG=fips140 is disabled"
+    echo "Output: $output"
+    exit 1
+  fi
+
+  quiet popd
+}
+
 # Run tests with no FIPS mode active.
 # Exercises code paths that are skipped in FIPS mode and verifies
 # standard behavior is not regressed.
@@ -97,6 +137,10 @@ run_non_fips_test_suite() {
 # Run tests based on selected modes
 if [[ "$MODES" == "all" || "$MODES" == *"native-fips-auto"* ]]; then
   run_native_fips_test_suite "native-fips-auto"
+fi
+
+if [[ "$MODES" == "all" || "$MODES" == *"native-fips-strict"* ]]; then
+  run_native_fips_strict_test_suite "native-fips-strict"
 fi
 
 if [[ "$MODES" == "all" || "$MODES" == *"non-fips"* ]]; then
