@@ -36,7 +36,7 @@ Our OpenSSL based toolchain produces binaries that are dynamically linked by def
 
 ### Strict FIPS mode
 
-Our downstream modifications also include a strict FIPS mode where a Go binary built with this enabled will crash when it detects it is running in a FIPS environment without being properly compiled or having loaded the appropriate OpenSSL version to call into. More details are available in later sections of this document.
+Our downstream modifications also include a strict FIPS mode where a Go binary built with this enabled will abort at startup if the host is in FIPS mode but the native `GODEBUG=fips140` module is disabled. More details are available in later sections of this document.
 
 ## Building the Toolchain
 
@@ -72,17 +72,17 @@ For example, you would use the command like this: `go build -tags no_openssl`.
 
 ### Enabling strict FIPS mode
 
-This Go toolchain includes a strict FIPS mode. This is a startup check whose purpose is to detect build or runtime configuration issues that might prevent the application from properly using the OpenSSL backend in a FIPS environment, and it will cause the application to crash via a panic if such issues are detected.
+This Go toolchain includes a strict FIPS mode: a startup check that aborts if the host is in FIPS mode but the native `GODEBUG=fips140` module is disabled (for example, if someone overrides `GODEBUG=fips140=off` at runtime).
 
-To enable this strict FIPS mode during compilation, you need to use a specific GOEXPERIMENT setting.
-
-You can enable this option by building your application using the following setting:
+Enable it at compile time with either the experiment or the build tag:
 
 ```
-GOEXPERIMENT=strictfipsruntime
+GOEXPERIMENT=strictfipsruntime go build
 ```
 
-So, you would typically run your build command like this: `GOEXPERIMENT=strictfipsruntime go build`.
+```
+go build -tags strictfipsruntime
+```
 
 ## Runtime Usage
 
@@ -98,7 +98,13 @@ Typically the binary will only execute in FIPS mode and call into OpenSSL if the
 
 ### Strict FIPS runtime protection
 
-If you have chosen to compile your binary with the additional strict FIPS runtime checks, then at startup the process will look for conditions that are incompatible with correct operation in a FIPS environment. Specifically, during initialization, the process will check if the host is in FIPS mode or FIPS mode has been specifically requested at runtime. If either of those are true, but the process was unable to successfully find a compatible OpenSSL library with the proper FIPS module (or `-tags no_openssl` was used during compilation), the process will crash via panic. This gives operators increased confidence that the binaries they are running in their FIPS environments are built correctly and are not falling back to non-FIPS validated cryptography.
+If you compiled with `GOEXPERIMENT=strictfipsruntime` or `-tags strictfipsruntime`, then at startup the process checks whether the host is in FIPS mode. If it is, but `GODEBUG=fips140` resolved to off/disabled, the process exits with:
+
+```
+Host FIPS mode is enabled, but the required GODEBUG=fips140 module is disabled
+```
+
+This gives operators increased confidence that binaries running in FIPS environments are not silently falling back to non-validated cryptography.
 
 ## Validating a Compiled Binary
 
