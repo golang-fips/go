@@ -14,9 +14,11 @@ https://csrc.nist.gov/pubs/fips/140-3/final
 
 ### Migration to upstream FIPS certified cryptography
 
-Earlier releases of this fork routed cryptography through OpenSSL for FIPS compliance. That approach is **deprecated**. Historical OpenSSL-based sources live on the corresponding `go1.*-fips-release` branches.
+Earlier releases of this fork routed cryptography through OpenSSL for FIPS compliance. That approach is **deprecated and removed**. Historical OpenSSL-based sources live on the corresponding `go1.*-fips-release` branches.
 
 The upstream Go toolchain has achieved [CMVP certificate #5247](https://csrc.nist.gov/projects/cryptographic-module-validation-program/certificate/5247). The `main` branch no longer carries the OpenSSL backend; it applies a small set of patches on top of the certified native `crypto/fips140` module (host-auto FIPS detection, strict runtime checks, and related parity).
+
+A notable user-facing difference from the old OpenSSL backend is how non-approved cryptography is handled. With the native module, operations that cannot be rejected gracefully are recorded via the FIPS service indicator rather than producing runtime errors or panics. Upstream guidance is to **test** with `GODEBUG=fips140=only` to surface non-approved use, and **run** in production with `on` (or `auto`, which resolves to `on` on a FIPS host) so critical applications do not crash unexpectedly.
 
 ## Go and FIPS
 
@@ -26,7 +28,7 @@ Before Go 1.24 there had never been an attempt to have the Go cryptographic libr
 
 This fork uses Go's certified native FIPS module and adds a few operator-facing defaults and checks:
 
-- **Host-auto FIPS** — compiled-in default of `GODEBUG=fips140=auto`, so FIPS activates only when the host is booted in FIPS mode.
+- **Host-auto FIPS** — starting in Go 1.27, compiled-in default of `GODEBUG=fips140=auto`, so FIPS activates only when the host is booted in FIPS mode.
 - **Certified module by default** — builds embed the certified FIPS 140-3 snapshot (`GOFIPS140=certified`) unless overridden.
 - **Strict FIPS mode** — optional startup abort if the host is in FIPS mode but `GODEBUG=fips140` is disabled. See below.
 
@@ -74,13 +76,13 @@ go build -tags strictfipsruntime
 
 ### `GODEBUG=fips140`
 
-This fork's compiled-in default is `fips140=auto`. Supported values:
+Starting in Go 1.27, this fork's compiled-in default is `fips140=auto`. Supported values:
 
 | Value  | Behavior |
 |--------|----------|
-| `auto` | Activate FIPS only when the host is in FIPS mode; otherwise run without FIPS. |
-| `on`   | Always activate FIPS, regardless of host configuration. |
-| `only` | Activate FIPS and restrict cryptographic operations to FIPS-approved algorithms. |
+| `auto` | Activate FIPS only when the host is in FIPS mode (resolves to `on`); otherwise run without FIPS. |
+| `on`   | Always activate FIPS, regardless of host configuration. Prefer for production. |
+| `only` | Activate FIPS and reject non-approved algorithms where possible. Prefer for testing. |
 | `off`  | Disable FIPS mode. |
 
 With `auto`, host FIPS mode is detected once at startup (on Linux, via `/proc/sys/crypto/fips_enabled`) and the result is cached for the process lifetime.
