@@ -1,43 +1,51 @@
-From 55ae11f3e59a6678fe1142ba8a1cd5d7c7ee3479 Mon Sep 17 00:00:00 2001
-From: Derek Parker <parkerderek86@gmail.com>
-Date: Wed, 19 Aug 2026 15:48:23 -0700
-Subject: [PATCH] 004-strictfipsruntime.patch
-
----
- .../internal/fips140deps/godebug/godebug.go    |  9 +++++++--
- .../fips140deps/hostfips/not_strict_fips.go    |  9 +++++++++
- .../fips140deps/hostfips/strict_fips.go        | 18 ++++++++++++++++++
- .../goexperiment/exp_strictfipsruntime_off.go  |  8 ++++++++
- .../goexperiment/exp_strictfipsruntime_on.go   |  8 ++++++++
- src/internal/goexperiment/flags.go             |  5 +++++
- src/internal/testenv/exec.go                   | 11 ++++++++++-
- 7 files changed, 65 insertions(+), 3 deletions(-)
- create mode 100644 src/crypto/internal/fips140deps/hostfips/not_strict_fips.go
- create mode 100644 src/crypto/internal/fips140deps/hostfips/strict_fips.go
- create mode 100644 src/internal/goexperiment/exp_strictfipsruntime_off.go
- create mode 100644 src/internal/goexperiment/exp_strictfipsruntime_on.go
-
-diff --git a/src/crypto/internal/fips140deps/godebug/godebug.go b/src/crypto/internal/fips140deps/godebug/godebug.go
-index 22bda7ad4b..cd3abdd373 100644
---- a/src/crypto/internal/fips140deps/godebug/godebug.go
-+++ b/src/crypto/internal/fips140deps/godebug/godebug.go
-@@ -25,9 +25,14 @@ func Value(name string) string {
- 	// "on" if enabled, or "" (off) if not.
- 	if name == "#fips140" && v == "auto" {
- 		if hostfips.Enabled() {
--			return "on"
-+			v = "on"
-+		} else {
-+			v = ""
- 		}
--		return ""
-+	}
-+	if name == "#fips140" {
-+		enabled := v == "on" || v == "only" || v == "debug"
-+		hostfips.StrictRuntimeCheck(enabled)
- 	}
- 	return v
- }
+diff --git a/src/crypto/elliptic/nistec.go b/src/crypto/elliptic/nistec.go
+index 690c0c2c9e..734c0bb787 100644
+--- a/src/crypto/elliptic/nistec.go
++++ b/src/crypto/elliptic/nistec.go
+@@ -6,6 +6,7 @@ package elliptic
+ 
+ import (
+ 	"crypto/internal/fips140/nistec"
++	_ "crypto/internal/strictfips"
+ 	"errors"
+ 	"math/big"
+ )
+diff --git a/src/crypto/fips140/fips140.go b/src/crypto/fips140/fips140.go
+index d3f63d3bf1..f0ad99ec05 100644
+--- a/src/crypto/fips140/fips140.go
++++ b/src/crypto/fips140/fips140.go
+@@ -13,6 +13,7 @@ package fips140
+ import (
+ 	"crypto/internal/fips140"
+ 	"crypto/internal/fips140/check"
++	_ "crypto/internal/strictfips"
+ )
+ 
+ // Enabled reports whether the cryptography libraries are operating in FIPS
+diff --git a/src/crypto/internal/boring/boring.go b/src/crypto/internal/boring/boring.go
+index 6dfc6ed5f5..86a7fd7241 100644
+--- a/src/crypto/internal/boring/boring.go
++++ b/src/crypto/internal/boring/boring.go
+@@ -17,6 +17,7 @@ import (
+ 	"crypto/internal/boring/sig"
+ 	_ "crypto/internal/boring/syso"
+ 	"crypto/internal/fips140"
++	_ "crypto/internal/strictfips"
+ 	"internal/stringslite"
+ 	"math/bits"
+ 	"unsafe"
+diff --git a/src/crypto/internal/boring/notboring.go b/src/crypto/internal/boring/notboring.go
+index 02bc468a0d..35a51d0826 100644
+--- a/src/crypto/internal/boring/notboring.go
++++ b/src/crypto/internal/boring/notboring.go
+@@ -10,6 +10,7 @@ import (
+ 	"crypto"
+ 	"crypto/cipher"
+ 	"crypto/internal/boring/sig"
++	_ "crypto/internal/strictfips"
+ 	"hash"
+ )
+ 
 diff --git a/src/crypto/internal/fips140deps/hostfips/not_strict_fips.go b/src/crypto/internal/fips140deps/hostfips/not_strict_fips.go
 new file mode 100644
 index 0000000000..a9ea0698a7
@@ -77,6 +85,190 @@ index 0000000000..ac8b3124b3
 +		os.Exit(1)
 +	}
 +}
+diff --git a/src/crypto/internal/nofips/mldsa/mldsa.go b/src/crypto/internal/nofips/mldsa/mldsa.go
+index c7e4710f77..09c291c3a5 100644
+--- a/src/crypto/internal/nofips/mldsa/mldsa.go
++++ b/src/crypto/internal/nofips/mldsa/mldsa.go
+@@ -11,6 +11,7 @@ import (
+ 	"crypto/internal/fips140/sha3"
+ 	"crypto/internal/fips140/subtle"
+ 	"crypto/internal/fips140deps/byteorder"
++	_ "crypto/internal/strictfips"
+ 	"errors"
+ )
+ 
+diff --git a/src/crypto/internal/strictfips/strictfips.go b/src/crypto/internal/strictfips/strictfips.go
+new file mode 100644
+index 0000000000..dba4eea99b
+--- /dev/null
++++ b/src/crypto/internal/strictfips/strictfips.go
+@@ -0,0 +1,21 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build goexperiment.strictfipsruntime || strictfipsruntime
++
++// Package strictfips runs a startup check when binaries are built with
++// GOEXPERIMENT=strictfipsruntime or -tags strictfipsruntime: if the host is
++// in FIPS mode but crypto/internal/fips140.Enabled is false, the process aborts.
++//
++// Import this package for side effects from crypto entry points (blank import).
++package strictfips
++
++import (
++	"crypto/internal/fips140"
++	"crypto/internal/fips140deps/hostfips"
++)
++
++func init() {
++	hostfips.StrictRuntimeCheck(fips140.Enabled)
++}
+diff --git a/src/crypto/internal/strictfips/strictfips_off.go b/src/crypto/internal/strictfips/strictfips_off.go
+new file mode 100644
+index 0000000000..4c472bc8b0
+--- /dev/null
++++ b/src/crypto/internal/strictfips/strictfips_off.go
+@@ -0,0 +1,7 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build !goexperiment.strictfipsruntime && !strictfipsruntime
++
++package strictfips
+diff --git a/src/crypto/mldsa/mldsa.go b/src/crypto/mldsa/mldsa.go
+index 2838283504..25c7534785 100644
+--- a/src/crypto/mldsa/mldsa.go
++++ b/src/crypto/mldsa/mldsa.go
+@@ -18,7 +18,10 @@
+ // [FIPS 140-3 Go Cryptographic Module]: https://go.dev/doc/security/fips140
+ package mldsa
+ 
+-import "crypto"
++import (
++	"crypto"
++	_ "crypto/internal/strictfips"
++)
+ 
+ const (
+ 	PrivateKeySize = 32
+diff --git a/src/crypto/mlkem/mlkem.go b/src/crypto/mlkem/mlkem.go
+index f0fd6a4993..a842efadd0 100644
+--- a/src/crypto/mlkem/mlkem.go
++++ b/src/crypto/mlkem/mlkem.go
+@@ -14,6 +14,7 @@ package mlkem
+ import (
+ 	"crypto"
+ 	"crypto/internal/fips140/mlkem"
++	_ "crypto/internal/strictfips"
+ )
+ 
+ const (
+diff --git a/src/crypto/sha3/sha3.go b/src/crypto/sha3/sha3.go
+index f7c5549ddd..be0238dc0f 100644
+--- a/src/crypto/sha3/sha3.go
++++ b/src/crypto/sha3/sha3.go
+@@ -9,6 +9,7 @@ package sha3
+ import (
+ 	"crypto"
+ 	"crypto/internal/fips140/sha3"
++	_ "crypto/internal/strictfips"
+ 	"hash"
+ 	_ "unsafe"
+ )
+diff --git a/src/crypto/subtle/constant_time.go b/src/crypto/subtle/constant_time.go
+index 14c911101b..9620fff469 100644
+--- a/src/crypto/subtle/constant_time.go
++++ b/src/crypto/subtle/constant_time.go
+@@ -9,6 +9,7 @@ package subtle
+ import (
+ 	"crypto/internal/constanttime"
+ 	"crypto/internal/fips140/subtle"
++	_ "crypto/internal/strictfips"
+ )
+ 
+ // These functions are forwarded to crypto/internal/constanttime for intrinsified
+diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
+index 648290860a..508b09ac4a 100644
+--- a/src/go/build/deps_test.go
++++ b/src/go/build/deps_test.go
+@@ -531,6 +531,7 @@ var depsRules = `
+ 	< crypto/internal/fips140/edwards25519
+ 	< crypto/internal/fips140/ed25519
+ 	< crypto/internal/fips140/rsa
++	< crypto/internal/strictfips
+ 	< crypto/fips140 < FIPS;
+ 
+ 	# Non-module copy of ML-DSA for builds against FIPS snapshots that omit it.
+@@ -954,6 +955,67 @@ func TestDependencies(t *testing.T) {
+ 	}
+ }
+ 
++func TestStrictFIPSHubCoverage(t *testing.T) {
++	testenv.MustHaveSource(t)
++
++	ctxt := Default
++	all, err := listStdPkgs(ctxt.GOROOT)
++	if err != nil {
++		t.Fatal(err)
++	}
++
++	sawImport := map[string]map[string]bool{}
++	for _, pkg := range all {
++		imports, err := findImports(pkg)
++		if err != nil {
++			t.Error(err)
++			continue
++		}
++		sawImport[pkg] = map[string]bool{}
++		for _, imp := range imports {
++			sawImport[pkg][imp] = true
++		}
++	}
++
++	const target = "crypto/internal/strictfips"
++	var reaches func(string) bool
++	memo := map[string]bool{}
++	reaches = func(pkg string) bool {
++		if v, ok := memo[pkg]; ok {
++			return v
++		}
++		memo[pkg] = false // cycle guard
++		for imp := range sawImport[pkg] {
++			if imp == target || reaches(imp) {
++				memo[pkg] = true
++				return true
++			}
++		}
++		return false
++	}
++
++	importsModule := func(pkg string) bool {
++		for imp := range sawImport[pkg] {
++			if imp == "crypto/internal/fips140" || strings.HasPrefix(imp, "crypto/internal/fips140/") {
++				return true
++			}
++		}
++		return false
++	}
++
++	for _, pkg := range all {
++		if pkg == target || pkg == "crypto/internal/fips140" || strings.HasPrefix(pkg, "crypto/internal/fips140/") {
++			continue
++		}
++		if !importsModule(pkg) {
++			continue
++		}
++		if !reaches(pkg) {
++			t.Errorf("package %s imports crypto/internal/fips140... but does not transitively import %s", pkg, target)
++		}
++	}
++}
++
+ var buildIgnore = []byte("\n//go:build ignore")
+ 
+ func findImports(pkg string) ([]string, error) {
 diff --git a/src/internal/goexperiment/exp_strictfipsruntime_off.go b/src/internal/goexperiment/exp_strictfipsruntime_off.go
 new file mode 100644
 index 0000000000..8cf9e88547
@@ -141,6 +333,3 @@ index 7b251b6022..7c8556a9fa 100644
  			continue
  		}
  		// Exclude GOTRACEBACK for the same reason.
--- 
-2.55.0
-
