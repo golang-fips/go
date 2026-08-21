@@ -118,6 +118,14 @@ run_native_fips_strict_test_suite() {
     exit 1
   fi
 
+  notify_running ${mode} "strict-fips-hub-coverage"
+  if $GO test go/build -run 'TestDependencies|TestStrictFIPSHubCoverage' -count=1 $VERBOSE; then
+    echo "PASS: Strict FIPS init hubs cover FIPS module importers"
+  else
+    echo "FAIL: Strict FIPS init hub dependency checks failed"
+    exit 1
+  fi
+
   quiet popd
 }
 
