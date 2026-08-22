@@ -67,6 +67,13 @@ run_native_fips_test_suite() {
     if [[ "$suite" == "crypto" ]]; then
       notify_running ${mode} "crypto-native-fips"
       quiet pushd ${GOROOT}/src/crypto
+
+ echo "=== Go tool debug ==="
+  echo "GOFIPS140 env: ${GOFIPS140:-<unset>}"
+  $GO env GOFIPS140
+  $GO env GOROOT
+  strings $($GO env GOROOT)/bin/go | grep "fips140=" || echo "no fips140= string found in go binary"
+
       GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 \
         $GO test -count=1 $($GO list ./... | grep -v tls) $VERBOSE
       quiet popd

@@ -1,0 +1,70 @@
+From ceb3d40355548a146a8ab02a18d15396edd22ce9 Mon Sep 17 00:00:00 2001
+From: Archana Ravindar <aravinda@redhat.com>
+Date: Sat, 18 Jul 2026 19:45:53 +0530
+Subject: [PATCH] 002-stricter-fips-check.patch
+
+---
+ .../internal/fips140deps/godebug/fips_included.go    | 11 +++++++++++
+ .../fips140deps/godebug/fips_not_included.go         | 11 +++++++++++
+ src/crypto/internal/fips140deps/godebug/godebug.go   | 12 ++++++++++++
+ 3 files changed, 34 insertions(+)
+ create mode 100644 src/crypto/internal/fips140deps/godebug/fips_included.go
+ create mode 100644 src/crypto/internal/fips140deps/godebug/fips_not_included.go
+
+diff --git a/src/crypto/internal/fips140deps/godebug/fips_included.go b/src/crypto/internal/fips140deps/godebug/fips_included.go
+new file mode 100644
+index 0000000000..5394425d57
+--- /dev/null
++++ b/src/crypto/internal/fips140deps/godebug/fips_included.go
+@@ -0,0 +1,11 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build fips140v1.0 || fips140v1.26
++
++package godebug
++
++// fipsModuleIncluded is true when the binary was built with a certified
++// FIPS module (GOFIPS140=certified or a specific snapshot version).
++const fipsModuleIncluded = true
+diff --git a/src/crypto/internal/fips140deps/godebug/fips_not_included.go b/src/crypto/internal/fips140deps/godebug/fips_not_included.go
+new file mode 100644
+index 0000000000..0b1d90efbb
+--- /dev/null
++++ b/src/crypto/internal/fips140deps/godebug/fips_not_included.go
+@@ -0,0 +1,11 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++//go:build !(fips140v1.0 || fips140v1.26)
++
++package godebug
++
++// fipsModuleIncluded is false when the binary was built without a certified
++// FIPS snapshot (e.g. GOFIPS140=off or GOFIPS140=latest).
++const fipsModuleIncluded = false
+diff --git a/src/crypto/internal/fips140deps/godebug/godebug.go b/src/crypto/internal/fips140deps/godebug/godebug.go
+index 22bda7ad4b..54bcb11ff1 100644
+--- a/src/crypto/internal/fips140deps/godebug/godebug.go
++++ b/src/crypto/internal/fips140deps/godebug/godebug.go
+@@ -31,3 +31,15 @@ func Value(name string) string {
+ 	}
+ 	return v
+ }
++
++func init() {
++	// Panic if the host has FIPS mode enabled but this binary was not built
++	// with a FIPS module. fipsModuleIncluded is a compile-time constant set
++	// via build tags (fips140v1.0, fips140v1.26, etc.) — not derived from
++	// the embedded DefaultGODEBUG string, which may not be present.
++	if !fipsModuleIncluded && hostfips.HostEnabled() {
++		panic("fips140: host has FIPS mode enabled " +
++			"(/proc/sys/crypto/fips_enabled) but this binary was " +
++			"built with GOFIPS140=off and contains no FIPS module")
++	}
++}
+-- 
+2.55.0
+
