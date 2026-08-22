@@ -66,9 +66,9 @@ run_native_fips_test_suite() {
   for suite in ${SUITES//,/ }; do
     if [[ "$suite" == "crypto" ]]; then
       notify_running ${mode} "crypto-native-fips"
-      quiet pushd ${GOROOT}/src/crypto
+      quiet pushd ${GOROOT}/src
       GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 \
-        $GO test -count=1 $($GO list ./... | grep -v tls) $VERBOSE
+        $GO test -count=1 $($GO list crypto/... | grep -v tls) $VERBOSE
       quiet popd
     elif [[ "$suite" == "tls" ]]; then
       notify_running ${mode} "tls-native-fips"
