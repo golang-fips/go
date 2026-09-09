@@ -57,10 +57,20 @@ notify_running() {
   echo -e "\n##### ${suite} (${mode})"
 }
 
+
 run_crypto_test_suite() {
   local mode=$1
   local tags=$2
   local suite="crypto-fips"
+  local crypto_packages
+  crypto_packages=$($GO list crypto/...)
+  # internal fips140 tests trigger the mutual exclusion assertion,
+  # so we can not run them with the openssl tests
+  crypto_packages=$(printf '%s\n' "$crypto_packages" | grep -v '^crypto/tls$' | grep -v '^crypto/internal/fips140' | grep -v 'crypto/fips140')
+  if [[ -z "$crypto_packages" ]]; then
+    echo "FAIL: No crypto packages found"
+    exit 1
+  fi
   notify_running ${mode} ${suite}
   quiet pushd ${GOROOT}/src/crypto
   # Exclude packages/tests that spawn subprocesses with GODEBUG=fips140=on, which
@@ -71,15 +81,49 @@ run_crypto_test_suite() {
   # These are tested in native-fips-auto mode instead.
   local SKIP_PATTERN="TestGCMNoncesFIPS"
   GOLANG_FIPS=1 OPENSSL_FORCE_FIPS_MODE=1 \
-    $GO test $tags -count=1 -skip="${SKIP_PATTERN}" \
-    $($GO list ./... | grep -v tls | grep -v fips140test | grep -v 'crypto/fips140$') $VERBOSE
+    $GO test $tags -count=1 -skip="${SKIP_PATTERN}" $crypto_packages $VERBOSE
 
   local suite="crypto-fips-parity-nocgo"
   notify_running ${mode} ${suite}
-  GOLANG_FIPS=1 OPENSSL_FORCE_FIPS_MODE=1 \
-    CGO_ENABLED=0 $GO test $tags -count=1 -skip="${SKIP_PATTERN}" \
-    $($GO list ./... | grep -v tls | grep -v fips140test | grep -v 'crypto/fips140$') $VERBOSE
+  # in CGO disabled mode, we should now be able to run all the tests
+  crypto_packages=$($GO list crypto/...)
+  if [[ -z "$crypto_packages" ]]; then
+    echo "FAIL: No crypto packages found"
+    exit 1
+  fi
+  OPENSSL_FORCE_FIPS_MODE=1 \
+    GOLANG_FIPS=1 CGO_ENABLED=0 $GO test $tags -count=1 -skip="${SKIP_PATTERN}" $crypto_packages $VERBOSE
   quiet popd
+
+  local suite="default-godebug-openssl"
+  notify_running ${mode} ${suite}
+  trap "rm -f sha256.test" EXIT
+  $GO test -c crypto/sha256
+  if $GO version -m sha256.test | grep -q "fips140="; then
+    echo "FAIL: Unexpected DefaultGODEBUG=fips140"
+    exit 1
+  fi
+  if ! $GO version -m sha256.test | grep -q "GOFIPS140=v1.0.0"; then
+    echo "FAIL: Expected fips140v1.0 module"
+    exit 1
+  fi
+  output=$(GOLANG_FIPS=1 OPENSSL_FORCE_FIPS_MODE=1 ./sha256.test -test.count 1 2>&1 || true)
+  if echo "$output" | grep -q "^PASS"; then
+    echo "PASS: OpenSSL mode executed correctly with dual support"
+  else
+    echo "FAIL: Expected OpenSSL mode to work with dual support"
+    echo "Output: $output"
+    exit 1
+  fi
+  output=$(GOLANG_FIPS=0 GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 ./sha256.test -test.count 1 2>&1 || true)
+  if echo "$output" | grep -q "^PASS"; then
+    echo "PASS: Native FIPS mode executed with dual support"
+  else
+    echo "FAIL: Expected Native FIPS mode to work with dual support"
+    echo "Output: $output"
+    exit 1
+  fi
+  rm sha256.test
 }
 
 run_http_test_suite() {
@@ -132,13 +176,20 @@ run_full_test_suite() {
 run_native_fips_test_suite() {
   local mode=$1
   local suite="crypto-native-fips"
+  crypto_packages=$($GO list -tags no_openssl crypto/...)
+  crypto_packages=$(printf '%s\n' "$crypto_packages" | grep -v '^crypto/tls$')
+  if [[ -z "$crypto_packages" ]]; then
+    echo "FAIL: No crypto packages found"
+    exit 1
+  fi
   notify_running ${mode} ${suite}
+  quiet pushd ${GOROOT}/src
   quiet pushd ${GOROOT}/src/crypto
   # Use GODEBUG=fips140=auto with GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 to test native FIPS module
   # The override simulates a FIPS-enabled host for testing purposes
   # Must use GOFLAGS=-tags=no_openssl to disable OpenSSL backend in all subprocess calls
   GODEBUG=fips140=auto GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 GOFLAGS="-tags=no_openssl" \
-    $GO test -tags=no_openssl -count=1 $($GO list -tags=no_openssl ./... | grep -v tls) $VERBOSE
+    $GO test -tags=no_openssl -count=1 $crypto_packages $VERBOSE
   quiet popd
 
   local suite="tls-native-fips"
@@ -147,6 +198,28 @@ run_native_fips_test_suite() {
   GODEBUG=fips140=auto GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 GOFLAGS="-tags=no_openssl" \
     $GO test -tags=no_openssl -count=1 crypto/tls -run "^TestBoring" $VERBOSE
   quiet popd
+
+  local suite="default-godebug-no-openssl"
+  notify_running ${mode} ${suite}
+  trap "rm -f sha256.test" EXIT
+  $GO test -c -tags no_openssl crypto/sha256
+  if ! $GO version -m sha256.test | grep -q "fips140=auto"; then
+    echo "FAIL: Expected DefaultGODEBUG=fips140=auto"
+    exit 1
+  fi
+  if ! $GO version -m sha256.test | grep -q "GOFIPS140=v1.0.0"; then
+    echo "FAIL: Expected fips140v1.0 module"
+    exit 1
+  fi
+  output=$(GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 ./sha256.test -test.count 1 2>&1 || true)
+  rm sha256.test
+  if echo "$output" | grep -q "^PASS"; then
+    echo "PASS: Native FIPS works when in strict fips mode"
+  else
+    echo "FAIL: Expected native FIPS to work without openssl backend"
+    echo "Output: $output"
+    exit 1
+  fi
 }
 
 run_native_fips_strict_test_suite() {
@@ -162,11 +235,23 @@ run_native_fips_strict_test_suite() {
     exit 1
   fi
   notify_running ${mode} "native-fips-strict-off"
-  local output=$(GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 GOEXPERIMENT=strictfipsruntime $GO test -tags no_openssl crypto/sha256 -count=1 2>&1 || true)
-  if echo "$output" | grep -q "Host FIPS mode is enabled, but the required GODEBUG=fips140 module is disabled"; then
-    echo "PASS: Native FIPS correctly aborts in strict fipsmode"
+  trap "rm -f sha256.test" EXIT
+  GOEXPERIMENT=strictfipsruntime ../bin/go test -c -tags no_openssl crypto/sha256
+  if ! $GO version -m sha256.test | grep -q "fips140=auto"; then
+    echo "FAIL: Expected DefaultGODEBUG=fips140=auto"
+    exit 1
+  fi
+  if ! $GO version -m sha256.test | grep -q "GOFIPS140=v1.0.0"; then
+    echo "FAIL: Expected fips140v1.0 module"
+    exit 1
+  fi
+  output=$(GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 env -u GOEXPERIMENT ./sha256.test -test.count 1 2>&1 || true)
+  rm sha256.test
+
+  if echo "$output" | grep -q "^PASS"; then
+	  echo "PASS: Native FIPS works when in strict fips mode (strictfips)"
   else
-    echo "Host FIPS mode is enabled, but the required GODEBUG=fips140 module is disabled"
+	  echo "FAIL: Expected native FIPS to work without openssl backend (strictfips)"
     echo "Output: $output"
     exit 1
   fi
@@ -237,6 +322,40 @@ run_mutual_exclusivity_tests() {
   quiet popd
 }
 
+run_purego_test() {
+  quiet pushd ${GOROOT}/src
+  notify_running "native-fips" "purego-exclusivity"
+  trap "rm -f sha256.test" EXIT
+  if ! ../bin/go test -c -tags purego crypto/sha256 2>&1 |  grep -q "go: use of purego build tag requires GOFIPS140=off"; then
+    echo "FAIL: purego tag should be rejected by default"
+    exit 1
+  fi
+  output=$(GOFIPS140=off ../bin/go test -tags purego crypto/sha256 -count 1)
+  if ! echo "$output" | grep -q "^ok"; then
+    echo $output
+    echo "FAIL: purego tag should work with GOFIPS140=off"
+    exit 1
+  fi
+  echo "PASS: GOFIPS140 is exclusive with purego tag"
+  quiet popd
+}
+
+run_cmd_go_version_m() {
+  notify_running "go version -m" "cmd/go"
+  if ! $GO version -m $GOROOT/bin/go | grep "fips140=auto"; then
+      echo "FAIL: Expected DefaultGODEBUG=fips140=auto"
+      exit 1
+  fi
+  if ! $GO version -m $GOROOT/bin/go | grep "GOFIPS140=v1.0.0"; then
+    echo "FAIL: Expected fips140v1.0 module"
+    exit 1
+  fi
+  if [ -d "$GOROOT/pkg/obj" ]; then
+    echo "FAIL: Expected modcache to be erased"
+    exit 1
+  fi
+}
+
 # Run tests based on selected modes
 if [[ "$MODES" == "all" || "$MODES" == *"default"* ]]; then
   # Run in default mode (OpenSSL backend with GOLANG_FIPS=1)
@@ -265,6 +384,14 @@ fi
 
 if [[ "$MODES" == "all" || "$MODES" == *"mutual-exclusivity"* ]]; then
   run_mutual_exclusivity_tests
+fi
+
+if [[ "$MODES" == "all" || "$MODES" == *"purego"* ]]; then
+  run_purego_test
+fi
+
+if [[ "$MODES" == "all" || "$MODES" == *"cmd/go"* ]]; then
+  run_cmd_go_version_m
 fi
 
 echo ALL TESTS PASSED
