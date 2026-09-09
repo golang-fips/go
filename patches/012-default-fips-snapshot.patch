@@ -1,0 +1,323 @@
+diff --git a/src/cmd/compile/internal/loopvar/loopvar_test.go b/src/cmd/compile/internal/loopvar/loopvar_test.go
+index c4ff8f620d..9e6c6efd44 100644
+--- a/src/cmd/compile/internal/loopvar/loopvar_test.go
++++ b/src/cmd/compile/internal/loopvar/loopvar_test.go
+@@ -73,7 +73,7 @@ func TestLoopVarGo1_21(t *testing.T) {
+ 		for _, f := range tc.files {
+ 			source := f
+ 			cmd := testenv.Command(t, gocmd, "build", "-o", output, "-gcflags=-lang=go1.21 -d=loopvar="+tc.lvFlag, source)
+-			cmd.Env = append(cmd.Env, "GOEXPERIMENT=loopvar", "HOME="+tmpdir)
++			cmd.Env = append(cmd.Env, "GOEXPERIMENT=loopvar", "HOME="+tmpdir, "GOFIPS140=off")
+ 			cmd.Dir = "testdata"
+ 			t.Logf("File %s loopvar=%s expect '%s' exit code %d", f, tc.lvFlag, tc.buildExpect, tc.expectRC)
+ 			b, e := cmd.CombinedOutput()
+@@ -127,7 +127,7 @@ func TestLoopVarInlinesGo1_21(t *testing.T) {
+ 		// The effect should follow the package, even though everything (except "c")
+ 		// is inlined.
+ 		cmd := testenv.Command(t, gocmd, "run", "-gcflags="+root+"/...=-lang=go1.21", "-gcflags="+pkg+"=-d=loopvar=1", root)
+-		cmd.Env = append(cmd.Env, "GOEXPERIMENT=noloopvar", "HOME="+tmpdir)
++		cmd.Env = append(cmd.Env, "GOEXPERIMENT=noloopvar", "HOME="+tmpdir, "GOFIPS140=off")
+ 		cmd.Dir = filepath.Join("testdata", "inlines")
+ 
+ 		b, e := cmd.CombinedOutput()
+@@ -191,7 +191,7 @@ func TestLoopVarHashes(t *testing.T) {
+ 		// Go repository is checked out. This is not normally a concern since people
+ 		// do not normally rely on the meaning of specific hashes.
+ 		cmd := testenv.Command(t, gocmd, "run", "-trimpath", root)
+-		cmd.Env = append(cmd.Env, "GOCOMPILEDEBUG=loopvarhash="+hash, "HOME="+tmpdir)
++		cmd.Env = append(cmd.Env, "GOCOMPILEDEBUG=loopvarhash="+hash, "HOME="+tmpdir, "GOFIPS140=off")
+ 		cmd.Dir = filepath.Join("testdata", "inlines")
+ 
+ 		b, _ := cmd.CombinedOutput()
+diff --git a/src/cmd/compile/internal/ssa/fmahash_test.go b/src/cmd/compile/internal/ssa/fmahash_test.go
+index c563d5b8d9..d0b4be4717 100644
+--- a/src/cmd/compile/internal/ssa/fmahash_test.go
++++ b/src/cmd/compile/internal/ssa/fmahash_test.go
+@@ -36,7 +36,7 @@ func TestFmaHash(t *testing.T) {
+ 	cmd := testenv.Command(t, gocmd, "build", "-o", output, source)
+ 	// The hash-dependence on file path name is dodged by specifying "all hashes ending in 1" plus "all hashes ending in 0"
+ 	// i.e., all hashes.  This will print all the FMAs; this test is only interested in one of them (that should appear near the end).
+-	cmd.Env = append(cmd.Env, "GOCOMPILEDEBUG=fmahash=1/0", "GOOS=linux", "GOARCH=arm64", "HOME="+tmpdir)
++	cmd.Env = append(cmd.Env, "GOCOMPILEDEBUG=fmahash=1/0", "GOOS=linux", "GOARCH=arm64", "HOME="+tmpdir, "GOFIPS140=off")
+ 	t.Logf("%v", cmd)
+ 	t.Logf("%v", cmd.Env)
+ 	b, e := cmd.CombinedOutput()
+diff --git a/src/cmd/dist/build.go b/src/cmd/dist/build.go
+index e4250e12de..18395b8662 100644
+--- a/src/cmd/dist/build.go
++++ b/src/cmd/dist/build.go
+@@ -179,7 +179,7 @@ func xinit() {
+ 
+ 	b = os.Getenv("GOFIPS140")
+ 	if b == "" {
+-		b = "off"
++		b = "certified"
+ 	}
+ 	gofips140 = b
+ 
+@@ -245,7 +245,8 @@ func xinit() {
+ 	os.Setenv("GOPPC64", goppc64)
+ 	os.Setenv("GORISCV64", goriscv64)
+ 	os.Setenv("GOROOT", goroot)
+-	os.Setenv("GOFIPS140", gofips140)
++	// Don't propagate GOFIPS140 to the bootstrap Go; it can't handle it.
++	os.Setenv("GOFIPS140", "off")
+ 
+ 	// Set GOBIN to GOROOT/bin. The meaning of GOBIN has drifted over time
+ 	// (see https://go.dev/issue/3269, https://go.dev/cl/183058,
+@@ -608,6 +609,15 @@ func setup() {
+ 			}
+ 		}
+ 	}
++
++	// Clean up extracted fips snapshot. This must run before
++	// xremove(obj) because the modcache is readonly, and will
++	// prevent pkg/obj from being cleaned.
++	xatexit(func() {
++		objGopath := pathf("%s/pkg/obj/gopath", goroot)
++		run(goroot, ShowOutput|CheckExit, gorootBinGo, "clean", "-modcache")
++		xremoveall(objGopath)
++	})
+ }
+ 
+ /*
+@@ -1543,6 +1553,7 @@ func cmdbootstrap() {
+ 	os.Setenv("CC", compilerEnvLookup("CC", defaultcc, goos, goarch))
+ 	// Now that cmd/go is in charge of the build process, enable GOEXPERIMENT.
+ 	os.Setenv("GOEXPERIMENT", goexperiment)
++	os.Setenv("GOFIPS140", gofips140)
+ 	// No need to enable PGO for toolchain2.
+ 	goInstall(toolenv(), goBootstrap, append([]string{"-pgo=off"}, toolchain...)...)
+ 	if debug {
+diff --git a/src/cmd/dist/test.go b/src/cmd/dist/test.go
+index 48c3aa5efd..844905b8e2 100644
+--- a/src/cmd/dist/test.go
++++ b/src/cmd/dist/test.go
+@@ -156,6 +156,8 @@ func (t *tester) run() {
+ 		}
+ 	}
+ 
++	// Propagate GOFIPS140 to rebuilt toolchain binaries.
++	os.Setenv("GOFIPS140", gofips140)
+ 	if t.rebuild {
+ 		t.out("Building packages and commands.")
+ 		// Force rebuild the whole toolchain.
+@@ -181,6 +183,9 @@ func (t *tester) run() {
+ 			goInstall(toolenv(), gorootBinGo, toolsToInstall...)
+ 		}
+ 	}
++	if err := os.Setenv("GOFIPS140", "off"); err != nil {
++		fatalf("error setting initial GOFIPS140 value for tests")
++	}
+ 
+ 	t.timeoutScale = 1
+ 	if s := os.Getenv("GO_TEST_TIMEOUT_SCALE"); s != "" {
+diff --git a/src/cmd/go/internal/fips140/fips140.go b/src/cmd/go/internal/fips140/fips140.go
+index 7103c1a23e..95fc1da646 100644
+--- a/src/cmd/go/internal/fips140/fips140.go
++++ b/src/cmd/go/internal/fips140/fips140.go
+@@ -121,10 +121,10 @@ func Init() {
+ 	// toolchain selection, as the GOEXPERIMENT may be valid for the
+ 	// selected toolchain version.
+ 	if cfg.ExperimentErr == nil && cfg.Experiment.BoringCrypto && Enabled() {
+-		base.Fatalf("go: cannot use GOFIPS140 with GOEXPERIMENT=boringcrypto")
++		base.Fatalf("go: use of GOEXPERIMENT=boringcrypto requires GOFIPS140=off")
+ 	}
+ 	if slices.Contains(cfg.BuildContext.BuildTags, "purego") && Enabled() {
+-		base.Fatalf("go: cannot use GOFIPS140 with the purego build tag")
++		base.Fatalf("go: use of purego build tag requires GOFIPS140=off")
+ 	}
+ }
+ 
+diff --git a/src/cmd/go/internal/load/godebug.go b/src/cmd/go/internal/load/godebug.go
+index 817cc4faeb..18d44cb86f 100644
+--- a/src/cmd/go/internal/load/godebug.go
++++ b/src/cmd/go/internal/load/godebug.go
+@@ -63,13 +63,14 @@ func defaultGODEBUG(loaderstate *modload.State, p *Package, directives, testDire
+ 
+ 	var m map[string]string
+ 
+-	// If GOFIPS140 is set to anything but "off",
+-	// default to GODEBUG=fips140=on.
+-	if fips140.Enabled() {
++	// If OpenSSL backend is enabled, do not set GODEBUG=fips140.
++	// Otherwise if GOFIPS140 is set to anything but "off",
++	// default to GODEBUG=fips140=auto.
++	if fips140.Enabled() && !isOpenSSLTarget() {
+ 		if m == nil {
+ 			m = make(map[string]string)
+ 		}
+-		m["fips140"] = "on"
++		m["fips140"] = "auto"
+ 	}
+ 
+ 	// Add directives from main module go.mod.
+diff --git a/src/cmd/go/internal/load/openssl.go b/src/cmd/go/internal/load/openssl.go
+new file mode 100644
+index 0000000000..87eaea6bf0
+--- /dev/null
++++ b/src/cmd/go/internal/load/openssl.go
+@@ -0,0 +1,34 @@
++// Copyright 2026 The Go Authors. All rights reserved.
++// Use of this source code is governed by a BSD-style
++// license that can be found in the LICENSE file.
++
++package load
++
++import "cmd/go/internal/cfg"
++
++func isOpenSSLTarget() bool {
++	if cfg.Goos != "linux" || !cfg.BuildContext.CgoEnabled || cfg.BuildMSan {
++		return false
++	}
++	forbiddenTags := map[string]bool{
++		"gocrypt":          true,
++		"cmd_go_bootstrap": true,
++		"msan":             true,
++		"no_openssl":       true,
++		"purego":           true,
++	}
++
++	for _, tag := range cfg.BuildContext.BuildTags {
++		if forbiddenTags[tag] {
++			return false
++		}
++	}
++
++	for _, tag := range cfg.BuildContext.ToolTags {
++		if forbiddenTags[tag] {
++			return false
++		}
++	}
++
++	return true
++}
+diff --git a/src/cmd/go/script_test.go b/src/cmd/go/script_test.go
+index 390a367237..6b0ea5d56f 100644
+--- a/src/cmd/go/script_test.go
++++ b/src/cmd/go/script_test.go
+@@ -253,6 +253,7 @@ func scriptEnv(srv *vcstest.Server, srvCertFile string) ([]string, error) {
+ 		"CMDGO_TEST_RUN_MAIN=true",
+ 		"HGRCPATH=",
+ 		"GOTOOLCHAIN=auto",
++		"GOFIPS140=off",
+ 		"newline=\n",
+ 	}
+ 
+diff --git a/src/cmd/go/testdata/script/fips.txt b/src/cmd/go/testdata/script/fips.txt
+index 374902eb70..91ff7af755 100644
+--- a/src/cmd/go/testdata/script/fips.txt
++++ b/src/cmd/go/testdata/script/fips.txt
+@@ -9,7 +9,21 @@ go list -f '{{.DefaultGODEBUG}}'
+ # list with GOFIPS140=latest
+ env GOFIPS140=latest
+ go list -f '{{.DefaultGODEBUG}}'
+-stdout fips140=on
++! stdout fips140
++
++# list with GOFIPS140=off CGO_ENABLED=0
++env GOFIPS140=off
++env CGO_ENABLED=0
++go list -f '{{.DefaultGODEBUG}}'
++! stdout fips140
++env CGO_ENABLED=
++
++# list with GOFIPS140=latest CGO_ENABLED=0
++env GOFIPS140=latest
++env CGO_ENABLED=0
++go list -f '{{.DefaultGODEBUG}}'
++stdout fips140=auto
++env CGO_ENABLED=
+ 
+ [short] skip
+ 
+diff --git a/src/cmd/go/testdata/script/fipssnap.txt b/src/cmd/go/testdata/script/fipssnap.txt
+index 4f2d486c61..ffed1715c5 100644
+--- a/src/cmd/go/testdata/script/fipssnap.txt
++++ b/src/cmd/go/testdata/script/fipssnap.txt
+@@ -6,9 +6,44 @@ env GOFIPS140=$snap
+ # Go+BoringCrypto conflicts with GOFIPS140.
+ [GOEXPERIMENT:boringcrypto] skip
+ 
+-# default GODEBUG includes fips140=on
++# list with GOFIPS140=$alias CGO_ENABLED=0.
++# CGO disabled builds should default to go/fips140
++env CGO_ENABLED=0
+ go list -f '{{.DefaultGODEBUG}}'
+-stdout fips140=on
++stdout fips140=auto
++
++go list std
++stdout crypto/internal/fips140/$snap/sha256
++! stdout crypto/internal/fips140/sha256
++! stdout crypto/internal/fips140/check
++
++# build does not use regular fips
++go list -json -test
++stdout crypto/internal/fips140/$snap/sha256
++! stdout crypto/internal/fips140/sha256
++! stdout crypto/internal/fips140/check
++env CGO_ENABLED=
++
++# CGO enabled builds should default to openssl
++go list -f '{{.DefaultGODEBUG}}'
++! stdout fips140
++
++# list with GOFIPS140=$snap CGO_ENABLED=0
++env CGO_ENABLED=0
++go list -f '{{.DefaultGODEBUG}}'
++stdout fips140=auto
++
++go list std
++stdout crypto/internal/fips140/$snap/sha256
++! stdout crypto/internal/fips140/sha256
++! stdout crypto/internal/fips140/check
++
++# build does not use regular fips
++go list -json -test
++stdout crypto/internal/fips140/$snap/sha256
++! stdout crypto/internal/fips140/sha256
++! stdout crypto/internal/fips140/check
++env CGO_ENABLED=
+ 
+ # std lists fips snapshot and not regular fips
+ go list std
+@@ -25,9 +60,9 @@ stdout crypto/internal/fips140/$snap/sha256
+ # again with GOFIPS140=$alias
+ env GOFIPS140=$alias
+ 
+-# default GODEBUG includes fips140=on
++# CGO enabled builds should default to openssl
+ go list -f '{{.DefaultGODEBUG}}'
+-stdout fips140=on
++! stdout fips140
+ 
+ # std lists fips snapshot and not regular fips
+ go list std
+diff --git a/src/run.bash b/src/run.bash
+index cb474325c4..4fc1f6ae78 100755
+--- a/src/run.bash
++++ b/src/run.bash
+@@ -30,6 +30,15 @@ if [ ! -f ../bin/go ]; then
+ fi
+ 
+ export GOENV=off
++# Prevent the go binary from trying to extract a FIPS snapshot
++# into GOPATH, which will be set to /nonexist-gopath below.
++export GOMODCACHE="$(mktemp -d -t run.bash.gomodcache.XXXXXX)"
++if [ $? -ne 0 ]; then
++	echo Could not create modcache in /tmp
++	exit 1
++fi
++trap "../bin/go clean -modcache" EXIT
++
+ eval $(../bin/go tool dist env)
+ 
+ unset CDPATH	# in case user has it set
+@@ -50,4 +59,5 @@ if ulimit -T &> /dev/null; then
+ fi
+ 
+ export GOPATH=/nonexist-gopath
+-exec ../bin/go tool dist test -rebuild "$@"
++# Run dist test as a subprocess to trigger cleanup trap.
++../bin/go tool dist test -rebuild "$@"
