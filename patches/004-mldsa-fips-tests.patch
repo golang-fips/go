@@ -1,0 +1,50 @@
+diff --git a/src/crypto/internal/fips140only/fips140only_test.go b/src/crypto/internal/fips140only/fips140only_test.go
+index 824ac9ac..95bf95d5 100644
+--- a/src/crypto/internal/fips140only/fips140only_test.go
++++ b/src/crypto/internal/fips140only/fips140only_test.go
+@@ -109,10 +109,11 @@ func testFIPS140Only(t *testing.T) {
+ 	expectPanic(t, func() { sha1.Sum([]byte("foo")) })
+ 
+ 	if mldsaRejectedInOnlyMode {
+-		expectErr(t, errRet2(mldsa.GenerateKey(mldsa.MLDSA44())))
+-		expectErr(t, errRet2(mldsa.NewPrivateKey(mldsa.MLDSA44(), make([]byte, mldsa.PrivateKeySize))))
+-		expectErr(t, errRet2(mldsa.NewPublicKey(mldsa.MLDSA44(), make([]byte, mldsa.MLDSA44PublicKeySize))))
+-		expectErr(t, errRet1(mldsa.Verify(&mldsa.PublicKey{}, nil, nil, nil)))
++		const want = "use of ML-DSA is not allowed in FIPS 140 mode"
++		expectErrContains(t, errRet2(mldsa.GenerateKey(mldsa.MLDSA44())), want)
++		expectErrContains(t, errRet2(mldsa.NewPrivateKey(mldsa.MLDSA44(), make([]byte, mldsa.PrivateKeySize))), want)
++		expectErrContains(t, errRet2(mldsa.NewPublicKey(mldsa.MLDSA44(), make([]byte, mldsa.MLDSA44PublicKeySize))), want)
++		expectErrContains(t, errRet1(mldsa.Verify(&mldsa.PublicKey{}, nil, nil, nil)), want)
+ 	} else {
+ 		// Outside the v1.0.0 certified snapshot, ML-DSA uses the in-module
+ 		// implementation and is a fully approved algorithm.
+@@ -369,10 +370,15 @@ func expectPanic(t *testing.T, f func()) {
+ var cryptocustomrand = godebug.New("cryptocustomrand")
+ 
+ func expectErr(t *testing.T, err error) {
++	t.Helper()
++	expectErrContains(t, err, "FIPS 140-only")
++}
++
++func expectErrContains(t *testing.T, err error, want string) {
+ 	t.Helper()
+ 	if err == nil {
+-		t.Errorf("expected error")
+-	} else if !strings.Contains(err.Error(), "FIPS 140-only") {
++		t.Errorf("expected error containing %q", want)
++	} else if !strings.Contains(err.Error(), want) {
+ 		t.Errorf("unexpected error: %v", err)
+ 	}
+ }
+diff --git a/src/crypto/mldsa/mldsa_test.go b/src/crypto/mldsa/mldsa_test.go
+index c6eac8cb..f2c626fd 100644
+--- a/src/crypto/mldsa/mldsa_test.go
++++ b/src/crypto/mldsa/mldsa_test.go
+@@ -721,6 +721,7 @@ func TestUninitialized(t *testing.T) {
+ 	}
+ 
+ 	t.Run("TypedNilOptions", func(t *testing.T) {
++		skipIfMLDSARejectedByFIPS(t)
+ 		sk, err := GenerateKey(MLDSA44())
+ 		if err != nil {
+ 			t.Fatal(err)
