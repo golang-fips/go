@@ -90,7 +90,8 @@ run_native_fips_test_suite() {
 
 }
 
-# Run ML-DSA against the latest in-tree FIPS module with FIPS mode active.
+# Run the crypto test suite against the latest in-tree FIPS module with FIPS
+# mode active.
 # This gives the fork's FIPS test script explicit runtime coverage and verifies
 # that GOFIPS140=latest did not silently degrade to off or select the certified
 # v1.0 snapshot.
@@ -98,7 +99,7 @@ run_native_fips_latest_test_suite() {
   local mode=$1
   for suite in ${SUITES//,/ }; do
     if [[ "$suite" == "crypto" ]]; then
-      notify_running ${mode} "mldsa-native-fips-latest"
+      notify_running ${mode} "crypto-native-fips-latest"
       quiet pushd ${GOROOT}/src
 
       local latest_check_dir
@@ -135,8 +136,15 @@ EOF
       fi
       rm -rf "$latest_check_dir"
 
+      local crypto_packages
+      crypto_packages=$(GOFIPS140=latest $GO list crypto/...)
+      crypto_packages=$(printf '%s\n' "$crypto_packages" | grep -v '^crypto/tls$')
+      if [[ -z "$crypto_packages" ]]; then
+        echo "FAIL: No crypto packages found for GOFIPS140=latest"
+        exit 1
+      fi
       GOFIPS140=latest GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 \
-        $GO test -count=1 crypto/mldsa $VERBOSE
+        $GO test -count=1 $crypto_packages $VERBOSE
       quiet popd
     fi
   done
