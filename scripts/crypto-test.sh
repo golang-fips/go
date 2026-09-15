@@ -21,7 +21,8 @@ export GO=${GOROOT}/bin/go
 
 # Test suites to run
 SUITES="crypto,tls"
-# Modes to run (native-fips-auto, native-fips-strict, non-fips, or all)
+# Modes to run (native-fips-auto, native-fips-latest, native-fips-strict,
+# non-fips, or all)
 MODES="all"
 # Verbosity flags to pass to Go
 VERBOSE=""
@@ -89,6 +90,58 @@ run_native_fips_test_suite() {
 
 }
 
+# Run ML-DSA against the latest in-tree FIPS module with FIPS mode active.
+# This gives the fork's FIPS test script explicit runtime coverage and verifies
+# that GOFIPS140=latest did not silently degrade to off or select the certified
+# v1.0 snapshot.
+run_native_fips_latest_test_suite() {
+  local mode=$1
+  for suite in ${SUITES//,/ }; do
+    if [[ "$suite" == "crypto" ]]; then
+      notify_running ${mode} "mldsa-native-fips-latest"
+      quiet pushd ${GOROOT}/src
+
+      local latest_check_dir
+      latest_check_dir=$(mktemp -d)
+      local latest_check="${latest_check_dir}/latest.go"
+      cat >"$latest_check" <<'EOF'
+package main
+
+import (
+	"crypto/fips140"
+	"crypto/mldsa"
+	"fmt"
+	"strings"
+)
+
+func main() {
+	if !fips140.Enabled() {
+		panic("GOFIPS140=latest did not enable FIPS 140 mode")
+	}
+	if version := fips140.Version(); strings.HasPrefix(version, "v1.0.") {
+		panic(fmt.Sprintf("GOFIPS140=latest selected certified snapshot %s", version))
+	}
+	if _, err := mldsa.GenerateKey(mldsa.MLDSA44()); err != nil {
+		panic(fmt.Sprintf("ML-DSA is unavailable with GOFIPS140=latest: %v", err))
+	}
+	fmt.Printf("PASS: ML-DSA works with FIPS 140 module %s\n", fips140.Version())
+}
+EOF
+
+      if ! GOFIPS140=latest GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 \
+        $GO run "$latest_check"; then
+        rm -rf "$latest_check_dir"
+        exit 1
+      fi
+      rm -rf "$latest_check_dir"
+
+      GOFIPS140=latest GOLANG_NATIVE_HOSTFIPS_OVERRIDE=1 \
+        $GO test -count=1 crypto/mldsa $VERBOSE
+      quiet popd
+    fi
+  done
+}
+
 # Run strict FIPS runtime checks against the native module.
 # Verifies GOEXPERIMENT=strictfipsruntime and -tags strictfipsruntime.
 run_native_fips_strict_test_suite() {
@@ -153,6 +206,10 @@ run_non_fips_test_suite() {
 # Run tests based on selected modes
 if [[ "$MODES" == "all" || "$MODES" == *"native-fips-auto"* ]]; then
   run_native_fips_test_suite "native-fips-auto"
+fi
+
+if [[ "$MODES" == "all" || "$MODES" == *"native-fips-latest"* ]]; then
+  run_native_fips_latest_test_suite "native-fips-latest"
 fi
 
 if [[ "$MODES" == "all" || "$MODES" == *"native-fips-strict"* ]]; then
