@@ -211,6 +211,40 @@ run_non_fips_test_suite() {
   quiet popd
 }
 
+run_purego_test() {
+  quiet pushd ${GOROOT}/src
+  notify_running "native-fips" "purego-exclusivity"
+  trap "rm -f sha256.test" EXIT
+  if ! ../bin/go test -c -tags purego crypto/sha256 2>&1 |  grep -q "go: use of purego build tag requires GOFIPS140=off"; then
+    echo "FAIL: purego tag should be rejected by default"
+    exit 1
+  fi
+  output=$(GOFIPS140=off ../bin/go test -tags purego crypto/sha256 -count 1)
+  if ! echo "$output" | grep -q "^ok"; then
+    echo $output
+    echo "FAIL: purego tag should work with GOFIPS140=off"
+    exit 1
+  fi
+  echo "PASS: GOFIPS140 is exclusive with purego tag"
+  quiet popd
+}
+
+run_cmd_go_version_m() {
+  notify_running "go version -m" "cmd/go"
+  if ! $GO version -m $GOROOT/bin/go | grep "fips140=auto"; then
+      echo "FAIL: Expected DefaultGODEBUG=fips140=auto"
+      exit 1
+  fi
+  if ! $GO version -m $GOROOT/bin/go | grep "GOFIPS140=v1.0.0"; then
+    echo "FAIL: Expected fips140v1.0 module"
+    exit 1
+  fi
+  if [ -d "$GOROOT/pkg/obj" ]; then
+    echo "FAIL: Expected modcache to be erased"
+    exit 1
+  fi
+}
+
 # Run tests based on selected modes
 if [[ "$MODES" == "all" || "$MODES" == *"native-fips-auto"* ]]; then
   run_native_fips_test_suite "native-fips-auto"
@@ -226,6 +260,14 @@ fi
 
 if [[ "$MODES" == "all" || "$MODES" == *"non-fips"* ]]; then
   run_non_fips_test_suite "non-fips"
+fi
+
+if [[ "$MODES" == "all" || "$MODES" == *"purego"* ]]; then
+  run_purego_test
+fi
+
+if [[ "$MODES" == "all" || "$MODES" == *"cmd/go"* ]]; then
+  run_cmd_go_version_m
 fi
 
 echo ALL TESTS PASSED
