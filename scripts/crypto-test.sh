@@ -22,7 +22,7 @@ export GO=${GOROOT}/bin/go
 # Test suites to run
 SUITES="crypto,tls"
 # Modes to run (native-fips-auto, native-fips-latest, native-fips-strict,
-# non-fips, or all)
+# non-fips, mldsa-copy for the source-only check, or all)
 MODES="all"
 # Verbosity flags to pass to Go
 VERBOSE=""
@@ -244,6 +244,9 @@ run_cmd_go_version_m() {
     exit 1
   fi
 }
+
+# Check the source copy once, independently of the selected runtime modes.
+bash "$(dirname "$0")/mldsa-copy-test.sh"
 
 # Run tests based on selected modes
 if [[ "$MODES" == "all" || "$MODES" == *"native-fips-auto"* ]]; then

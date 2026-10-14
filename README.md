@@ -52,6 +52,29 @@ $ ./scripts/full-initialize-repo.sh && cd ./go/src && ./make.bash
 $ ./scripts/crypto-test.sh && cd ./go/src && ./all.bash
 ```
 
+### Refreshing the non-FIPS ML-DSA copy
+
+The certified v1.0 FIPS module does not include ML-DSA. For builds using that
+snapshot, the public API uses a copy of the in-tree implementation outside the
+module. After updating upstream Go, refresh and check the copy with:
+
+```
+$ bash scripts/copy-mldsa.sh
+$ bash scripts/mldsa-copy-test.sh
+$ bash scripts/crypto-test.sh --mode mldsa-copy
+```
+
+Both scripts use the repository's Go tree (`./go`, or the repository root on a
+source-tree branch) and take no arguments. The copy includes tests and support
+files and adds the downstream strict-FIPS startup-check import. It does not delete
+obsolete destination files; review and remove those explicitly. The check compares
+every file, allowing only the required startup-check import, and also runs
+automatically through `scripts/crypto-test.sh`.
+
+On patch-only branches, record refreshed source changes in
+`patches/002-mldsa-nofips-copy.patch`; the strict-FIPS import is applied separately
+by `patches/004-strictfipsruntime.patch`.
+
 ## Compiler Usage
 
 ### FIPS module embedding (`GOFIPS140`)
