@@ -2119,10 +2119,10 @@ index 0000000000..c7e4710f77
 +}
 diff --git a/src/crypto/internal/nofips/mldsa/mldsa_test.go b/src/crypto/internal/nofips/mldsa/mldsa_test.go
 new file mode 100644
-index 0000000000..1c0239a30b
+index 0000000000..a2d2279a8e
 --- /dev/null
 +++ b/src/crypto/internal/nofips/mldsa/mldsa_test.go
-@@ -0,0 +1,431 @@
+@@ -0,0 +1,433 @@
 +// Copyright 2025 The Go Authors. All rights reserved.
 +// Use of this source code is governed by a BSD-style
 +// license that can be found in the LICENSE file.
@@ -2471,7 +2471,9 @@ index 0000000000..1c0239a30b
 +		testingOnlyRejectionReason = nil
 +	})
 +
-+	fips140CAST()
++	if err := fips140CAST(); err != nil {
++		t.Fatal(err)
++	}
 +
 +	for reason, hit := range reached {
 +		if !hit {
