@@ -107,7 +107,7 @@ diff --git a/src/crypto/tls/tls_test.go b/src/crypto/tls/tls_test.go
 +	mldsaErr, mldsaTLS12Err := "", "doesn't support ML-DSA"
 +	if fips140.Version() == "v1.0.0" {
 +		// TLS certificate fixtures have no usable ML-DSA private key under v1.0.
-+		mldsaErr = "does not implement crypto.Signer"
++		mldsaErr = "tls: certificate private key (<nil>) does not implement crypto.Signer"
 +		mldsaTLS12Err = mldsaErr
 +	}
  
