@@ -85,6 +85,9 @@ Intentional limits:
 - Purego skips only `crypto/internal/fips140test.TestACVP`, which launches a
   FIPS-enabled subprocess incompatible with purego. ACVP runs in the ordinary
   matrix; the remaining FIPS tests are still included in purego runs.
+- TLS golden transcript tests require the deterministic randomness override
+  available in module v1.26 and later. They are skipped against v1.0, but run
+  against the in-process and in-tree modules with FIPS off.
 - Upstream skips for unsupported hardware, platforms, or module versions, and
   tests requiring external setup (such as an installed test root), remain in
   place. Architecture/OS coverage requires separate CI jobs.

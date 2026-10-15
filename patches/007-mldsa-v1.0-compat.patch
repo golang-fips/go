@@ -1,0 +1,231 @@
+diff --git a/src/crypto/mldsa/mldsa_fips140v1.0.go b/src/crypto/mldsa/mldsa_fips140v1.0.go
+--- a/src/crypto/mldsa/mldsa_fips140v1.0.go
++++ b/src/crypto/mldsa/mldsa_fips140v1.0.go
+@@ -109,9 +109,20 @@
+ var errInvalidSignerOpts = errors.New("mldsa: invalid SignerOpts")
+ 
+ // Sign returns a signature of the given message using this private key.
++//
++// If opts is nil or opts.HashFunc returns zero, the message is signed directly.
++// If opts.HashFunc returns [crypto.MLDSAMu], the provided message must be a
++// [pre-hashed μ message representative]. opts can be of type *[Options] if a
++// context string is desired along with a directly-signed message. The io.Reader
++// argument is ignored.
++//
++// [pre-hashed μ message representative]: https://www.rfc-editor.org/rfc/rfc9881.html#externalmu
+ func (sk *PrivateKey) Sign(_ io.Reader, message []byte, opts crypto.SignerOpts) (signature []byte, err error) {
+ 	if fips140.Enabled {
+ 		return nil, errFIPS140
++	}
++	if sk.k == (mldsa.PrivateKey{}) {
++		return nil, errors.New("mldsa: zero private key")
+ 	}
+ 	if opts == nil {
+ 		opts = &Options{}
+@@ -119,7 +130,7 @@
+ 	switch opts.HashFunc() {
+ 	case 0:
+ 		var context string
+-		if opts, ok := opts.(*Options); ok {
++		if opts, ok := opts.(*Options); ok && opts != nil {
+ 			context = opts.Context
+ 		}
+ 		signature, err = mldsa.Sign(&sk.k, message, context)
+@@ -141,13 +152,16 @@
+ 	if fips140.Enabled {
+ 		return nil, errFIPS140
+ 	}
++	if sk.k == (mldsa.PrivateKey{}) {
++		return nil, errors.New("mldsa: zero private key")
++	}
+ 	if opts == nil {
+ 		opts = &Options{}
+ 	}
+ 	switch opts.HashFunc() {
+ 	case 0:
+ 		var context string
+-		if opts, ok := opts.(*Options); ok {
++		if opts, ok := opts.(*Options); ok && opts != nil {
+ 			context = opts.Context
+ 		}
+ 		signature, err = mldsa.SignDeterministic(&sk.k, message, context)
+@@ -240,6 +254,9 @@
+ 	if pk == nil {
+ 		return errors.New("mldsa: nil public key")
+ 	}
++	if pk.p == (mldsa.PublicKey{}) {
++		return errors.New("mldsa: zero public key")
++	}
+ 	if opts == nil {
+ 		opts = &Options{}
+ 	}
+diff --git a/src/crypto/mldsa/mldsa_fips140v1.0_test.go b/src/crypto/mldsa/mldsa_fips140v1.0_test.go
+--- a/src/crypto/mldsa/mldsa_fips140v1.0_test.go
++++ b/src/crypto/mldsa/mldsa_fips140v1.0_test.go
+@@ -106,3 +106,12 @@
+ 		t.Fatalf("Verify: got %v, want error containing %q", err, want)
+ 	}
+ }
++
++func TestUninitializedPublicKey(t *testing.T) {
++	var sk PrivateKey
++	for _, pk := range []*PublicKey{sk.PublicKey(), sk.Public().(*PublicKey)} {
++		if err := Verify(pk, []byte("message"), nil, nil); err == nil {
++			t.Fatal("Verify accepted public key from zero-value PrivateKey")
++		}
++	}
++}
+diff --git a/src/crypto/tls/handshake_test.go b/src/crypto/tls/handshake_test.go
+--- a/src/crypto/tls/handshake_test.go
++++ b/src/crypto/tls/handshake_test.go
+@@ -9,6 +9,7 @@
+ 	"bytes"
+ 	"context"
+ 	"crypto/internal/boring"
++	icryptotest "crypto/internal/cryptotest"
+ 	"encoding/hex"
+ 	"errors"
+ 	"flag"
+@@ -56,6 +57,9 @@
+ func runTestAndUpdateIfNeeded(t *testing.T, name string, run func(t *testing.T, update bool)) {
+ 	skipFIPS(t) // FIPS 140-3 mode changes the advertised parameters.
+ 
++	// The v1.0 module cannot override its DRBG for transcript reproducibility.
++	icryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
++
+ 	// Go+BoringCrypto's boring.RandReader ignores the testing override set by
+ 	// cryptotest.SetGlobalRandom, so e.g. ECDH key generation would be
+ 	// non-deterministic. Setting cryptocustomrand=1 makes rand.CustomReader
+diff --git a/src/crypto/tls/tls_test.go b/src/crypto/tls/tls_test.go
+--- a/src/crypto/tls/tls_test.go
++++ b/src/crypto/tls/tls_test.go
+@@ -1443,6 +1443,13 @@
+ 
+ 	pkcs1Cert := testRSA2048Cert
+ 	pkcs1Cert.SupportedSignatureAlgorithms = []SignatureScheme{PKCS1WithSHA1, PKCS1WithSHA256}
++
++	mldsaErr, mldsaTLS12Err := "", "doesn't support ML-DSA"
++	if fips140.Version() == "v1.0.0" {
++		// TLS certificate fixtures have no usable ML-DSA private key under v1.0.
++		mldsaErr = "does not implement crypto.Signer"
++		mldsaTLS12Err = mldsaErr
++	}
+ 
+ 	tests := []struct {
+ 		c       Certificate
+@@ -1588,21 +1595,21 @@
+ 		{testMLDSA44Cert, &ClientHelloInfo{
+ 			SignatureSchemes:  []SignatureScheme{MLDSA44},
+ 			SupportedVersions: []uint16{VersionTLS13},
+-		}, ""},
++		}, mldsaErr},
+ 		{testMLDSA65Cert, &ClientHelloInfo{
+ 			SignatureSchemes:  []SignatureScheme{MLDSA65},
+ 			SupportedVersions: []uint16{VersionTLS13},
+-		}, ""},
++		}, mldsaErr},
+ 		{testMLDSA87Cert, &ClientHelloInfo{
+ 			SignatureSchemes:  []SignatureScheme{MLDSA87},
+ 			SupportedVersions: []uint16{VersionTLS13},
+-		}, ""},
++		}, mldsaErr},
+ 		{testMLDSA44Cert, &ClientHelloInfo{
+ 			CipherSuites:      []uint16{TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256},
+ 			SupportedCurves:   []CurveID{CurveP256},
+ 			SupportedPoints:   []uint8{pointFormatUncompressed},
+ 			SupportedVersions: []uint16{VersionTLS12},
+-		}, "doesn't support ML-DSA"},
++		}, mldsaTLS12Err},
+ 	}
+ 	for i, tt := range tests {
+ 		err := tt.chi.SupportsCertificate(&tt.c)
+diff --git a/src/crypto/x509/parser_fips140v1.0_test.go b/src/crypto/x509/parser_fips140v1.0_test.go
+--- a/src/crypto/x509/parser_fips140v1.0_test.go
++++ b/src/crypto/x509/parser_fips140v1.0_test.go
+@@ -6,7 +6,12 @@
+ 
+ package x509
+ 
+-import "testing"
++import (
++	"crypto/fips140"
++	"crypto/mldsa"
++	"strings"
++	"testing"
++)
+ 
+ // TestParseMLDSACertificateFIPS140v1_0 verifies that ML-DSA certificates can
+ // still be parsed under the FIPS 140-3 module v1.0.0, which doesn't support
+@@ -41,32 +46,50 @@
+ 	}
+ }
+ 
+-// TestMLDSAUnavailableErrorsNotPanics asserts that the public x509 entry
+-// points return errors (rather than panicking) when ML-DSA is unavailable.
+-// The mldsa package documents that "methods are unreachable" on v1.0.0; this
+-// test ensures x509 callers stay on the error path.
+-func TestMLDSAUnavailableErrorsNotPanics(t *testing.T) {
+-	// ParsePKIXPublicKey: extracts the raw SPKI from a parsed cert and parses
+-	// the public key directly. Should return an error, not panic.
+-	cert, err := ParseCertificate(pemDecode(t, rfc9881ExampleCertificateMLDSA44))
+-	if err != nil {
+-		t.Fatalf("ParseCertificate failed: %v", err)
+-	}
+-	if _, err := ParsePKIXPublicKey(cert.RawSubjectPublicKeyInfo); err == nil {
+-		t.Error("ParsePKIXPublicKey: expected error, got nil")
+-	}
+-	// ParsePKCS8PrivateKey: ML-DSA seed-only private keys.
++// TestMLDSAKeyParsingFIPS140v1_0 checks that key parsing follows the runtime
++// availability of the non-module ML-DSA implementation.
++func TestMLDSAKeyParsingFIPS140v1_0(t *testing.T) {
+ 	for _, tt := range []struct {
+-		name string
+-		pem  string
++		name   string
++		cert   string
++		key    string
++		params mldsa.Parameters
+ 	}{
+-		{"ML-DSA-44", rfc9881ExamplePrivateKeyMLDSA44},
+-		{"ML-DSA-65", rfc9881ExamplePrivateKeyMLDSA65},
+-		{"ML-DSA-87", rfc9881ExamplePrivateKeyMLDSA87},
++		{"ML-DSA-44", rfc9881ExampleCertificateMLDSA44, rfc9881ExamplePrivateKeyMLDSA44, mldsa.MLDSA44()},
++		{"ML-DSA-65", rfc9881ExampleCertificateMLDSA65, rfc9881ExamplePrivateKeyMLDSA65, mldsa.MLDSA65()},
++		{"ML-DSA-87", rfc9881ExampleCertificateMLDSA87, rfc9881ExamplePrivateKeyMLDSA87, mldsa.MLDSA87()},
+ 	} {
+ 		t.Run(tt.name, func(t *testing.T) {
+-			if _, err := ParsePKCS8PrivateKey(pemDecode(t, tt.pem)); err == nil {
+-				t.Error("ParsePKCS8PrivateKey: expected error, got nil")
++			cert, err := ParseCertificate(pemDecode(t, tt.cert))
++			if err != nil {
++				t.Fatalf("ParseCertificate: %v", err)
++			}
++			const want = "use of ML-DSA is not allowed in FIPS 140 mode"
++			pub, err := ParsePKIXPublicKey(cert.RawSubjectPublicKeyInfo)
++			if fips140.Enabled() {
++				if err == nil || !strings.Contains(err.Error(), want) {
++					t.Fatalf("ParsePKIXPublicKey: got %v, want %q", err, want)
++				}
++			} else {
++				if err != nil {
++					t.Fatalf("ParsePKIXPublicKey: %v", err)
++				}
++				if pk, ok := pub.(*mldsa.PublicKey); !ok || pk.Parameters() != tt.params {
++					t.Fatalf("ParsePKIXPublicKey: got %T, want %s public key", pub, tt.params)
++				}
++			}
++			priv, err := ParsePKCS8PrivateKey(pemDecode(t, tt.key))
++			if fips140.Enabled() {
++				if err == nil || !strings.Contains(err.Error(), want) {
++					t.Fatalf("ParsePKCS8PrivateKey: got %v, want %q", err, want)
++				}
++			} else {
++				if err != nil {
++					t.Fatalf("ParsePKCS8PrivateKey: %v", err)
++				}
++				if sk, ok := priv.(*mldsa.PrivateKey); !ok || sk.PublicKey().Parameters() != tt.params {
++					t.Fatalf("ParsePKCS8PrivateKey: got %T, want %s private key", priv, tt.params)
++				}
+ 			}
+ 		})
+ 	}

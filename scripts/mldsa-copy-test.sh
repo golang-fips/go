@@ -33,9 +33,15 @@ if ! awk '
 fi
 mv "$WORK/normalized" "$WORK/actual/mldsa.go"
 
-# Compare all files, including tests and non-Go support files.
-if ! diff -ru "$WORK/expected" "$WORK/actual"; then
-  echo "FAIL: nofips ML-DSA differs from the in-tree package; run scripts/copy-mldsa.sh to refresh it" >&2
-  exit 1
+# Git is already required to materialize the Go tree; do not require diffutils.
+if git --no-pager diff --no-index --exit-code --no-ext-diff --no-textconv -- "$WORK/expected" "$WORK/actual"; then
+  echo "PASS: nofips ML-DSA matches the in-tree package"
+else
+  status=$?
+  if [[ "$status" -eq 1 ]]; then
+    echo "FAIL: nofips ML-DSA differs from the in-tree package; run scripts/copy-mldsa.sh to refresh it" >&2
+  else
+    echo "FAIL: could not compare ML-DSA packages (git diff exited $status)" >&2
+  fi
+  exit "$status"
 fi
-echo "PASS: nofips ML-DSA matches the in-tree package"
