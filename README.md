@@ -32,6 +32,10 @@ This fork uses Go's certified native FIPS module and adds a few operator-facing 
 - **Certified module by default** — builds embed the certified FIPS 140-3 snapshot (`GOFIPS140=certified`) unless overridden.
 - **Strict FIPS mode** — optional startup abort if the host is in FIPS mode but `GODEBUG=fips140` is disabled. See below.
 
+ML-DSA is unavailable when building with the v1.0 certified module, even with
+runtime FIPS mode off. Support in certified builds will wait for certification
+of the v1.26.0 module; this fork does not carry a separate ML-DSA implementation.
+
 ## Building the Toolchain
 
 ### Clone the repository
@@ -51,6 +55,47 @@ $ ./scripts/full-initialize-repo.sh && cd ./go/src && ./make.bash
 ```
 $ ./scripts/crypto-test.sh && cd ./go/src && ./all.bash
 ```
+
+`crypto-test.sh` defaults to all normal crypto and TLS tests on the current host.
+It runs every selected configuration and exits nonzero if any fails; a failure
+does not prevent later configurations from running. Use `-v` to see individual
+tests and skip reasons.
+
+| Mode | Coverage |
+| --- | --- |
+| `native-fips-auto` | Certified module: compiled auto default on the actual host and a simulated FIPS host, explicit `off`, explicit `on`, and `only` enforcement |
+| `native-fips-inprocess` | The same runtime matrix against the in-process snapshot |
+| `native-fips-latest` | The same runtime matrix against the in-tree module |
+| `non-fips` | All selected packages with `GOFIPS140=off` and runtime FIPS explicitly off |
+| `purego` | All selected packages with `GOFIPS140=off` and `-tags=purego`, plus rejection checks for all three FIPS module selections |
+| `native-fips-strict` | Startup acceptance/rejection checks for both the experiment and build tag, against all module selections, plus SHA-256 and import-hub dependency checks |
+| `cmd/go` | Toolchain metadata and the `fips`, `fipssnap`, and `fipssnap_modcache` script tests |
+
+Use `--mode` with comma-separated mode names to select a subset, or `all` for
+the full matrix. `--suites crypto`, `--suites tls`, or `--suites crypto,tls`
+selects which package suites to run. Startup, strict-FIPS, and toolchain checks
+are independent of the package-suite selection.
+
+Every ordinary module/runtime combination runs the complete selected package
+suites, without a test-name filter. FIPS-only mode instead runs startup checks
+and, with the crypto suite selected, `crypto/internal/fips140only`: general crypto
+tests intentionally exercise algorithms prohibited by `fips140=only`.
+The driver clears inherited `GOFLAGS`, `GOEXPERIMENT`, and FIPS-mode overrides so
+they cannot silently filter tests or change the intended configuration.
+
+Intentional limits:
+
+- Purego skips only `crypto/internal/fips140test.TestACVP`, which launches a
+  FIPS-enabled subprocess incompatible with purego. ACVP runs in the ordinary
+  matrix; the remaining FIPS tests are still included in purego runs.
+- TLS golden transcript tests require the deterministic randomness override
+  available in module v1.26 and later. They are skipped against v1.0, but run
+  against the in-process and in-tree modules with FIPS off.
+- Upstream skips for unsupported hardware, platforms, or module versions, and
+  tests requiring external setup (such as an installed test root), remain in
+  place. Architecture/OS coverage requires separate CI jobs.
+- The opt-in ML-DSA 60-million-iteration cases, continuous fuzzing, benchmarks,
+  and sanitizer builds require separate extended runs, not the normal matrix.
 
 ## Compiler Usage
 

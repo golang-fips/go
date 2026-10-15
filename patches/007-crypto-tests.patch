@@ -1,0 +1,64 @@
+diff --git a/src/crypto/tls/handshake_test.go b/src/crypto/tls/handshake_test.go
+--- a/src/crypto/tls/handshake_test.go
++++ b/src/crypto/tls/handshake_test.go
+@@ -9,6 +9,7 @@
+ 	"bytes"
+ 	"context"
+ 	"crypto/internal/boring"
++	icryptotest "crypto/internal/cryptotest"
+ 	"encoding/hex"
+ 	"errors"
+ 	"flag"
+@@ -56,6 +57,9 @@
+ func runTestAndUpdateIfNeeded(t *testing.T, name string, run func(t *testing.T, update bool)) {
+ 	skipFIPS(t) // FIPS 140-3 mode changes the advertised parameters.
+ 
++	// The v1.0 module cannot override its DRBG for transcript reproducibility.
++	icryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
++
+ 	// Go+BoringCrypto's boring.RandReader ignores the testing override set by
+ 	// cryptotest.SetGlobalRandom, so e.g. ECDH key generation would be
+ 	// non-deterministic. Setting cryptocustomrand=1 makes rand.CustomReader
+diff --git a/src/crypto/tls/tls_test.go b/src/crypto/tls/tls_test.go
+--- a/src/crypto/tls/tls_test.go
++++ b/src/crypto/tls/tls_test.go
+@@ -1443,6 +1443,13 @@
+ 
+ 	pkcs1Cert := testRSA2048Cert
+ 	pkcs1Cert.SupportedSignatureAlgorithms = []SignatureScheme{PKCS1WithSHA1, PKCS1WithSHA256}
++
++	mldsaErr, mldsaTLS12Err := "", "doesn't support ML-DSA"
++	if fips140.Version() == "v1.0.0" {
++		// TLS certificate fixtures have no usable ML-DSA private key under v1.0.
++		mldsaErr = "tls: certificate private key (<nil>) does not implement crypto.Signer"
++		mldsaTLS12Err = mldsaErr
++	}
+ 
+ 	tests := []struct {
+ 		c       Certificate
+@@ -1588,21 +1595,21 @@
+ 		{testMLDSA44Cert, &ClientHelloInfo{
+ 			SignatureSchemes:  []SignatureScheme{MLDSA44},
+ 			SupportedVersions: []uint16{VersionTLS13},
+-		}, ""},
++		}, mldsaErr},
+ 		{testMLDSA65Cert, &ClientHelloInfo{
+ 			SignatureSchemes:  []SignatureScheme{MLDSA65},
+ 			SupportedVersions: []uint16{VersionTLS13},
+-		}, ""},
++		}, mldsaErr},
+ 		{testMLDSA87Cert, &ClientHelloInfo{
+ 			SignatureSchemes:  []SignatureScheme{MLDSA87},
+ 			SupportedVersions: []uint16{VersionTLS13},
+-		}, ""},
++		}, mldsaErr},
+ 		{testMLDSA44Cert, &ClientHelloInfo{
+ 			CipherSuites:      []uint16{TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256},
+ 			SupportedCurves:   []CurveID{CurveP256},
+ 			SupportedPoints:   []uint8{pointFormatUncompressed},
+ 			SupportedVersions: []uint16{VersionTLS12},
+-		}, "doesn't support ML-DSA"},
++		}, mldsaTLS12Err},
+ 	}
+ 	for i, tt := range tests {
+ 		err := tt.chi.SupportsCertificate(&tt.c)
