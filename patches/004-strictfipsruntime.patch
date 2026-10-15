@@ -85,18 +85,6 @@ index 0000000000..ac8b3124b3
 +		os.Exit(1)
 +	}
 +}
-diff --git a/src/crypto/internal/nofips/mldsa/mldsa.go b/src/crypto/internal/nofips/mldsa/mldsa.go
-index c7e4710f77..09c291c3a5 100644
---- a/src/crypto/internal/nofips/mldsa/mldsa.go
-+++ b/src/crypto/internal/nofips/mldsa/mldsa.go
-@@ -11,6 +11,7 @@ import (
- 	"crypto/internal/fips140/sha3"
- 	"crypto/internal/fips140/subtle"
- 	"crypto/internal/fips140deps/byteorder"
-+	_ "crypto/internal/strictfips"
- 	"errors"
- )
- 
 diff --git a/src/crypto/internal/strictfips/strictfips.go b/src/crypto/internal/strictfips/strictfips.go
 new file mode 100644
 index 0000000000..dba4eea99b
@@ -190,7 +178,7 @@ index 14c911101b..9620fff469 100644
  
  // These functions are forwarded to crypto/internal/constanttime for intrinsified
 diff --git a/src/go/build/deps_test.go b/src/go/build/deps_test.go
-index 648290860a..eb6f69d3a2 100644
+index 5c909e914d..1ba825a283 100644
 --- a/src/go/build/deps_test.go
 +++ b/src/go/build/deps_test.go
 @@ -531,6 +531,7 @@ var depsRules = `
@@ -200,8 +188,8 @@ index 648290860a..eb6f69d3a2 100644
 +	< crypto/internal/strictfips
  	< crypto/fips140 < FIPS;
  
- 	# Non-module copy of ML-DSA for builds against FIPS snapshots that omit it.
-@@ -954,6 +955,69 @@ func TestDependencies(t *testing.T) {
+ 	crypto !< FIPS;
+@@ -951,6 +952,69 @@ func TestDependencies(t *testing.T) {
  	}
  }
  
