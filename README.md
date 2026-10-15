@@ -36,6 +36,19 @@ ML-DSA is unavailable when building with the v1.0 certified module, even with
 runtime FIPS mode off. Support in certified builds will wait for certification
 of the v1.26.0 module; this fork does not carry a separate ML-DSA implementation.
 
+If you do not need the certified module, you can use ML-DSA by explicitly
+compiling without embedding a FIPS module snapshot:
+
+```sh
+GOFIPS140=off go build -o app .
+# Or compile and run directly:
+GOFIPS140=off go run .
+```
+
+These builds use the in-tree cryptographic implementation, not the certified
+snapshot. Setting `GODEBUG=fips140=off` at runtime alone does not enable ML-DSA
+in a binary built with the v1.0 module; you must rebuild with `GOFIPS140=off`.
+
 ## Building the Toolchain
 
 ### Clone the repository
