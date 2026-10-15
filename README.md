@@ -32,6 +32,12 @@ This fork uses Go's certified native FIPS module and adds a few operator-facing 
 - **Certified module by default** — builds embed the certified FIPS 140-3 snapshot (`GOFIPS140=certified`) unless overridden.
 - **Strict FIPS mode** — optional startup abort if the host is in FIPS mode but `GODEBUG=fips140` is disabled. See below.
 
+When the v1.0 certified module is selected but runtime FIPS mode is off, ML-DSA
+uses the non-module copy, including through X.509 and TLS 1.3. ML-DSA remains
+unavailable when runtime FIPS mode is enabled with that snapshot. Module-version
+checks for actual backend limitations, such as deterministic test randomness,
+still apply even when runtime FIPS is off.
+
 ## Building the Toolchain
 
 ### Clone the repository

@@ -1,0 +1,372 @@
+diff --git a/src/crypto/tls/common.go b/src/crypto/tls/common.go
+--- a/src/crypto/tls/common.go
++++ b/src/crypto/tls/common.go
+@@ -1798,8 +1798,8 @@
+ 
+ 	switch s {
+ 	case MLDSA44, MLDSA65, MLDSA87:
+-		// ML-DSA is not available in FIPS 140-3 module v1.0.0.
+-		if fips140.Version() == "v1.0.0" {
++		// The v1.0 module does not provide ML-DSA in FIPS mode.
++		if fips140.Enabled() && fips140.Version() == "v1.0.0" {
+ 			return true
+ 		}
+ 		// ML-DSA codepoints are only defined for TLS 1.3.
+diff --git a/src/crypto/tls/auth_test.go b/src/crypto/tls/auth_test.go
+--- a/src/crypto/tls/auth_test.go
++++ b/src/crypto/tls/auth_test.go
+@@ -61,7 +61,9 @@
+ 			}
+ 			switch test.expectedSigAlg {
+ 			case MLDSA44, MLDSA65, MLDSA87:
+-				cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
++				if fips140.Enabled() {
++					cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
++				}
+ 			}
+ 			if test.godebug != "" {
+ 				testenv.SetGODEBUG(t, test.godebug)
+@@ -177,8 +179,8 @@
+ 	}
+ 
+ 	// ML-DSA is not supported by TLS 1.0 and 1.1. Skip under FIPS 140-3 module
+-	// v1.0.0 which doesn't support ML-DSA public keys.
+-	if fips140.Version() != "v1.0.0" {
++	// v1.0.0 when FIPS mode is enabled and ML-DSA keys are unavailable.
++	if !fips140.Enabled() || fips140.Version() != "v1.0.0" {
+ 		for _, key := range []*mldsa.PrivateKey{
+ 			testMLDSA44Key, testMLDSA65Key, testMLDSA87Key,
+ 		} {
+diff --git a/src/crypto/tls/certificates_generator_test.go b/src/crypto/tls/certificates_generator_test.go
+--- a/src/crypto/tls/certificates_generator_test.go
++++ b/src/crypto/tls/certificates_generator_test.go
+@@ -409,9 +409,9 @@
+ 		fmt.Fprintf(&buf, "\t// %s\n", p.comment)
+ 		fmt.Fprintf(&buf, "\t%sCert = parseTestCert(%sCertPEM, %sKeyPEM)\n",
+ 			p.name, p.name, p.name)
+-		// ML-DSA is unavailable in FIPS 140-3 module v1.0.0; the cert
+-		// loads with a nil PrivateKey under that module, so use a tolerant
+-		// type assertion. Tests using these vars must skip on v1.0.0.
++		// ML-DSA is unavailable when FIPS mode is enabled under module v1.0.0.
++		// Those certs load with a nil PrivateKey, so use a tolerant
++		// type assertion. Tests must check runtime availability before using the keys.
+ 		if p.keyType == "*mldsa.PrivateKey" {
+ 			fmt.Fprintf(&buf, "\t%sKey, _ = %sCert.PrivateKey.(%s)\n\n",
+ 				p.name, p.name, p.keyType)
+@@ -444,7 +444,7 @@
+ 	if cert.Leaf == nil {
+ 		panic("failed to parse certificate")
+ 	}
+-	// Don't parse the private key for ML-DSA certificates with FIPS 140-3 module v1.0.0.
++	// Don't parse an ML-DSA private key when the active FIPS module omits ML-DSA.
+ 	if cert.Leaf.PublicKeyAlgorithm != x509.UnknownPublicKeyAlgorithm {
+ 		block, _ = pem.Decode([]byte(keyPEM))
+ 		if block == nil {
+diff --git a/src/crypto/tls/certificates_test.go b/src/crypto/tls/certificates_test.go
+--- a/src/crypto/tls/certificates_test.go
++++ b/src/crypto/tls/certificates_test.go
+@@ -1031,7 +1031,7 @@
+ 	if cert.Leaf == nil {
+ 		panic("failed to parse certificate")
+ 	}
+-	// Don't parse the private key for ML-DSA certificates with FIPS 140-3 module v1.0.0.
++	// Don't parse an ML-DSA private key when the active FIPS module omits ML-DSA.
+ 	if cert.Leaf.PublicKeyAlgorithm != x509.UnknownPublicKeyAlgorithm {
+ 		block, _ = pem.Decode([]byte(keyPEM))
+ 		if block == nil {
+diff --git a/src/crypto/tls/fips140_test.go b/src/crypto/tls/fips140_test.go
+--- a/src/crypto/tls/fips140_test.go
++++ b/src/crypto/tls/fips140_test.go
+@@ -285,7 +285,7 @@
+ 	for _, sigHash := range defaultSupportedSignatureAlgorithms() {
+ 		t.Run(fmt.Sprintf("%v", sigHash), func(t *testing.T) {
+ 			isMLDSA := sigHash == MLDSA44 || sigHash == MLDSA65 || sigHash == MLDSA87
+-			if isMLDSA {
++			if isMLDSA && fips140.Enabled() {
+ 				cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
+ 			}
+ 			serverConfig := testConfigFIPS140.Clone()
+@@ -407,7 +407,7 @@
+ 	L1_I := fipsCert(t, "L1_I", fipsECDSAKey(t, elliptic.P384()), I_R1, fipsCertLeaf|fipsCertFIPSOK)
+ 	L2_I := fipsCert(t, "L2_I", fipsRSAKey(t, 1024), I_R1, fipsCertLeaf)
+ 	var L3_I *fipsCertificate
+-	if fips140.Version() != "v1.0.0" {
++	if !fips140.Enabled() || fips140.Version() != "v1.0.0" {
+ 		// ML-DSA is not implemented by the Go+BoringCrypto FIPS 140 module.
+ 		mldsaFlags := fipsCertLeaf | fipsCertFIPSOK
+ 		if boring.Enabled {
+diff --git a/src/crypto/tls/tls_test.go b/src/crypto/tls/tls_test.go
+--- a/src/crypto/tls/tls_test.go
++++ b/src/crypto/tls/tls_test.go
+@@ -133,7 +133,7 @@
+ 		{"RSA-untyped", rsaCertPEM, keyPEM}, // golang.org/issue/4477
+ 	}
+ 
+-	if fips140.Version() != "v1.0.0" {
++	if !fips140.Enabled() || fips140.Version() != "v1.0.0" {
+ 		keyPairTests = append(keyPairTests,
+ 			test{"ML-DSA-44", testMLDSA44CertPEM, testingKey(testMLDSA44KeyPEM)},
+ 			test{"ML-DSA-65", testMLDSA65CertPEM, testingKey(testMLDSA65KeyPEM)},
+@@ -1443,13 +1443,6 @@
+ 
+ 	pkcs1Cert := testRSA2048Cert
+ 	pkcs1Cert.SupportedSignatureAlgorithms = []SignatureScheme{PKCS1WithSHA1, PKCS1WithSHA256}
+-
+-	mldsaErr, mldsaTLS12Err := "", "doesn't support ML-DSA"
+-	if fips140.Version() == "v1.0.0" {
+-		// TLS certificate fixtures have no usable ML-DSA private key under v1.0.
+-		mldsaErr = "tls: certificate private key (<nil>) does not implement crypto.Signer"
+-		mldsaTLS12Err = mldsaErr
+-	}
+ 
+ 	tests := []struct {
+ 		c       Certificate
+@@ -1595,21 +1588,21 @@
+ 		{testMLDSA44Cert, &ClientHelloInfo{
+ 			SignatureSchemes:  []SignatureScheme{MLDSA44},
+ 			SupportedVersions: []uint16{VersionTLS13},
+-		}, mldsaErr},
++		}, ""},
+ 		{testMLDSA65Cert, &ClientHelloInfo{
+ 			SignatureSchemes:  []SignatureScheme{MLDSA65},
+ 			SupportedVersions: []uint16{VersionTLS13},
+-		}, mldsaErr},
++		}, ""},
+ 		{testMLDSA87Cert, &ClientHelloInfo{
+ 			SignatureSchemes:  []SignatureScheme{MLDSA87},
+ 			SupportedVersions: []uint16{VersionTLS13},
+-		}, mldsaErr},
++		}, ""},
+ 		{testMLDSA44Cert, &ClientHelloInfo{
+ 			CipherSuites:      []uint16{TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256},
+ 			SupportedCurves:   []CurveID{CurveP256},
+ 			SupportedPoints:   []uint8{pointFormatUncompressed},
+ 			SupportedVersions: []uint16{VersionTLS12},
+-		}, mldsaTLS12Err},
++		}, "doesn't support ML-DSA"},
+ 	}
+ 	for i, tt := range tests {
+ 		err := tt.chi.SupportsCertificate(&tt.c)
+@@ -2296,14 +2289,14 @@
+ }
+ 
+ // TestSupportedSignatureAlgorithmsMLDSAGating asserts the spec-mandated
+-// version-level gating of ML-DSA. Outside the FIPS 140-3 v1.0.0 module:
++// runtime availability of ML-DSA. When ML-DSA is available:
+ // ML-DSA MUST NOT appear in the TLS 1.2 advertised list, MUST appear in
+-// the TLS 1.3 advertised list. Under FIPS 140-3 v1.0.0 (which doesn't include
+-// ML-DSA), ML-DSA MUST NOT be advertised in either extension.
++// the TLS 1.3 advertised list. When FIPS mode is enabled under module v1.0.0,
++// ML-DSA MUST NOT be advertised in either extension.
+ func TestSupportedSignatureAlgorithmsMLDSAGating(t *testing.T) {
+ 	mldsaSchemes := []SignatureScheme{MLDSA44, MLDSA65, MLDSA87}
+ 
+-	if fips140.Version() == "v1.0.0" {
++	if fips140.Enabled() && fips140.Version() == "v1.0.0" {
+ 		fullRange := supportedSignatureAlgorithms(VersionTLS10, VersionTLS13)
+ 		certExt := supportedSignatureAlgorithmsCert(VersionTLS10, VersionTLS13)
+ 		for _, s := range mldsaSchemes {
+@@ -2355,9 +2348,9 @@
+ 			serverConfig.Certificates = []Certificate{tt.cert}
+ 			clientConfig := testConfigClient.Clone()
+ 			_, cs, err := testHandshake(t, clientConfig, serverConfig)
+-			if fips140.Version() == "v1.0.0" {
++			if fips140.Enabled() && fips140.Version() == "v1.0.0" {
+ 				if err == nil {
+-					t.Errorf("ML-DSA handshake unexpectedly succeeded with FIPS 140-3 module v1.0.0")
++					t.Errorf("ML-DSA handshake unexpectedly succeeded with FIPS mode enabled under module v1.0.0")
+ 				}
+ 				// Loaded certificate has cert bytes but no usable private key.
+ 				if len(tt.cert.Certificate) == 0 {
+@@ -2384,9 +2377,9 @@
+ 			clientConfig := testConfigClient.Clone()
+ 			clientConfig.Certificates = []Certificate{tt.client}
+ 			ss, _, err := testHandshake(t, clientConfig, serverConfig)
+-			if fips140.Version() == "v1.0.0" {
++			if fips140.Enabled() && fips140.Version() == "v1.0.0" {
+ 				if err == nil {
+-					t.Errorf("ML-DSA handshake unexpectedly succeeded with FIPS 140-3 module v1.0.0")
++					t.Errorf("ML-DSA handshake unexpectedly succeeded with FIPS mode enabled under module v1.0.0")
+ 				}
+ 				// Loaded certificate has cert bytes but no usable private key.
+ 				if len(tt.client.Certificate) == 0 {
+@@ -2413,9 +2406,9 @@
+ 			clientConfig := testConfigClient.Clone()
+ 			clientConfig.Certificates = []Certificate{tt.client}
+ 			ss, cs, err := testHandshake(t, clientConfig, serverConfig)
+-			if fips140.Version() == "v1.0.0" {
++			if fips140.Enabled() && fips140.Version() == "v1.0.0" {
+ 				if err == nil {
+-					t.Errorf("ML-DSA handshake unexpectedly succeeded with FIPS 140-3 module v1.0.0")
++					t.Errorf("ML-DSA handshake unexpectedly succeeded with FIPS mode enabled under module v1.0.0")
+ 				}
+ 				return
+ 			}
+@@ -2437,7 +2430,9 @@
+ 				if v == VersionTLS10 {
+ 					skipFIPS(t) // TLS 1.0 is not allowed in FIPS 140-3 mode.
+ 				}
+-				cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
++				if fips140.Enabled() {
++					cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
++				}
+ 				t.Parallel()
+ 				serverConfig := testConfigServer.Clone()
+ 				serverConfig.MinVersion = VersionTLS10
+@@ -2460,7 +2455,9 @@
+ 				}
+ 			})
+ 			t.Run(name+"/Client", func(t *testing.T) {
+-				cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
++				if fips140.Enabled() {
++					cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
++				}
+ 				t.Parallel()
+ 				serverConfig := testConfigServer.Clone()
+ 				serverConfig.MinVersion = VersionTLS10
+@@ -2485,7 +2482,9 @@
+ 			})
+ 		}
+ 		t.Run(tt.name+"/CorruptedSignature/Server", func(t *testing.T) {
+-			cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
++			if fips140.Enabled() {
++				cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
++			}
+ 			t.Parallel()
+ 			serverConfig := testConfigServer.Clone()
+ 			serverConfig.Certificates = []Certificate{{
+@@ -2505,7 +2504,9 @@
+ 			}
+ 		})
+ 		t.Run(tt.name+"/CorruptedSignature/Client", func(t *testing.T) {
+-			cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
++			if fips140.Enabled() {
++				cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
++			}
+ 			t.Parallel()
+ 			serverConfig := testConfigServer.Clone()
+ 			serverConfig.ClientAuth = RequireAndVerifyClientCert
+diff --git a/src/crypto/x509/x509.go b/src/crypto/x509/x509.go
+--- a/src/crypto/x509/x509.go
++++ b/src/crypto/x509/x509.go
+@@ -548,8 +548,8 @@
+ 	case oid.Equal(oidPublicKeyMLDSA44),
+ 		oid.Equal(oidPublicKeyMLDSA65),
+ 		oid.Equal(oidPublicKeyMLDSA87):
+-		// ML-DSA is not available in FIPS 140-3 module v1.0.0.
+-		if fips140.Version() == "v1.0.0" {
++		// The v1.0 module does not provide ML-DSA in FIPS mode.
++		if fips140.Enabled() && fips140.Version() == "v1.0.0" {
+ 			return UnknownPublicKeyAlgorithm
+ 		}
+ 		return MLDSA
+diff --git a/src/crypto/x509/parser_fips140v1.0_test.go b/src/crypto/x509/parser_fips140v1.0_test.go
+--- a/src/crypto/x509/parser_fips140v1.0_test.go
++++ b/src/crypto/x509/parser_fips140v1.0_test.go
+@@ -13,34 +13,38 @@
+ 	"testing"
+ )
+ 
+-// TestParseMLDSACertificateFIPS140v1_0 verifies that ML-DSA certificates can
+-// still be parsed under the FIPS 140-3 module v1.0.0, which doesn't support
+-// ML-DSA. The parsed certificate has PublicKeyAlgorithm set to
+-// UnknownPublicKeyAlgorithm and a nil PublicKey, so callers can inspect the
+-// rest of the certificate without erroring.
++// TestParseMLDSACertificateFIPS140v1_0 checks that ML-DSA public keys are
++// recognized when FIPS mode is disabled. With FIPS mode enabled, certificate
++// metadata remains parseable but the unavailable public key is left unset.
+ func TestParseMLDSACertificateFIPS140v1_0(t *testing.T) {
+ 	for _, tt := range []struct {
+-		name string
+-		pem  string
++		name   string
++		pem    string
++		params mldsa.Parameters
+ 	}{
+-		{"ML-DSA-44", rfc9881ExampleCertificateMLDSA44},
+-		{"ML-DSA-65", rfc9881ExampleCertificateMLDSA65},
+-		{"ML-DSA-87", rfc9881ExampleCertificateMLDSA87},
++		{"ML-DSA-44", rfc9881ExampleCertificateMLDSA44, mldsa.MLDSA44()},
++		{"ML-DSA-65", rfc9881ExampleCertificateMLDSA65, mldsa.MLDSA65()},
++		{"ML-DSA-87", rfc9881ExampleCertificateMLDSA87, mldsa.MLDSA87()},
+ 	} {
+ 		t.Run(tt.name, func(t *testing.T) {
+ 			cert, err := ParseCertificate(pemDecode(t, tt.pem))
+ 			if err != nil {
+-				t.Fatalf("ParseCertificate failed: %v", err)
++				t.Fatalf("ParseCertificate: %v", err)
+ 			}
+-			if cert.PublicKeyAlgorithm != UnknownPublicKeyAlgorithm {
+-				t.Errorf("PublicKeyAlgorithm = %v, want UnknownPublicKeyAlgorithm", cert.PublicKeyAlgorithm)
++			if fips140.Enabled() {
++				if cert.PublicKeyAlgorithm != UnknownPublicKeyAlgorithm || cert.PublicKey != nil {
++					t.Fatalf("unexpected ML-DSA public key with FIPS enabled: algorithm=%v key=%T", cert.PublicKeyAlgorithm, cert.PublicKey)
++				}
++			} else {
++				if cert.PublicKeyAlgorithm != MLDSA {
++					t.Fatalf("PublicKeyAlgorithm = %v, want MLDSA", cert.PublicKeyAlgorithm)
++				}
++				if pk, ok := cert.PublicKey.(*mldsa.PublicKey); !ok || pk.Parameters() != tt.params {
++					t.Fatalf("PublicKey = %T, want %s public key", cert.PublicKey, tt.params)
++				}
+ 			}
+-			if cert.PublicKey != nil {
+-				t.Errorf("PublicKey = %v, want nil", cert.PublicKey)
+-			}
+-			// The rest of the certificate should still be inspectable.
+ 			if cert.Subject.CommonName == "" {
+-				t.Error("Subject.CommonName is empty; expected the certificate to be parsed")
++				t.Error("Subject.CommonName is empty")
+ 			}
+ 		})
+ 	}
+diff --git a/src/crypto/x509/x509_test.go b/src/crypto/x509/x509_test.go
+--- a/src/crypto/x509/x509_test.go
++++ b/src/crypto/x509/x509_test.go
+@@ -712,7 +712,7 @@
+ 		{"Ed25519", ed25519Pub, ed25519Priv, true, PureEd25519},
+ 	}
+ 
+-	if fips140.Version() != "v1.0.0" {
++	if !fips140.Enabled() || fips140.Version() != "v1.0.0" {
+ 		mldsaPriv, err := mldsa.GenerateKey(mldsa.MLDSA44())
+ 		if err != nil {
+ 			t.Fatalf("Failed to generate ML-DSA-44 key: %s", err)
+@@ -1518,7 +1518,7 @@
+ 		{"Ed25519", ed25519Priv, PureEd25519},
+ 	}
+ 
+-	if fips140.Version() != "v1.0.0" {
++	if !fips140.Enabled() || fips140.Version() != "v1.0.0" {
+ 		mldsaPriv, err := mldsa.GenerateKey(mldsa.MLDSA44())
+ 		if err != nil {
+ 			t.Fatalf("Failed to generate ML-DSA-44 key: %s", err)
+@@ -2942,7 +2942,7 @@
+ 		},
+ 	}
+ 
+-	if fips140.Version() != "v1.0.0" {
++	if !fips140.Enabled() || fips140.Version() != "v1.0.0" {
+ 		mldsaPriv, err := mldsa.GenerateKey(mldsa.MLDSA44())
+ 		if err != nil {
+ 			t.Fatalf("Failed to generate ML-DSA-44 key: %s", err)
+@@ -3347,7 +3347,7 @@
+ 	}
+ 
+ 	var mldsa44Priv, mldsa87Priv crypto.Signer
+-	if fips140.Version() != "v1.0.0" {
++	if !fips140.Enabled() || fips140.Version() != "v1.0.0" {
+ 		k, err := mldsa.GenerateKey(mldsa.MLDSA44())
+ 		if err != nil {
+ 			t.Fatalf("Failed to generate ML-DSA-44 key: %s", err)
+@@ -4579,7 +4579,9 @@
+ }
+ 
+ func TestMLDSA(t *testing.T) {
+-	cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
++	if fips140.Enabled() {
++		cryptotest.MustMinimumFIPS140ModuleVersion(t, "v1.26.0")
++	}
+ 
+ 	t.Run("ML-DSA-44", func(t *testing.T) {
+ 		testMLDSA(t, rfc9881ExamplePrivateKeyMLDSA44,
