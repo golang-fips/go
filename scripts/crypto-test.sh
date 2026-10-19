@@ -228,6 +228,26 @@ run_strict() {
   record strict-import-coverage "$GO" test -count=1 $VERBOSE go/build -run '^(TestDependencies|TestStrictFIPSHubCoverage)$'
 }
 
+run_build_defaults() (
+  # Exercise the toolchain's defaults, not the matrix's explicit selection
+  # or a GOFIPS140 override saved with go env -w.
+  unset GOFIPS140
+  export GOENV=off
+  local info snapshot
+  snapshot=$(cat "$GOROOT/lib/fips140/certified.txt") || return 1
+  "$GO" test -c -o "$WORK/sha256.test" crypto/sha256 || return 1
+  info=$("$GO" version -m "$WORK/sha256.test") || return 1
+  printf '%s\n' "$info"
+  if ! printf '%s\n' "$info" | grep -Eq '^[[:space:]]*build[[:space:]]+DefaultGODEBUG=([^,[:space:]]+,)*fips140=auto(,|$)'; then
+    echo "FAIL: default build must embed DefaultGODEBUG with fips140=auto" >&2
+    return 1
+  fi
+  if ! printf '%s\n' "$info" | grep -Eq "^[[:space:]]*build[[:space:]]+GOFIPS140=${snapshot//./\\.}$"; then
+    echo "FAIL: default build must embed GOFIPS140=$snapshot" >&2
+    return 1
+  fi
+)
+
 run_cmd_go() {
   local info snapshot
   info=$("$GO" version -m "$GO") || return 1
@@ -260,7 +280,10 @@ for mode in ${MODES//,/ }; do
       record purego run_configuration off fips140=off 0 0 -tags=purego '-skip=^TestACVP$'
       ;;
     native-fips-strict) run_strict ;;
-    cmd/go) record cmd/go run_cmd_go ;;
+    cmd/go)
+      record cmd/go-defaults run_build_defaults
+      record cmd/go run_cmd_go
+      ;;
   esac
 done
 

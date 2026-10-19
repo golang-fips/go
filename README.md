@@ -82,7 +82,7 @@ tests and skip reasons.
 | `non-fips` | All selected packages with `GOFIPS140=off` and runtime FIPS explicitly off |
 | `purego` | All selected packages with `GOFIPS140=off` and `-tags=purego`, plus rejection checks for all three FIPS module selections |
 | `native-fips-strict` | Startup acceptance/rejection checks for both the experiment and build tag, against all module selections, plus SHA-256 and import-hub dependency checks |
-| `cmd/go` | Toolchain metadata and the `fips`, `fipssnap`, and `fipssnap_modcache` script tests |
+| `cmd/go` | Toolchain metadata, an independent SHA-256 test-binary build checking the default certified snapshot and `fips140=auto`, and the `fips`, `fipssnap`, and `fipssnap_modcache` script tests |
 
 Use `--mode` with comma-separated mode names to select a subset, or `all` for
 the full matrix. `--suites crypto`, `--suites tls`, or `--suites crypto,tls`
