@@ -129,21 +129,29 @@ run_configuration() (
   fi
   for suite in ${SUITES//,/ }; do
     echo "Running $suite: GOFIPS140=$GOFIPS140 GODEBUG=${GODEBUG:-<compiled default>} host-override=$GOLANG_NATIVE_HOSTFIPS_OVERRIDE $build_flags"
-    if [[ "$suite" == crypto ]]; then
-      # Relative wildcards conflict with frozen-module overlays.
-      if ! packages=$("$GO" list $build_flags crypto/... | grep -v '^crypto/tls$'); then
-        echo "FAIL: crypto package discovery failed" >&2
+    case "$suite" in
+      crypto)
+        # Relative wildcards conflict with frozen-module overlays.
+        if ! packages=$("$GO" list $build_flags crypto/... | grep -v '^crypto/tls$'); then
+          echo "FAIL: crypto package discovery failed" >&2
+          failed=1
+          continue
+        fi
+        if [[ -z "$packages" ]]; then
+          echo "FAIL: no crypto packages found" >&2
+          failed=1
+          continue
+        fi
+        ;;
+      tls)
+        packages=crypto/tls
+        ;;
+      *)
+        echo "FAIL: unsupported suite: $suite" >&2
         failed=1
         continue
-      fi
-      if [[ -z "$packages" ]]; then
-        echo "FAIL: no crypto packages found" >&2
-        failed=1
-        continue
-      fi
-    else
-      packages=crypto/tls
-    fi
+        ;;
+    esac
     if ! "$GO" test -count=1 $VERBOSE $build_flags $skip_flags $packages; then
       failed=1
     fi
