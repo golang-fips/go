@@ -1,0 +1,32 @@
+diff --git a/src/cmd/go/testdata/script/fipssnap_modcache.txt b/src/cmd/go/testdata/script/fipssnap_modcache.txt
+index ca43ec9a7d..83207e224a 100644
+--- a/src/cmd/go/testdata/script/fipssnap_modcache.txt
++++ b/src/cmd/go/testdata/script/fipssnap_modcache.txt
+@@ -21,7 +21,7 @@ env srcfile=$GOMODCACHE/golang.org/fips140@$snap/fips140/$snap/sha256/sha256.go
+ 
+ # unpacking the snapshot records its module zip hash in the module cache
+ go list -f '{{.DefaultGODEBUG}}'
+-stdout fips140=on
++! stdout fips140
+ exists $ziphash
+ exists $srcfile
+ grep '^h1:dtoPX1ALGGp4rMLzyh6oqIkYRXnXxRkpPWu56l5DFpM=$' $ziphash
+@@ -33,7 +33,7 @@ cp bad.ziphash $ziphash
+ rm $srcfile
+ cp stale/sha256.go $srcfile
+ go list -f '{{.DefaultGODEBUG}}'
+-stdout fips140=on
++! stdout fips140
+ exists $srcfile
+ ! grep stale $srcfile
+ cmp $ziphash good.ziphash
+@@ -43,7 +43,7 @@ rm $ziphash
+ rm $srcfile
+ cp stale/sha256.go $srcfile
+ go list -f '{{.DefaultGODEBUG}}'
+-stdout fips140=on
++! stdout fips140
+ exists $srcfile
+ ! grep stale $srcfile
+ cmp $ziphash good.ziphash
+
