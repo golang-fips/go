@@ -1,0 +1,43 @@
+FROM <distro-specific-base-image>
+
+ARG GOLANG_VER=1.21.9
+# turn on FIPS and CGO_ENABLED by default
+ARG FIPS=1
+ARG GODEBUG=0
+ARG CGO_ENABLED=1
+
+# certain env need proxy to download from github
+ENV http_proxy=""
+ENV https_proxy=""
+ENV no_proxy=""
+
+ENV GOLANG_FIPS=$FIPS
+ENV GODEBUG=$GODEBUG
+ENV CGO_ENABLED=1
+
+# distro specific package manager
+# need bootstrap golang to build go, will be removed later
+RUN dnf/apt install -y git wget golang && \
+    dnf/apt groupinstall -y "Development Tools"
+
+RUN go version
+RUN echo "GOROOT_BOOTSTRAP = / by default so will use installed go as compiler"
+RUN git config --global user.email "<add email here>"
+RUN git config --global user.name  "<add name here>"
+
+RUN git clone https://github.com/golang-fips/go.git golang-fips && cd golang-fips && \
+    GOLANG_VER_SHORT=${GOLANG_VER%.*} && \
+    git fetch origin go${GOLANG_VER_SHORT}-fips-release && git checkout go${GOLANG_VER_SHORT}-fips-release &&  \
+    ./scripts/full-initialize-repo.sh go$GOLANG_VER
+
+RUN cd golang-fips/go && \
+    cd src && ./make.bash --no-clean
+
+# rm bootstrap golang
+RUN dnf -y erase golang
+
+ENV PATH=/golang-fips/go/bin:$PATH:/usr/local/go/bin
+ENV GOPATH=$HOME/go
+ENV PATH=$PATH:$GOPATH/bin
+
+RUN go version
