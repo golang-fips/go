@@ -16,6 +16,9 @@ https://csrc.nist.gov/pubs/fips/140-3/final
 
 Earlier releases of this fork routed cryptography through OpenSSL for FIPS compliance. That approach is **deprecated and removed**. Historical OpenSSL-based sources live on the corresponding `go1.*-fips-release` branches.
 
+For migration instructions from the Go 1.25 OpenSSL backend, see
+[Transitioning from OpenSSL to native Go FIPS](docs/native-fips-transition.md).
+
 The upstream Go toolchain has achieved [CMVP certificate #5247](https://csrc.nist.gov/projects/cryptographic-module-validation-program/certificate/5247). The `main` branch no longer carries the OpenSSL backend; it applies a small set of patches on top of the certified native `crypto/fips140` module (host-auto FIPS detection, strict runtime checks, and related parity).
 
 A notable user-facing difference from the old OpenSSL backend is how non-approved cryptography is handled. With the native module, operations that cannot be rejected gracefully are recorded via the FIPS service indicator rather than producing runtime errors or panics. Upstream guidance is to **test** with `GODEBUG=fips140=only` to surface non-approved use, and **run** in production with `on` (or `auto`, which resolves to `on` on a FIPS host) so critical applications do not crash unexpectedly.
