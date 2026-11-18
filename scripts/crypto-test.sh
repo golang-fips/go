@@ -48,7 +48,6 @@ GOROOT=$(cd -- "$SCRIPT_DIR/.." && pwd)
 if [[ ! -d "$GOROOT/src" ]]; then GOROOT=$GOROOT/go; fi
 export GOROOT
 GO=$GOROOT/bin/go
-export GOCACHE=/tmp/go-cache
 
 # The matrix owns these settings. In particular, inherited -run, -skip, -short,
 # or build tags in GOFLAGS must not silently remove tests from an "all" run.
