@@ -3795,7 +3795,7 @@ index 2b6cf4b75f..b0feebea75 100644
  		return
  	}
 diff --git a/src/crypto/internal/fips140test/fips_test.go b/src/crypto/internal/fips140test/fips_test.go
-index 52fc9d3488..2f5811fedb 100644
+index 297a42b4dc..5839ab26dc 100644
 --- a/src/crypto/internal/fips140test/fips_test.go
 +++ b/src/crypto/internal/fips140test/fips_test.go
 @@ -15,7 +15,7 @@ package fipstest
@@ -3804,9 +3804,9 @@ index 52fc9d3488..2f5811fedb 100644
  	"bytes"
 -	"crypto/internal/boring"
 +	boring "crypto/internal/backend"
+ 	"crypto/internal/cryptotest"
  	"crypto/internal/fips140"
  	"crypto/internal/fips140/aes"
- 	"crypto/internal/fips140/aes/gcm"
 @@ -90,7 +90,7 @@ func TestVersion(t *testing.T) {
  
  func TestFIPS140(t *testing.T) {
